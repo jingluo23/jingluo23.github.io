@@ -1,0 +1,452 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Redis八股文面试题（八）：Redis题 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="Redis 题假如 Redis 里面有 1 亿个 key，其中有 10w 个 key 是以某个固定的已知的前缀开头的，如何将它们全部找出来？我会使用 SCAN 命令配合 MATCH 参数来解决。 比如要找以 user: 开头的 key，可以执行 SCAN 0 MATCH user:* COUNT 1000。 SCAN 的优势在于它是基于游标的增量迭代，每次只返回一小批结果，不会阻塞服务器。可以从游">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis八股文面试题（八）：Redis题">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/19d3/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="Redis 题假如 Redis 里面有 1 亿个 key，其中有 10w 个 key 是以某个固定的已知的前缀开头的，如何将它们全部找出来？我会使用 SCAN 命令配合 MATCH 参数来解决。 比如要找以 user: 开头的 key，可以执行 SCAN 0 MATCH user:* COUNT 1000。 SCAN 的优势在于它是基于游标的增量迭代，每次只返回一小批结果，不会阻塞服务器。可以从游">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png">
+<meta property="article:published_time" content="2026-08-15T08:17:34.000Z">
+<meta property="article:modified_time" content="2026-08-19T13:46:54.186Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Redis八股文面试题（八）：Redis题",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/19d3/",
+  "image": "https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png",
+  "datePublished": "2026-08-15T08:17:34.000Z",
+  "dateModified": "2026-08-19T13:46:54.186Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/01.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/19d3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Redis八股文面试题（八）：Redis题',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/02.jpg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">27</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/01.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">Redis八股文面试题（八）：Redis题</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Redis八股文面试题（八）：Redis题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-15T08:17:34.000Z" title="发表于 2026-08-15 16:17:34">2026-08-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-19T13:46:54.186Z" title="更新于 2026-08-19 21:46:54">2026-08-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>11分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-08-19 21:46:54&quot;}" hidden></div><h1 id="Redis-题"><a href="#Redis-题" class="headerlink" title="Redis 题"></a>Redis 题</h1><h2 id="假如-Redis-里面有-1-亿个-key，其中有-10w-个-key-是以某个固定的已知的前缀开头的，如何将它们全部找出来？"><a href="#假如-Redis-里面有-1-亿个-key，其中有-10w-个-key-是以某个固定的已知的前缀开头的，如何将它们全部找出来？" class="headerlink" title="假如 Redis 里面有 1 亿个 key，其中有 10w 个 key 是以某个固定的已知的前缀开头的，如何将它们全部找出来？"></a>假如 Redis 里面有 1 亿个 key，其中有 10w 个 key 是以某个固定的已知的前缀开头的，如何将它们全部找出来？</h2><p>我会使用 SCAN 命令配合 MATCH 参数来解决。</p>
+<p>比如要找以 <code>user:</code> 开头的 key，可以执行 <code>SCAN 0 MATCH user:* COUNT 1000</code>。</p>
+<p>SCAN 的优势在于它是基于游标的增量迭代，每次只返回一小批结果，不会阻塞服务器。可以从游标 0 开始，每次处理返回的 key 列表，然后用返回的下一个游标继续扫描，直到游标回到 0 表示扫描完成。</p>
+<p>使用 Spring Data Redis 的代码示例：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">RedisKeyService</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> RedisTemplate&lt;String, Object&gt; redisTemplate;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="type">List</span>&lt;String&gt; <span class="title function_">scanKeysByPrefix</span><span class="params">(String prefix, <span class="type">int</span> batchSize)</span> &#123;</span><br><span class="line">        <span class="type">List</span>&lt;String&gt; <span class="variable">keys</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">        </span><br><span class="line">        <span class="type">ScanOptions</span> <span class="variable">options</span> <span class="operator">=</span> ScanOptions.scanOptions()</span><br><span class="line">                .match(prefix + <span class="string">&quot;*&quot;</span>)</span><br><span class="line">                .count(batchSize)</span><br><span class="line">                .build();</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">try</span> (<span class="type">Cursor</span>&lt;String&gt; <span class="variable">cursor</span> <span class="operator">=</span> redisTemplate.scan(options)) &#123;</span><br><span class="line">            <span class="keyword">while</span> (cursor.hasNext()) &#123;</span><br><span class="line">                keys.add(cursor.next());</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> keys;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>千万不要用 KEYS 命令，因为 KEYS 会阻塞 Redis 服务器直到遍历完所有 key，在生产环境中对 1 亿个 key 执行 KEYS 是非常危险的。</p>
+<h2 id="Redis在秒杀场景下可以扮演什么角色？"><a href="#Redis在秒杀场景下可以扮演什么角色？" class="headerlink" title="Redis在秒杀场景下可以扮演什么角色？"></a>Redis在秒杀场景下可以扮演什么角色？</h2><p>秒杀是一种非常特殊的业务场景，它的特点是在极短时间内会有大量用户涌入系统，对系统的并发处理能力、响应速度和数据一致性都提出了极高的要求。在这种场景下，Redis 作为一种高性能的内存数据库，能够发挥多方面的关键作用。</p>
+<p>比如说在秒杀开始前，我们可以将商品信息、库存数据等预先加载到 Redis 中，这样大量的用户读请求就可以直接从 Redis 中获取响应，而不必每次都去访问数据库，这样就能大大减轻数据库的访问压力。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014101316-3493851a-5b07-4fc5-8fbc-8a7aac2c97f3.png" width="1346" title crop="0,0,1,1" id="Bl1ZY" class="ne-image">
+
+<p>其次，Redis 在库存控制方面具有得天独厚的优势。秒杀最核心的问题之一就是容易发生超卖。Redis 提供的原子操作如 DECR、DECRBY 等命令，可以确保在高并发环境下库存计数的准确性。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014101317-65355a2b-4c7b-4461-b235-1d05a5a74e4a.png" width="640" title crop="0,0,1,1" id="XVHiz" class="ne-image">
+
+<p>更复杂的逻辑，可以通过 Lua 脚本来实现，因为 Lua 脚本在 Redis 中是原子执行的，所以可以包含复杂的判断和操作逻辑，比如先检查库存是否充足，再进行扣减，这整个过程是不会被其他操作打断的。</p>
+<p>第三点，Redis 的分布式锁可以确保多个用户同时抢购同一件商品时的操作是互斥的，保证数据一致性的同时，还可以用来防止用户重复下单。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014101292-a1fc4ff4-37af-442d-a0bf-4d9bac28ef48.png" width="1217" title crop="0,0,1,1" id="coAnp" class="ne-image">
+
+<p>第四点，限流削峰。秒杀开始的瞬间，可能会有成千上万的请求同时到达，如果不加控制，很容易导致系统崩溃。Redis 可以实现多种限流算法，比如简单的计数器限流、令牌桶或漏桶算法等。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014101584-19697d55-be89-41b8-9de5-3e5185f15365.png" width="659" title crop="0,0,1,1" id="rgQqX" class="ne-image">
+
+<p>通过限流算法我们可以控制单位时间内系统能够处理的请求数量，超出部分可以排队或者直接拒绝，从而保护系统的稳定运行。</p>
+<h3 id="Redis具体如何实现削峰呢？"><a href="#Redis具体如何实现削峰呢？" class="headerlink" title="Redis具体如何实现削峰呢？"></a>Redis具体如何实现削峰呢？</h3><p>削峰的本质是将瞬时的高流量请求缓冲起来，通过排队、限流等机制，使系统以一个可承受的速度来处理请求。</p>
+<p>那第一步就是缓存预热。在秒杀活动开始前，先把商品信息这些热点数据提前加载到 Redis 中。这样用户访问商品页面时，可以直接从 Redis 读取，数据库基本上不会有压力。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014102242-5871b5ee-ce0b-4f3e-98f9-bf7424294b0e.png" width="1126" title crop="0,0,1,1" id="yJPFj" class="ne-image">
+
+<p>第二步是引入消息队列，特别是下单这种写操作，不能让用户等太久，但后端处理订单、扣库存这些操作又比较重。所以可以用 Redis 的 List 做了个队列，或者直接用 RocketMQ 这种标准的消息中间件，用户下单后立即返回”订单提交成功”，然后把订单数据丢到队列里，后台服务慢慢消费。这样既保证了用户体验，又避免了系统被瞬时写请求压垮。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014102201-97af8291-a968-400c-9195-8a90ed241e92.png" width="1134" title crop="0,0,1,1" id="NQRHz" class="ne-image">
+
+<p>第三步，可以在秒杀活动中加入答题环节，只有答对题目的用户才能参与秒杀活动，这样可以最大程度减少无效请求。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014102139-70eb3c2e-b747-4707-8d43-98a362e64b2a.png" width="1208" title crop="0,0,1,1" id="faXXF" class="ne-image">
+
+<p>一个比较完整的秒杀削峰处理方案：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SeckillServiceImpl</span> <span class="keyword">implements</span> <span class="title class_">SeckillService</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> RedisTemplate&lt;String, String&gt; redisTemplate;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> OrderService orderService;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> CommodityService commodityService;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 秒杀请求入口</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">Result</span> <span class="title function_">seckill</span><span class="params">(Long userId, Long commodityId)</span> &#123;</span><br><span class="line">        <span class="comment">// 1. 用户请求频率限制</span></span><br><span class="line">        <span class="keyword">if</span> (!countRateLimit(<span class="string">&quot;user:&quot;</span> + userId, <span class="number">5</span>, <span class="number">60</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> Result.error(<span class="string">&quot;请求过于频繁&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 2. 商品是否在秒杀时间内</span></span><br><span class="line">        <span class="keyword">if</span> (!isInSeckillTime(commodityId)) &#123;</span><br><span class="line">            <span class="keyword">return</span> Result.error(<span class="string">&quot;秒杀未开始或已结束&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 3. 是否还有库存(快速失败)</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">stockKey</span> <span class="operator">=</span> <span class="string">&quot;seckill:stock:&quot;</span> + commodityId;</span><br><span class="line">        <span class="type">Integer</span> <span class="variable">stock</span> <span class="operator">=</span> Integer.valueOf(redisTemplate.opsForValue().get(stockKey));</span><br><span class="line">        <span class="keyword">if</span> (stock != <span class="literal">null</span> &amp;&amp; stock &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">return</span> Result.error(<span class="string">&quot;商品已售罄&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 4. 全局限流</span></span><br><span class="line">        <span class="keyword">if</span> (!acquireToken(<span class="string">&quot;global&quot;</span>, <span class="number">1000</span>, <span class="number">100</span>)) &#123;</span><br><span class="line">            <span class="comment">// 系统负载过高，将请求放入队列延迟处理</span></span><br><span class="line">            enqueueDelayedRequest(userId, commodityId);</span><br><span class="line">            <span class="keyword">return</span> Result.success(<span class="string">&quot;秒杀请求已受理，排队处理中&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 5. 检查用户是否已购买</span></span><br><span class="line">        <span class="keyword">if</span> (hasUserBought(userId, commodityId)) &#123;</span><br><span class="line">            <span class="keyword">return</span> Result.error(<span class="string">&quot;您已经购买过该商品&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 6. 将请求放入队列，返回排队状态</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">requestId</span> <span class="operator">=</span> generateRequestId(userId, commodityId);</span><br><span class="line">        enqueueRequest(userId, commodityId, requestId);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> Result.success(<span class="string">&quot;秒杀请求已提交，请等待结果&quot;</span>, requestId);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 异步处理秒杀请求</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="meta">@Scheduled(fixedRate = 50)</span> <span class="comment">// 每50ms处理一批</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">processSeckillQueue</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">queueKey</span> <span class="operator">=</span> <span class="string">&quot;seckill:queue&quot;</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 批量处理，控制处理速度</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; <span class="number">10</span>; i++) &#123;</span><br><span class="line">            <span class="type">String</span> <span class="variable">requestJson</span> <span class="operator">=</span> redisTemplate.opsForList().leftPop(queueKey);</span><br><span class="line">            <span class="keyword">if</span> (requestJson == <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            </span><br><span class="line">            <span class="type">SeckillRequest</span> <span class="variable">request</span> <span class="operator">=</span> JSON.parseObject(requestJson, SeckillRequest.class);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="comment">// 执行秒杀核心逻辑</span></span><br><span class="line">                <span class="type">boolean</span> <span class="variable">success</span> <span class="operator">=</span> doSeckill(request.getUserId(), request.getCommodityId());</span><br><span class="line">                </span><br><span class="line">                <span class="comment">// 更新请求状态，便于用户查询</span></span><br><span class="line">                <span class="type">String</span> <span class="variable">statusKey</span> <span class="operator">=</span> <span class="string">&quot;seckill:status:&quot;</span> + request.getRequestId();</span><br><span class="line">                redisTemplate.opsForValue().set(statusKey, success ? <span class="string">&quot;SUCCESS&quot;</span> : <span class="string">&quot;FAILED&quot;</span>, <span class="number">1</span>, TimeUnit.HOURS);</span><br><span class="line">                </span><br><span class="line">            &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">                log.error(<span class="string">&quot;处理秒杀请求失败&quot;</span>, e);</span><br><span class="line">                <span class="comment">// 记录失败状态</span></span><br><span class="line">                <span class="type">String</span> <span class="variable">statusKey</span> <span class="operator">=</span> <span class="string">&quot;seckill:status:&quot;</span> + request.getRequestId();</span><br><span class="line">                redisTemplate.opsForValue().set(statusKey, <span class="string">&quot;ERROR&quot;</span>, <span class="number">1</span>, TimeUnit.HOURS);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 秒杀核心逻辑</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">private</span> <span class="type">boolean</span> <span class="title function_">doSeckill</span><span class="params">(Long userId, Long commodityId)</span> &#123;</span><br><span class="line">        <span class="comment">// 使用Lua脚本保证原子性操作</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">script</span> <span class="operator">=</span> </span><br><span class="line">            <span class="string">&quot;-- 检查库存\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;local stockKey = KEYS[1]\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;local stock = tonumber(redis.call(&#x27;get&#x27;, stockKey))\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;if stock == nil or stock &lt;= 0 then\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;    return 0\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;end\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;-- 检查是否重复购买\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;local boughtKey = KEYS[2]\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;local hasBought = redis.call(&#x27;sismember&#x27;, boughtKey, ARGV[1])\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;if hasBought == 1 then\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;    return -1\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;end\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;-- 扣减库存并记录购买\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;redis.call(&#x27;decr&#x27;, stockKey)\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;redis.call(&#x27;sadd&#x27;, boughtKey, ARGV[1])\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;-- 返回成功\n&quot;</span> +</span><br><span class="line">            <span class="string">&quot;return 1&quot;</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="type">String</span> <span class="variable">stockKey</span> <span class="operator">=</span> <span class="string">&quot;seckill:stock:&quot;</span> + commodityId;</span><br><span class="line">        <span class="type">String</span> <span class="variable">boughtKey</span> <span class="operator">=</span> <span class="string">&quot;seckill:bought:&quot;</span> + commodityId;</span><br><span class="line">        </span><br><span class="line">        <span class="type">Long</span> <span class="variable">result</span> <span class="operator">=</span> (Long) redisTemplate.execute(</span><br><span class="line">            <span class="keyword">new</span> <span class="title class_">DefaultRedisScript</span>&lt;&gt;(script, Long.class),</span><br><span class="line">            Arrays.asList(stockKey, boughtKey),</span><br><span class="line">            userId.toString()</span><br><span class="line">        );</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">if</span> (result == <span class="number">1</span>) &#123;</span><br><span class="line">            <span class="comment">// 创建订单(可以进一步异步化)</span></span><br><span class="line">            createOrder(userId, commodityId);</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 其他辅助方法...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="Redis如何做限流呢？"><a href="#Redis如何做限流呢？" class="headerlink" title="Redis如何做限流呢？"></a>Redis如何做限流呢？</h3><p>限流是为了控制系统的请求速率，防止系统被过多的请求压垮。</p>
+<p>Redis 实现限流最简单的方法是基于计数器的固定窗口限流。比如限制用户每分钟最多访问 100 次，我们就用 INCR 命令给每个用户设个计数器，key 是 <code>rate_limit:用户ID:分钟时间戳</code>，每次请求就加 1，同时设置 60 秒过期。如果计数超过 100 就拒绝请求。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 伪代码</span></span><br><span class="line"><span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;rate_limit:&quot;</span> + userId;</span><br><span class="line"><span class="comment">// 尝试获取当前计数</span></span><br><span class="line"><span class="type">Long</span> <span class="variable">count</span> <span class="operator">=</span> redis.get(key);</span><br><span class="line"><span class="comment">// 如果key不存在，设置为1并设置过期时间</span></span><br><span class="line"><span class="keyword">if</span> (count == <span class="literal">null</span>) &#123;</span><br><span class="line">    redis.setex(key, <span class="number">60</span>, <span class="string">&quot;1&quot;</span>); <span class="comment">// 60秒窗口期</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>; <span class="comment">// 允许访问</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 如果计数未超过限制</span></span><br><span class="line"><span class="keyword">if</span> (count &lt; maxRequests) &#123;</span><br><span class="line">    redis.incr(key);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>; <span class="comment">// 允许访问</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">return</span> <span class="literal">false</span>; <span class="comment">// 拒绝访问</span></span><br></pre></td></tr></table></figure>
+
+<p>这种方法简单粗暴，但有个问题就是临界时间会有突刺，比如用户在第 59 秒访问了 100 次，第 61 秒又访问 100 次，相当于 2 秒内访问了 200 次。</p>
+<p>第二种就是滑动窗口限流，通过 Redis 的 ZSET 来实现，把每次请求的时间戳作为 score 存进去，然后用 ZREMRANGEBYSCORE 删除窗口外的旧数据，再用 ZCARD 统计当前窗口内的请求数。这样限流就比较均匀了。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 伪代码</span></span><br><span class="line"><span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;sliding_window:&quot;</span> + userId;</span><br><span class="line"><span class="type">long</span> <span class="variable">now</span> <span class="operator">=</span> System.currentTimeMillis();</span><br><span class="line"><span class="comment">// 添加当前请求到有序集合，score为当前时间戳</span></span><br><span class="line">redis.zadd(key, now, String.valueOf(now));</span><br><span class="line"><span class="comment">// 移除时间窗口之前的请求数据</span></span><br><span class="line">redis.zremrangeByScore(key, <span class="number">0</span>, now - windowSize);</span><br><span class="line"><span class="comment">// 设置key过期时间，避免冷用户持续占用内存</span></span><br><span class="line">redis.expire(key, windowSize / <span class="number">1000</span> + <span class="number">1</span>);</span><br><span class="line"><span class="comment">// 获取当前窗口的请求数</span></span><br><span class="line"><span class="type">Long</span> <span class="variable">count</span> <span class="operator">=</span> redis.zcard(key);</span><br><span class="line"><span class="keyword">return</span> count &lt;= maxRequests;</span><br></pre></td></tr></table></figure>
+
+<p>在实际开发中，通常会采用令牌桶算法，它就像在帝都&#x2F;魔都买车，摇到号才有资格，没摇到就只能等下一次（😁）。</p>
+<p>可以在 Redis 里存两个值，一个是令牌数量，一个是上次更新时间。每次请求时用 Lua 脚本计算应该补充多少令牌，然后判断是否有足够的令牌。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014103465-0456cf99-4860-477a-8243-4fe84ffe9e8c.png" width="1990" title crop="0,0,1,1" id="abBoJ" class="ne-image">
+
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- Redis Lua脚本实现令牌桶算法</span></span><br><span class="line"><span class="keyword">local</span> key = KEYS[<span class="number">1</span>]  <span class="comment">-- 限流的key</span></span><br><span class="line"><span class="keyword">local</span> max_permits = <span class="built_in">tonumber</span>(ARGV[<span class="number">1</span>])  <span class="comment">-- 最大令牌数</span></span><br><span class="line"><span class="keyword">local</span> permits_per_second = <span class="built_in">tonumber</span>(ARGV[<span class="number">2</span>])  <span class="comment">-- 每秒产生的令牌数</span></span><br><span class="line"><span class="keyword">local</span> required_permits = <span class="built_in">tonumber</span>(ARGV[<span class="number">3</span>])  <span class="comment">-- 请求的令牌数</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 获取当前时间</span></span><br><span class="line"><span class="keyword">local</span> <span class="built_in">time</span> = redis.call(<span class="string">&#x27;time&#x27;</span>)</span><br><span class="line"><span class="keyword">local</span> now_micros = <span class="built_in">tonumber</span>(<span class="built_in">time</span>[<span class="number">1</span>]) * <span class="number">1000000</span> + <span class="built_in">tonumber</span>(<span class="built_in">time</span>[<span class="number">2</span>])</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 获取上次更新的时间和当前存储的令牌数</span></span><br><span class="line"><span class="keyword">local</span> last_micros = <span class="built_in">tonumber</span>(redis.call(<span class="string">&#x27;hget&#x27;</span>, key, <span class="string">&#x27;last_micros&#x27;</span>) <span class="keyword">or</span> <span class="number">0</span>)</span><br><span class="line"><span class="keyword">local</span> stored_permits = <span class="built_in">tonumber</span>(redis.call(<span class="string">&#x27;hget&#x27;</span>, key, <span class="string">&#x27;stored_permits&#x27;</span>) <span class="keyword">or</span> <span class="number">0</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 计算时间间隔内新产生的令牌数</span></span><br><span class="line"><span class="keyword">local</span> interval_micros = now_micros - last_micros</span><br><span class="line"><span class="keyword">local</span> new_permits = interval_micros * permits_per_second / <span class="number">1000000</span></span><br><span class="line">stored_permits = <span class="built_in">math</span>.<span class="built_in">min</span>(max_permits, stored_permits + new_permits)</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 判断令牌是否足够</span></span><br><span class="line"><span class="keyword">local</span> result = <span class="number">0</span></span><br><span class="line"><span class="keyword">if</span> stored_permits &gt;= required_permits <span class="keyword">then</span></span><br><span class="line">    <span class="comment">-- 令牌足够，更新令牌数和时间</span></span><br><span class="line">    stored_permits = stored_permits - required_permits</span><br><span class="line">    result = <span class="number">1</span></span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 更新Redis中的数据</span></span><br><span class="line">redis.call(<span class="string">&#x27;hset&#x27;</span>, key, <span class="string">&#x27;last_micros&#x27;</span>, now_micros)</span><br><span class="line">redis.call(<span class="string">&#x27;hset&#x27;</span>, key, <span class="string">&#x27;stored_permits&#x27;</span>, stored_permits)</span><br><span class="line">redis.call(<span class="string">&#x27;expire&#x27;</span>, key, <span class="number">10</span>)  <span class="comment">-- 设置过期时间，避免长期占用内存</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+
+<h2 id="客户端宕机后-Redis-服务端如何感知到？"><a href="#客户端宕机后-Redis-服务端如何感知到？" class="headerlink" title="客户端宕机后 Redis 服务端如何感知到？"></a>客户端宕机后 Redis 服务端如何感知到？</h2><p>TCP 的 keepalive 是 Redis 用来检测客户端连接状态的主要机制，默认值为 300 秒。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 针对低延迟场景，设置为60秒，表示每60秒发送一次keepalive探测</span><br><span class="line">config set tcp-keepalive 60</span><br></pre></td></tr></table></figure>
+
+<p>当客户端与服务器在指定时间内没有任何数据交互时，Redis 服务器会发送 TCP ACK 探测包，如果连续多次没有收到响应，TCP 协议栈会通知 Redis 服务端连接已断开，之后，Redis 服务端会清理相关的连接资源，释放连接。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014103221-21875bf9-74dc-45dd-a577-881ff78a659c.png" width="1640" title crop="0,0,1,1" id="E2GBp" class="ne-image">
+
+<p>另外还有一个 timeout 参数，用来控制客户端连接的空闲超时时间。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 表示600秒内没有任何命令则断开连接</span><br><span class="line">config set timeout 600</span><br></pre></td></tr></table></figure>
+
+<p>默认值为 0，表示永不断开连接；当设置为非零值时，如果客户端在指定时间内没有发送任何命令，服务端会主动断开连接。</p>
+<p>Redis 服务器会定期检查空闲连接是否超时，检查频率由 hz 参数控制；这将有助于释放那些客户端异常退出但 TCP 连接未正常关闭的资源。</p>
+<p>不同的连接池也会有自己的连接检测机制，比如 Jedis 连接池可以通过设置 <code>testOnBorrow</code> 和 <code>testWhileIdle</code> 来启用连接检测。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 是否启用连接池</span></span><br><span class="line"><span class="string">spring.redis.jedis.pool.enabled=true</span></span><br><span class="line"><span class="comment"># 连接池最大连接数（使用负值表示没有限制）</span></span><br><span class="line"><span class="string">spring.redis.jedis.pool.max-active=200</span></span><br><span class="line"><span class="comment"># 连接池最大空闲连接数</span></span><br><span class="line"><span class="string">spring.redis.jedis.pool.max-idle=200</span></span><br><span class="line"><span class="comment"># 连接池最小空闲连接数</span></span><br><span class="line"><span class="string">spring.redis.jedis.pool.min-idle=50</span></span><br><span class="line"><span class="comment"># 连接池最大阻塞等待时间（使用负值表示没有限制）</span></span><br><span class="line"><span class="string">spring.redis.jedis.pool.max-wait=3000</span></span><br><span class="line"><span class="comment"># 空闲连接检查间隔（毫秒）</span></span><br><span class="line"><span class="string">spring.redis.jedis.pool.time-between-eviction-runs=60000</span></span><br></pre></td></tr></table></figure>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/19d3/">https://jingluo23.github.io/blog.github.io/posts/19d3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/Redis/">Redis</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/938f/" title="Redis八股文面试题（七）：底层结构"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Redis八股文面试题（七）：底层结构</div></div></div></a><a class="pagination-related" href="/blog.github.io/posts/c509/" title="Spring八股文面试题（一）：基础"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring八股文面试题（一）：基础</div></div><div class="info-2"><div class="info-item-1">介绍 Spring 框架的基础知识，包括 Spring 是什么、核心特性 IoC 与 AOP、源码阅读心得、模块组成以及常用注解，适合 Java 后端面试复习</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/37e6/" title="Redis八股文面试题（六）：Redis应用"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（六）：Redis应用</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/938f/" title="Redis八股文面试题（七）：底层结构"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（七）：底层结构</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/72fa/" title="Redis八股文面试题（一）：基础"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（一）：基础</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/7aaa/" title="Redis八股文面试题（二）：持久化"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（二）：持久化</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/3477/" title="Redis八股文面试题（四）：缓存设计"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（四）：缓存设计</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/b2ce/" title="Redis八股文面试题（五）：Redis运维"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（五）：Redis运维</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/02.jpg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">27</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Redis-%E9%A2%98"><span class="toc-number">1.</span> <span class="toc-text">Redis 题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%81%87%E5%A6%82-Redis-%E9%87%8C%E9%9D%A2%E6%9C%89-1-%E4%BA%BF%E4%B8%AA-key%EF%BC%8C%E5%85%B6%E4%B8%AD%E6%9C%89-10w-%E4%B8%AA-key-%E6%98%AF%E4%BB%A5%E6%9F%90%E4%B8%AA%E5%9B%BA%E5%AE%9A%E7%9A%84%E5%B7%B2%E7%9F%A5%E7%9A%84%E5%89%8D%E7%BC%80%E5%BC%80%E5%A4%B4%E7%9A%84%EF%BC%8C%E5%A6%82%E4%BD%95%E5%B0%86%E5%AE%83%E4%BB%AC%E5%85%A8%E9%83%A8%E6%89%BE%E5%87%BA%E6%9D%A5%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">假如 Redis 里面有 1 亿个 key，其中有 10w 个 key 是以某个固定的已知的前缀开头的，如何将它们全部找出来？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis%E5%9C%A8%E7%A7%92%E6%9D%80%E5%9C%BA%E6%99%AF%E4%B8%8B%E5%8F%AF%E4%BB%A5%E6%89%AE%E6%BC%94%E4%BB%80%E4%B9%88%E8%A7%92%E8%89%B2%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">Redis在秒杀场景下可以扮演什么角色？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Redis%E5%85%B7%E4%BD%93%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E5%89%8A%E5%B3%B0%E5%91%A2%EF%BC%9F"><span class="toc-number">1.2.1.</span> <span class="toc-text">Redis具体如何实现削峰呢？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Redis%E5%A6%82%E4%BD%95%E5%81%9A%E9%99%90%E6%B5%81%E5%91%A2%EF%BC%9F"><span class="toc-number">1.2.2.</span> <span class="toc-text">Redis如何做限流呢？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%AE%95%E6%9C%BA%E5%90%8E-Redis-%E6%9C%8D%E5%8A%A1%E7%AB%AF%E5%A6%82%E4%BD%95%E6%84%9F%E7%9F%A5%E5%88%B0%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">客户端宕机后 Redis 服务端如何感知到？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/ac0/" title="Spring八股文面试题（八）：Spring题"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Spring八股文面试题（八）：Spring题"></a><div class="content"><a class="title" href="/blog.github.io/posts/ac0/" title="Spring八股文面试题（八）：Spring题">Spring八股文面试题（八）：Spring题</a><time datetime="2026-08-17T01:35:50.000Z" title="发表于 2026-08-17 09:35:50">2026-08-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/da9f/" title="Spring八股文面试题（七）：Spring Cloud"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Spring八股文面试题（七）：Spring Cloud"></a><div class="content"><a class="title" href="/blog.github.io/posts/da9f/" title="Spring八股文面试题（七）：Spring Cloud">Spring八股文面试题（七）：Spring Cloud</a><time datetime="2026-08-17T01:35:12.000Z" title="发表于 2026-08-17 09:35:12">2026-08-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7b47/" title="Spring八股文面试题（六）：Spring Boot"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Spring八股文面试题（六）：Spring Boot"></a><div class="content"><a class="title" href="/blog.github.io/posts/7b47/" title="Spring八股文面试题（六）：Spring Boot">Spring八股文面试题（六）：Spring Boot</a><time datetime="2026-08-17T01:34:33.000Z" title="发表于 2026-08-17 09:34:33">2026-08-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">27</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

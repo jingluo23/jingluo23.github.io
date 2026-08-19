@@ -1,0 +1,478 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Spring八股文面试题（四）：事务 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="全面解析 Spring 事务管理，包括编程式与声明式事务的对比、基于 AOP 代理的声明式事务实现原理以及 @Transactional 失效的常见场景与解决方案">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spring八股文面试题（四）：事务">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/fff3/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="全面解析 Spring 事务管理，包括编程式与声明式事务的对比、基于 AOP 代理的声明式事务实现原理以及 @Transactional 失效的常见场景与解决方案">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png">
+<meta property="article:published_time" content="2026-08-17T01:33:33.000Z">
+<meta property="article:modified_time" content="2026-08-19T13:46:54.188Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Spring">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Spring八股文面试题（四）：事务",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/fff3/",
+  "image": "https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png",
+  "datePublished": "2026-08-17T01:33:33.000Z",
+  "dateModified": "2026-08-19T13:46:54.188Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/01.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/fff3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Spring八股文面试题（四）：事务',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/02.jpg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">27</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/01.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">Spring八股文面试题（四）：事务</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Spring八股文面试题（四）：事务</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-17T01:33:33.000Z" title="发表于 2026-08-17 09:33:33">2026-08-17</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-19T13:46:54.188Z" title="更新于 2026-08-19 21:46:54">2026-08-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>11分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-08-19 21:46:54&quot;}" hidden></div><h1 id="事务"><a href="#事务" class="headerlink" title="事务"></a>事务</h1><h2 id="说说你对Spring事务的理解？"><a href="#说说你对Spring事务的理解？" class="headerlink" title="说说你对Spring事务的理解？"></a>说说你对Spring事务的理解？</h2><p>Spring 提供了两种事务管理方式，编程式事务和声明式事务。编程式事务就是我们要手动调用事务的开始、提交、回滚这些操作，虽然灵活但是代码比较繁琐。声明式事务只需要在需要事务的方法上加上 <code>@Transactional</code> 注解就好了，Spring 会帮我们自动处理事务的整个生命周期。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045435554-03f6adb6-fc89-422b-a71b-81a40a2f9ac6.png" width="3674" title crop="0,0,1,1" id="EHt3n" class="ne-image">
+
+<p>编程式事务可以使用 TransactionTemplate 和 PlatformTransactionManager 来实现，允许我们在代码中直接控制事务的边界。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AccountService</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> TransactionTemplate transactionTemplate;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">setTransactionTemplate</span><span class="params">(TransactionTemplate transactionTemplate)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.transactionTemplate = transactionTemplate;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">transfer</span><span class="params">(<span class="keyword">final</span> String out, <span class="keyword">final</span> String in, <span class="keyword">final</span> Double money)</span> &#123;</span><br><span class="line">        transactionTemplate.execute(<span class="keyword">new</span> <span class="title class_">TransactionCallbackWithoutResult</span>() &#123;</span><br><span class="line">            <span class="meta">@Override</span></span><br><span class="line">            <span class="keyword">protected</span> <span class="type">void</span> <span class="title function_">doInTransactionWithoutResult</span><span class="params">(TransactionStatus status)</span> &#123;</span><br><span class="line">                <span class="comment">// 转出</span></span><br><span class="line">                accountDao.outMoney(out, money);</span><br><span class="line">                <span class="comment">// 转入</span></span><br><span class="line">                accountDao.inMoney(in, money);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Spring 事务的底层实现是通过 AOP 来完成的。当我们在方法上加 <code>@Transactional</code> 注解后，Spring 会为这个 Bean 创建代理对象，在方法执行前开启事务，方法正常返回时提交事务，如果方法抛出异常就回滚事务。</p>
+<p>声明式事务的优点是不需要在业务逻辑代码中掺杂事务管理的代码，缺点是，最细粒度只能到方法级别，无法到代码块级别。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AccountService</span> &#123;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> AccountDao accountDao;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">transfer</span><span class="params">(String out, String in, Double money)</span> &#123;</span><br><span class="line">        <span class="comment">// 转出</span></span><br><span class="line">        accountDao.outMoney(out, money);</span><br><span class="line">        <span class="comment">// 转入</span></span><br><span class="line">        accountDao.inMoney(in, money);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="声明式事务的实现原理了解吗？"><a href="#声明式事务的实现原理了解吗？" class="headerlink" title="声明式事务的实现原理了解吗？"></a>声明式事务的实现原理了解吗？</h2><p>Spring 的声明式事务管理是通过 AOP 和代理机制实现的，大致可以分为两个阶段。</p>
+<p>第一个阶段发生在 Spring 容器启动时，它会扫描所有的 Bean。如果发现某个 Bean 的方法上标注了 <code>@Transactional</code> 注解，Spring 不会直接返回这个原始的 Bean 实例。而是为这个 Bean 创建一个代理对象。这个代理对象拥有和原始对象完全相同的方法，但在内部悄悄地包裹了事务处理的逻辑。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045435578-d0be4a68-5591-401f-a3a3-ca14d8413122.png" width="1238" title crop="0,0,1,1" id="utAfb" class="ne-image">
+
+<p>第二个阶段发生在方法调用的运行阶段，当我们的代码调用那个被 <code>@Transactional</code> 注解修饰的方法时，实际上调用的是 Spring 创建的那个代理对象的方法。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045435487-3a2359c3-0c97-4170-9197-d5b477531890.png" width="720" title crop="0,0,1,1" id="FVBGw" class="ne-image">
+
+<p>事务拦截器会在代理对象执行真正的业务逻辑之前，根据 <code>@Transactional</code> 注解的配置获取事务属性，比如传播行为、隔离级别等，然后通过事务管理器来开启一个新的事务。并从数据库连接池获取一个连接，关闭其自动提交。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">TransactionInterceptor</span> <span class="keyword">implements</span> <span class="title class_">MethodInterceptor</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">Object</span> <span class="title function_">invoke</span><span class="params">(MethodInvocation invocation)</span> <span class="keyword">throws</span> Throwable &#123;</span><br><span class="line">        <span class="comment">// 获取事务属性</span></span><br><span class="line">        <span class="type">TransactionAttribute</span> <span class="variable">txAttr</span> <span class="operator">=</span> getTransactionAttribute(invocation.getMethod(), invocation.getThis().getClass());</span><br><span class="line">        <span class="comment">// 开始事务</span></span><br><span class="line">        <span class="type">TransactionStatus</span> <span class="variable">status</span> <span class="operator">=</span> transactionManager.getTransaction(txAttr);</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 执行目标方法</span></span><br><span class="line">            <span class="type">Object</span> <span class="variable">retVal</span> <span class="operator">=</span> invocation.proceed();</span><br><span class="line">            <span class="comment">// 提交事务</span></span><br><span class="line">            transactionManager.commit(status);</span><br><span class="line">            <span class="keyword">return</span> retVal;</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Throwable ex) &#123;</span><br><span class="line">            <span class="comment">// 回滚事务</span></span><br><span class="line">            transactionManager.rollback(status);</span><br><span class="line">            <span class="keyword">throw</span> ex;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接着，代理对象会调用原始 Bean 实例中真正的业务方法，如果业务方法顺利执行完毕，没有抛出任何异常，那么拦截器就会通过事务管理器提交事务，将之前的所有数据库操作永久保存。</p>
+<p>如果业务方法抛出了异常，拦截器会捕获到这个异常，并通过事务管理器回滚事务，将之前的所有数据库操作撤销。</p>
+<p>最后，无论事务是提交还是回滚，拦截器都会释放数据库连接。</p>
+<h2 id="Transactional在哪些情况下会失效？"><a href="#Transactional在哪些情况下会失效？" class="headerlink" title="@Transactional在哪些情况下会失效？"></a>@Transactional在哪些情况下会失效？</h2><p><code>@Transactional</code> 虽然用起来很方便，但确实有一些“坑”，如果使用不当是会导致事务失效的。根据我的理解和实践，主要有以下几种常见情况：</p>
+<p>第一种，<code>@Transactional</code> 注解用在非 public 修饰的方法上。</p>
+<p>Spring 的 AOP 代理机制决定了它无法代理 private 方法。因为 private 方法在子类中是不可见的，代理类无法覆盖它。因此，在 private 方法上加 <code>@Transactional</code> 注解是完全无效的。同理，protected 和 default 权限的方法也应避免使用。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">protected</span> <span class="type">TransactionAttribute</span> <span class="title function_">computeTransactionAttribute</span><span class="params">(Method method,</span></span><br><span class="line"><span class="params">    Class&lt;?&gt; targetClass)</span> &#123;</span><br><span class="line">        <span class="comment">// Don&#x27;t allow no-public methods as required.</span></span><br><span class="line">        <span class="keyword">if</span> (allowPublicMethodsOnly() &amp;&amp; !Modifier.isPublic(method.getModifiers())) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第二种，方法内部调用，这也是最容易被忽略的一种失效场景。如果在一个类的方法 A 中，直接调用本类的另外一个加了 <code>@Transactional</code> 的方法 B，那么方法 B 的事务是不会生效的。</p>
+<p>这是因为方法 A 调用方法 B 时，使用的是 this 引用，直接访问原始对象的方法，绕过了 Spring 的代理对象，也就导致代理对象中的事务逻辑没有机会执行。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserService</span> &#123;</span><br><span class="line">    <span class="meta">@Transactional</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">createUser</span><span class="params">(User user)</span> &#123;</span><br><span class="line">        <span class="comment">// 直接调用本类的另一个方法，事务不会生效</span></span><br><span class="line">        saveUser(user);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="type">void</span> <span class="title function_">saveUser</span><span class="params">(User user)</span> &#123;</span><br><span class="line">        <span class="comment">// 保存用户逻辑</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>解决方法是把当前类作为一个 Bean 注入到自己中，然后通过这个注入的 Bean 来调用方法 B。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045437047-1baffe1c-44bf-4ec2-9a58-c93849b3b58c.png" width="1992" title crop="0,0,1,1" id="xoCxW" class="ne-image">
+
+<p>第三种，如果在事务方法内部用 try-catch 捕获了异常，但没有在 catch 块中将异常重新抛出，或者抛出一个新的能触发回滚的异常，那么 Spring 的事务拦截器就无法感知到异常的发生，也就没办法回滚。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">process</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="comment">// 业务逻辑</span></span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        <span class="comment">// 捕获异常但没有重新抛出</span></span><br><span class="line">        <span class="comment">// 事务不会回滚</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第四种，Spring 事务默认只对 RuntimeException 和 Error 类型的异常进行回滚。如果在代码中抛出的是一个Checked Exception，是 Exception 的子类但不是 RuntimeException 的子类，又没有通过 <code>@Transactional(rollbackFor = Exception.class)</code> 指定事务回归的异常类型，那么事务同样不会回滚。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">process</span><span class="params">()</span> <span class="keyword">throws</span> Exception &#123;</span><br><span class="line">    <span class="comment">// 抛出一个 Checked Exception       </span></span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">SQLException</span>(<span class="string">&quot;This is a checked exception&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045655787-2ddf11d4-437a-4a47-9bc1-bdff53d1c827.png" width="1251" title crop="0,0,1,1" id="u429ae7fd" class="ne-image">
+
+<h2 id="说说Spring事务的隔离级别？"><a href="#说说Spring事务的隔离级别？" class="headerlink" title="说说Spring事务的隔离级别？"></a>说说Spring事务的隔离级别？</h2><p>事务的隔离级别定义了一个事务可以受其他并发事务影响的程度。SQL 标准定义的四个隔离级别，Spring 都支持，定义在 TransactionDefinition 接口中。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045437297-43214faf-1904-47ce-a491-70f41f416e17.png" width="2238" title crop="0,0,1,1" id="qhxss" class="ne-image">
+
+<p>Spring 在标准的隔离级别上定义了五个隔离级别：</p>
+<p>其中 DEFAULT 表示使用底层数据库的默认隔离级别。比如说对于 MySQL 来说，默认的隔离级别是可重复读，那就用可重复读；对于 Oracle 来说，默认是读已提交，那就用读已提交。在实际项目中，我们也通常都用 DEFAULT，让数据库自己决定合适的隔离级别。</p>
+<p>读未提交是最低的隔离级别，允许读取未提交的数据。这种级别会出现脏读问题，也就是一个事务可能会读到另一个事务还没提交的数据。比如 A 事务修改了一条数据但还没提交，B 事务就能读到这个修改后的值，如果 A 事务后来回滚了，B 事务读到的就是脏数据。这个级别在实际项目中基本不会使用，因为数据一致性无法保证。</p>
+<p>读已提交解决了脏读问题，但会出现不可重复读问题，也就是在同一个事务中多次读取同一条数据，可能得到不同的结果。比如 A 事务先读了一条数据，然后 B 事务修改并提交了这条数据，A 事务再次读取时就会发现数据变了。</p>
+<p>可重复读保证在同一个事务中多次读取同一条数据的结果是一致的，解决了不可重复读问题。但是会出现幻读问题，也就是在同一个事务中多次执行同一个查询，可能会看到不同数量的记录。比如 A 事务查询某个条件的记录数是 10 条，然后 B 事务插入了一条符合条件的记录并提交，A 事务再次查询时可能会看到 11 条记录。MySQL 的 InnoDB 存储引擎通过临键锁在很大程度上解决了幻读问题。</p>
+<p>串行化是最高的隔离级别，完全串行化执行事务，可以解决所有并发问题，包括脏读、不可重复读和幻读。但是性能是最差的，因为事务基本上是排队执行的。在实际项目中很少使用，除非对数据一致性有极高的要求。</p>
+<p>在 Spring 中设置隔离级别也很简单，可以在 <code>@Transactional</code> 注解中通过 isolation 属性来指定。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(isolation = Isolation.READ_UNCOMMITTED)</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">someMethod</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 业务逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>不过在实际项目中，我们很少手动设置隔离级别，通常都是使用数据库的默认级别，只有在遇到特定的并发问题时才会考虑调整。</p>
+<h2 id="说说Spring的事务传播机制？"><a href="#说说Spring的事务传播机制？" class="headerlink" title="说说Spring的事务传播机制？"></a>说说Spring的事务传播机制？</h2><p>简单来说，当一个事务方法 A 调用另一个事务方法 B 时，方法 B 的事务应该如何运行？是加入方法 A 的现有事务，还是开启一个新事务，或者以非事务方式运行？这就是事务传播机制要解决的问题。</p>
+<p>Spring 定义了七种事务传播行为，其中 REQUIRED 是默认的传播行为，表示如果当前存在事务，则加入该事务；如果当前没有事务，则创建一个新的事务。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787062232153-bf62348d-b883-4cd6-ad7a-0a88ebcfa022.png" width="1568" title crop="0,0,1,1" id="u5f0e69a5" class="ne-image">
+
+<p>比如说在实战项目中，一个用户解锁付费文章的操作，会涉及到创建支付订单、更新订单状态等好几个数据库操作。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045438623-444e84d1-a37e-4706-b1f9-958429cca568.png" width="1634" title crop="0,0,1,1" id="ywAKP" class="ne-image">
+
+<p>这些不同操作的方法就可以放在一个 <code>@Transactional</code> 注解的方法里，它们就自动在同一个事务里了，要么一起成功，要么一起失败。</p>
+<p>当然，还有一些特殊情况。比如，我们希望记录一些操作日志，但不想因为主业务失败导致日志回滚。这时候 REQUIRES_NEW 就派上用场了。它不管当前有没有事务，都重新开启一个全新的、独立的事务来执行。这样，日志保存的事务和主业务的事务就互不干扰，即使主业务失败回滚，日志也能妥妥地保存下来。</p>
+<p>另外，还有像 SUPPORTS、 NOT_SUPPORTED 这些。SUPPORTS 比较佛系，有事务就用，没事务就不用，适合一些不重要的更新操作。而 NOT_SUPPORTED 则更干脆，它会把当前的事务挂起，以非事务的方式去执行。比如说我们的事务里需要调用一个第三方的、响应很慢的接口，如果这个调用也包含在事务里，就会长时间占用数据库连接。把它用 NOT_SUPPORTED 包起来，就可以避免这个问题。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional(propagation = Propagation.NOT_SUPPORTED)</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">callExternalApi</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 调用第三方接口</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后还有一个比较特殊的 NESTED，嵌套事务。它有点像 REQUIRES_NEW，但又不完全一样。NESTED 是父事务的一个子事务，父事务回滚，它肯定也得回滚。但它自己回滚，却不会影响到父事务。这个特性在处理一些批量操作，希望能部分回滚的场景下特别有用。不过它需要数据库支持 Savepoint 功能，MySQL 就支持。</p>
+<h3 id="事务能在新线程中传播吗？"><a href="#事务能在新线程中传播吗？" class="headerlink" title="事务能在新线程中传播吗？"></a>事务能在新线程中传播吗？</h3><p>事务传播机制是通过 ThreadLocal 实现的，所以，如果调用的方法是在新线程中，事务传播就会失效。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">parentMethod</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="keyword">new</span> <span class="title class_">Thread</span>(() -&gt; childMethod()).start();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">childMethod</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="comment">// 这里的操作将不会在 parentMethod 的事务范围内执行</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="protected-和-private-方法加事务会生效吗？"><a href="#protected-和-private-方法加事务会生效吗？" class="headerlink" title="protected 和 private 方法加事务会生效吗？"></a>protected 和 private 方法加事务会生效吗？</h3><p>我的理解是：在 private 方法上加事务是肯定不会生效的，而 protected 方法在特定的代理模式下是可能生效的，但这两种用法都应该避免，不是推荐的使用方式。</p>
+<p>这背后涉及到 Spring AOP 的代理机制。</p>
+<p>我先说一下 JDK 动态代理，它要求目标类必须实现一个或者多个接口。也就意味着代理只能拦截接口中声明的方法，而 protected 和 private 方法并不能在接口中声明，因此在 JDK 动态代理下，这些方法的事务注解是会被直接忽略的。</p>
+<p>那 Spring Boot 2.0 之后，Spring AOP 默认使用的是 CGLIB 代理。CGLIB 代理是通过继承目标类来创建代理对象的。</p>
+<p>那对于 private 方法来说，由于无法被子类重写，所以 CGLIB 代理也无法拦截，事务也就无法生效。对于 protected 方法来说，因为它可以被子类重写，所以理论上事务是生效的。</p>
+<p>我们创建一个 protected 方法，名为 <code>protectedTransactionalMethod</code> ，它被 <code>@Transactional</code> 注解标记。这个方法会先向数据库中插入一条记录（一个 TestEntity 实例）。紧接着，它会立即抛出一个 RuntimeException 。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045438043-c7b35034-80fe-49ea-93af-35d1ec5c3821.png" width="1472" title crop="0,0,1,1" id="sArAV" class="ne-image">
+
+<pre><code>- 如果事务生效：当 RuntimeException 抛出时，Spring 的事务管理器会捕获它，并触发事务回滚。这意味着，之前插入数据库的那条记录会被撤销。最终，数据库里不会留下这条记录。
+- 如果事务失效：即使 RuntimeException 被抛出，由于没有事务管理，已经执行的数据库插入操作不会被撤销。最终，数据库里会留下这条记录。
+</code></pre>
+<p>我们创建了一个 public 方法 <code>testProtectedTransaction</code> ，它通过 <code>this.protectedTransactionalMethod()</code> 的方式直接调用了那个 protected 方法。接着我们访问 <code>/api/v1/test/transaction/protected</code> 来触发这个调用。</p>
+<p>结果：数据库中会留下一条名为 ‘test-protected’ 的记录。这证明了由于是内部调用，绕过了 Spring AOP 代理，<code>@Transactional</code> 注解没有生效。</p>
+<p>我们创建了另一个 public 方法 <code>testProtectedTransactionWithSelfProxy</code>。在这个方法里，我们通过一个“自注入”的代理对象 self 来调用 <code>self.protectedTransactionalMethod()</code>。接着我们通过访问 <code>/api/v1/test/transaction/protected/proxy</code> 来触发这个调用。</p>
+<p>结果：数据库中不会留下名为 ‘test-protected-proxy’ 的记录。这证明通过代理对象的调用，Spring AOP 成功拦截并开启了事务，最终在异常发生时正确地回滚了事务。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780045438092-4ca8553f-0ca8-474b-ba0a-bf312e2dae63.png" width="1594" title crop="0,0,1,1" id="L2cpy" class="ne-image">
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/fff3/">https://jingluo23.github.io/blog.github.io/posts/fff3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/Spring/">Spring</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/3cba/" title="Spring八股文面试题（三）：AOP"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Spring八股文面试题（三）：AOP</div></div></div></a><a class="pagination-related  no-desc" href="/blog.github.io/posts/b5ab/" title="Spring八股文面试题（五）：MVC"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring八股文面试题（五）：MVC</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/b5ab/" title="Spring八股文面试题（五）：MVC"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Spring八股文面试题（五）：MVC</div></div></div></a><a class="pagination-related" href="/blog.github.io/posts/c509/" title="Spring八股文面试题（一）：基础"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Spring八股文面试题（一）：基础</div></div><div class="info-2"><div class="info-item-1">介绍 Spring 框架的基础知识，包括 Spring 是什么、核心特性 IoC 与 AOP、源码阅读心得、模块组成以及常用注解，适合 Java 后端面试复习</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/3cba/" title="Spring八股文面试题（三）：AOP"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Spring八股文面试题（三）：AOP</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/7b47/" title="Spring八股文面试题（六）：Spring Boot"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Spring八股文面试题（六）：Spring Boot</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/da9f/" title="Spring八股文面试题（七）：Spring Cloud"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Spring八股文面试题（七）：Spring Cloud</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/ac0/" title="Spring八股文面试题（八）：Spring题"><img class="cover" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Spring八股文面试题（八）：Spring题</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/02.jpg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">27</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">4</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8B%E5%8A%A1"><span class="toc-number">1.</span> <span class="toc-text">事务</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E4%BD%A0%E5%AF%B9Spring%E4%BA%8B%E5%8A%A1%E7%9A%84%E7%90%86%E8%A7%A3%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">说说你对Spring事务的理解？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A3%B0%E6%98%8E%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%9A%84%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">声明式事务的实现原理了解吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Transactional%E5%9C%A8%E5%93%AA%E4%BA%9B%E6%83%85%E5%86%B5%E4%B8%8B%E4%BC%9A%E5%A4%B1%E6%95%88%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">@Transactional在哪些情况下会失效？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4Spring%E4%BA%8B%E5%8A%A1%E7%9A%84%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">说说Spring事务的隔离级别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4Spring%E7%9A%84%E4%BA%8B%E5%8A%A1%E4%BC%A0%E6%92%AD%E6%9C%BA%E5%88%B6%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">说说Spring的事务传播机制？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%8B%E5%8A%A1%E8%83%BD%E5%9C%A8%E6%96%B0%E7%BA%BF%E7%A8%8B%E4%B8%AD%E4%BC%A0%E6%92%AD%E5%90%97%EF%BC%9F"><span class="toc-number">1.5.1.</span> <span class="toc-text">事务能在新线程中传播吗？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#protected-%E5%92%8C-private-%E6%96%B9%E6%B3%95%E5%8A%A0%E4%BA%8B%E5%8A%A1%E4%BC%9A%E7%94%9F%E6%95%88%E5%90%97%EF%BC%9F"><span class="toc-number">1.5.2.</span> <span class="toc-text">protected 和 private 方法加事务会生效吗？</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/ac0/" title="Spring八股文面试题（八）：Spring题"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Spring八股文面试题（八）：Spring题"></a><div class="content"><a class="title" href="/blog.github.io/posts/ac0/" title="Spring八股文面试题（八）：Spring题">Spring八股文面试题（八）：Spring题</a><time datetime="2026-08-17T01:35:50.000Z" title="发表于 2026-08-17 09:35:50">2026-08-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/da9f/" title="Spring八股文面试题（七）：Spring Cloud"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Spring八股文面试题（七）：Spring Cloud"></a><div class="content"><a class="title" href="/blog.github.io/posts/da9f/" title="Spring八股文面试题（七）：Spring Cloud">Spring八股文面试题（七）：Spring Cloud</a><time datetime="2026-08-17T01:35:12.000Z" title="发表于 2026-08-17 09:35:12">2026-08-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7b47/" title="Spring八股文面试题（六）：Spring Boot"><img src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Spring八股文面试题（六）：Spring Boot"></a><div class="content"><a class="title" href="/blog.github.io/posts/7b47/" title="Spring八股文面试题（六）：Spring Boot">Spring八股文面试题（六）：Spring Boot</a><time datetime="2026-08-17T01:34:33.000Z" title="发表于 2026-08-17 09:34:33">2026-08-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/20250819223546030.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">27</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>
