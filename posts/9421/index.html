@@ -1,0 +1,673 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Java虚拟机篇八股文面试篇（三）：垃圾收集 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="垃圾收集讲讲 JVM 的垃圾回收机制垃圾回收就是对堆内存中已经死亡的或者长时间没有使用的对象进行清除或回收。 JVM 在做 GC 之前，会先搞清楚什么是垃圾，什么不是垃圾，通常会通过可达性分析算法来判断对象是否存活。   在确定了哪些垃圾可以被回收后，垃圾收集器（如 CMS、G1、ZGC）要做的事情就是进行垃圾回收，可以采用标记清除算法、复制算法、标记整理算法、分代收集算法等。 项目使用的 JDK">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java虚拟机篇八股文面试篇（三）：垃圾收集">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/9421/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="垃圾收集讲讲 JVM 的垃圾回收机制垃圾回收就是对堆内存中已经死亡的或者长时间没有使用的对象进行清除或回收。 JVM 在做 GC 之前，会先搞清楚什么是垃圾，什么不是垃圾，通常会通过可达性分析算法来判断对象是否存活。   在确定了哪些垃圾可以被回收后，垃圾收集器（如 CMS、G1、ZGC）要做的事情就是进行垃圾回收，可以采用标记清除算法、复制算法、标记整理算法、分代收集算法等。 项目使用的 JDK">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-03T06:56:00.000Z">
+<meta property="article:modified_time" content="2026-09-08T14:01:29.381Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Java虚拟机篇">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Java虚拟机篇八股文面试篇（三）：垃圾收集",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/9421/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-03T06:56:00.000Z",
+  "dateModified": "2026-09-08T14:01:29.381Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/9421/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Java虚拟机篇八股文面试篇（三）：垃圾收集',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">Java虚拟机篇八股文面试篇（三）：垃圾收集</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Java虚拟机篇八股文面试篇（三）：垃圾收集</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-03T06:56:00.000Z" title="发表于 2026-09-03 14:56:00">2026-09-03</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-08T14:01:29.381Z" title="更新于 2026-09-08 22:01:29">2026-09-08</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">7.3k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>23分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-09-08 22:01:29&quot;}" hidden></div><h1 id="垃圾收集"><a href="#垃圾收集" class="headerlink" title="垃圾收集"></a>垃圾收集</h1><h2 id="讲讲-JVM-的垃圾回收机制"><a href="#讲讲-JVM-的垃圾回收机制" class="headerlink" title="讲讲 JVM 的垃圾回收机制"></a>讲讲 JVM 的垃圾回收机制</h2><p>垃圾回收就是对堆内存中已经死亡的或者长时间没有使用的对象进行清除或回收。</p>
+<p>JVM 在做 GC 之前，会先搞清楚什么是垃圾，什么不是垃圾，通常会通过可达性分析算法来判断对象是否存活。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209782603-2c295374-1d73-43cc-be74-fd55af06308a.png" width="1558" title crop="0,0,1,1" id="u80e9a1d8" class="ne-image">
+
+<p>在确定了哪些垃圾可以被回收后，垃圾收集器（如 CMS、G1、ZGC）要做的事情就是进行垃圾回收，可以采用标记清除算法、复制算法、标记整理算法、分代收集算法等。</p>
+<p>项目使用的 JDK 8，采用的是 CMS 垃圾收集器。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">java -XX:+UseConcMarkSweepGC \</span><br><span class="line">     -XX:+UseParNewGC \</span><br><span class="line">     -XX:CMSInitiatingOccupancyFraction=75 \</span><br><span class="line">     -XX:+UseCMSInitiatingOccupancyOnly \</span><br><span class="line">     -jar your-application.jar</span><br></pre></td></tr></table></figure>
+
+<h3 id="垃圾回收的过程是什么？"><a href="#垃圾回收的过程是什么？" class="headerlink" title="垃圾回收的过程是什么？"></a>垃圾回收的过程是什么？</h3><p>Java 的垃圾回收过程主要分为标记存活对象、清除无用对象、以及内存压缩&#x2F;整理三个阶段。不同的垃圾回收器在执行这些步骤时会采用不同的策略和算法。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209878046-7f9da506-54a0-418d-bd8b-1d4bc5665242.png" width="800" title crop="0,0,1,1" id="u93fd2dcd" class="ne-image">
+
+<h3 id="哪些阶段会触发-STW？"><a href="#哪些阶段会触发-STW？" class="headerlink" title="哪些阶段会触发 STW？"></a>哪些阶段会触发 STW？</h3><p>STW 是 JVM 为了垃圾回收而暂停所有用户线程的机制。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209672205-a51d738b-ef36-4c11-baf5-3b7d8428b1f6.png" width="1464" title crop="0,0,1,1" id="BZ1Y2" class="ne-image">
+
+<p>总结一下：在标记阶段，STW 是必需的。无论是哪种垃圾回收算法，标记阶段都需要准确找出所有存活对象。如果标记的时候业务线程还在运行，就会标记不准确。因为业务线程可能会在 GC 标记某个对象为垃圾的同时，访问这个对象。为了避免这种冲突，标记阶段必须暂停所有业务线程。</p>
+<p>在清除阶段，是否需要 STW 取决于算法的实现。</p>
+<p>如果使用的是复制算法或标记-整理算法（需要移动对象），那就必须 STW。因为对象被移动后，所有指向这个对象的引用都要更新，这个过程中不能让业务线程访问这些对象。</p>
+<p>如果使用的是标记-清除算法（不移动对象），理论上可以不 STW，业务线程和 GC 线程可以并发执行。</p>
+<p>对于新生代的垃圾收集器 Serial 和 ParNew，整个垃圾回收过程都会触发 STW，但因为年轻代小，通常很快（几毫秒到几十毫秒）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">1. 初始标记（STW）</span><br><span class="line">   - 暂停所有用户线程</span><br><span class="line">   - 标记 GC Roots 直接引用的对象</span><br><span class="line"></span><br><span class="line">2. 复制存活对象（STW）</span><br><span class="line">   - 将 Eden 和 Survivor0 中的存活对象复制到 Survivor1</span><br><span class="line">   - 清空 Eden 和 Survivor0</span><br><span class="line"></span><br><span class="line">3. 更新引用（STW）</span><br><span class="line">   - 更新所有指向移动对象的引用</span><br></pre></td></tr></table></figure>
+
+<p>CMS 在此基础上进行了改进，通过并发执行来减少 STW 时间，会在初始标记和重新标记阶段触发 STW。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">1. 初始标记 Initial Mark（STW）✅</span><br><span class="line">   - 时间很短</span><br><span class="line">   - 仅标记 GC Roots 直接引用的对象</span><br><span class="line">   - 标记所有年轻代对象引用的老年代对象</span><br><span class="line">   </span><br><span class="line">2. 并发标记 Concurrent Mark（并发执行）</span><br><span class="line">   - 用户线程继续运行</span><br><span class="line">   - GC 线程遍历整个对象图</span><br><span class="line">   - 标记所有存活对象</span><br><span class="line">   </span><br><span class="line">3. 重新标记 Remark（STW）✅</span><br><span class="line">   - 修正并发标记期间的变化</span><br><span class="line">   - 使用增量更新算法</span><br><span class="line">   - 这个阶段时间比初始标记长</span><br><span class="line">   </span><br><span class="line">4. 并发清除 Concurrent Sweep（并发执行）</span><br><span class="line">   - 用户线程继续运行</span><br><span class="line">   - 清理未标记的对象</span><br><span class="line">   - 不进行压缩，会产生碎片</span><br></pre></td></tr></table></figure>
+
+<p>G1 采用的是增量回收的思想，不是一次性把整个堆都清理，而是把堆分成很多小的区域，每次只清理一部分区域。这样就可以分散 STW 的时间，单次 STW 的时间就短了。</p>
+<p>ZGC 采用了并发整理的技术，可以在应用线程运行的同时进行对象的整理和移动，几乎消除了 STW 时间。ZGC 的 STW 时间通常在 10 毫秒以内。</p>
+<h3 id="垃圾回收机制的时机？能手动触发垃圾回收吗？垃圾回收会抢占业务代码的CPU吗？"><a href="#垃圾回收机制的时机？能手动触发垃圾回收吗？垃圾回收会抢占业务代码的CPU吗？" class="headerlink" title="垃圾回收机制的时机？能手动触发垃圾回收吗？垃圾回收会抢占业务代码的CPU吗？"></a>垃圾回收机制的时机？能手动触发垃圾回收吗？垃圾回收会抢占业务代码的CPU吗？</h3><p>1、JVM 会监控堆内存的使用情况，当内存快要不够用时，就会自动触发垃圾回收。</p>
+<p>2、理论上能手动触发垃圾回收，JVM 提供了 <code>System.gc()</code> 这个方法，可以手动调用它来触发垃圾回收，但一般不建议这么做。</p>
+<p>3、垃圾回收会抢占 CPU，垃圾回收时会触发 STW，暂停所有业务线程。Minor GC 的 STW 时间较短，Major GC 的 STW 时间较长。</p>
+<h2 id="如何判断对象仍然存活？"><a href="#如何判断对象仍然存活？" class="headerlink" title="如何判断对象仍然存活？"></a>如何判断对象仍然存活？</h2><p>Java 通过可达性分析算法来判断一个对象是否还存活。</p>
+<p>通过一组名为 “GC Roots” 的根对象，进行递归扫描，无法从根对象到达的对象就是“垃圾”，可以被回收。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210198071-2f861ea9-c4e9-49e3-8b2a-321d0408dd15.png" width="792" title crop="0,0,1,1" id="u11b08492" class="ne-image">
+
+<p>这也是 G1、CMS 等主流垃圾收集器使用的主要算法。</p>
+<h3 id="什么是引用计数法？"><a href="#什么是引用计数法？" class="headerlink" title="什么是引用计数法？"></a>什么是引用计数法？</h3><p>每个对象有一个引用计数器，记录引用它的次数。当计数器为零时，对象可以被回收。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209672723-6a28ecf5-49f5-4f4e-91fd-e8d2ac79b584.png" width="663" title crop="0,0,1,1" id="i9eOD" class="ne-image">
+
+<p>引用计数法无法解决循环引用的问题。例如，两个对象互相引用，但不再被其他对象引用，它们的引用计数都不为零，因此不会被回收。</p>
+<h3 id="做可达性分析的时候，应该有哪些前置性的操作？"><a href="#做可达性分析的时候，应该有哪些前置性的操作？" class="headerlink" title="做可达性分析的时候，应该有哪些前置性的操作？"></a>做可达性分析的时候，应该有哪些前置性的操作？</h3><p>在进行垃圾回收之前，JVM 会暂停所有正在执行的应用线程。</p>
+<p>这是因为可达性分析过程必须确保在执行分析时，内存中的对象关系不会被应用线程修改。如果不暂停应用线程，可能会出现对象引用的改变，导致垃圾回收过程中判断对象是否可达的结果不一致，从而引发严重的内存错误或数据丢失。</p>
+<h2 id="Java-中可作为-GC-Roots-的引用有哪几种？"><a href="#Java-中可作为-GC-Roots-的引用有哪几种？" class="headerlink" title="Java 中可作为 GC Roots 的引用有哪几种？"></a>Java 中可作为 GC Roots 的引用有哪几种？</h2><p>所谓的 GC Roots，就是一组必须活跃的引用，它们是程序运行时的起点，是一切引用链的源头。在 Java 中，GC Roots 包括以下几种：</p>
+<pre><code>- 虚拟机栈中的引用（方法的参数、局部变量等）
+- 本地方法栈中 JNI 的引用
+- 类静态变量
+- 运行时常量池中的常量（String 或 Class 类型）
+</code></pre>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210511430-10c3c2fc-a337-4cd8-bf3a-7893e06cb84e.png" width="1232" title crop="0,0,1,1" id="u5735e3f7" class="ne-image">
+
+<h3 id="说说虚拟机栈中的引用？"><a href="#说说虚拟机栈中的引用？" class="headerlink" title="说说虚拟机栈中的引用？"></a>说说虚拟机栈中的引用？</h3><p>来看下面这段代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StackReference</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">greet</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">localVar</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>(); <span class="comment">// 这里的 localVar 是一个局部变量，存在于虚拟机栈中</span></span><br><span class="line">        System.out.println(localVar.toString());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">new</span> <span class="title class_">StackReference</span>().greet();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 greet 方法中，localVar 是一个局部变量，存在于虚拟机栈中，可以被认为是 GC Roots。</p>
+<p>在 greet 方法执行期间，localVar 引用的对象是活跃的，因为它是从 GC Roots 可达的。</p>
+<p>当 greet 方法执行完毕后，localVar 的作用域结束，localVar 引用的 Object 对象不再由任何 GC Roots 引用（假设没有其他引用指向这个对象），因此它将有资格作为垃圾被回收掉 😁。</p>
+<h3 id="说说本地方法栈中-JNI-的引用？"><a href="#说说本地方法栈中-JNI-的引用？" class="headerlink" title="说说本地方法栈中 JNI 的引用？"></a>说说本地方法栈中 JNI 的引用？</h3><p>Java 通过 JNI 提供了一种机制，允许 Java 代码调用本地代码（通常是 C 或 C++ 编写的代码）。</p>
+<p>当调用 Java 方法时，虚拟机会创建一个栈帧并压入虚拟机栈，而当它调用本地方法时，虚拟机会通过动态链接直接调用指定的本地方法。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209673107-152a45df-c799-47dd-a90d-b8cac0a5253b.png" width="486" title crop="0,0,1,1" id="UqUTc" class="ne-image">
+
+<p>JNI 引用是在 Java 本地接口代码中创建的引用，这些引用可以指向 Java 堆中的对象。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 假设的JNI方法</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">native</span> <span class="type">void</span> <span class="title function_">nativeMethod</span><span class="params">()</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 假设在C/C++中实现的本地方法</span></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * Class:     NativeExample</span></span><br><span class="line"><span class="comment"> * Method:    nativeMethod</span></span><br><span class="line"><span class="comment"> * Signature: ()V</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">JNIEXPORT <span class="keyword">void</span> <span class="type">JNICALL</span> <span class="title function_">Java_NativeExample_nativeMethod</span><span class="params">(JNIEnv *env, jobject thisObj)</span> &#123;</span><br><span class="line">    <span class="type">jobject</span> <span class="variable">localRef</span> <span class="operator">=</span> (*env)-&gt;NewObject(env, ...); <span class="comment">// 在本地方法栈中创建JNI引用</span></span><br><span class="line">    <span class="comment">// localRef 引用的Java对象在本地方法执行期间是活跃的</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在本地代码中，localRef 是对 Java 对象的一个 JNI 引用，它在本地方法执行期间保持 Java 对象活跃，可以被认为是 GC Roots。</p>
+<p>一旦 JNI 方法执行完毕，除非这个引用是全局的，否则它指向的对象将会被作为垃圾回收掉（假设没有其他地方再引用这个对象）。</p>
+<h3 id="说说类静态变量？"><a href="#说说类静态变量？" class="headerlink" title="说说类静态变量？"></a>说说类静态变量？</h3><p>来看下面这段代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StaticFieldReference</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">Object</span> <span class="variable">staticVar</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Object</span>(); <span class="comment">// 类静态变量</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        System.out.println(staticVar.toString());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>StaticFieldReference 类中的 staticVar 引用了一个 Object 对象，这个引用存储在元空间，可以被认为是 GC Roots。</p>
+<p>只要 StaticFieldReference 类未被卸载，staticVar 引用的对象都不会被垃圾回收。如果 StaticFieldReference 类被卸载（这通常发生在其类加载器被垃圾回收时），那么 staticVar 引用的对象也将有资格被垃圾回收（如果没有其他引用指向这个对象）。</p>
+<h3 id="说说运行时常量池中的常量？"><a href="#说说运行时常量池中的常量？" class="headerlink" title="说说运行时常量池中的常量？"></a>说说运行时常量池中的常量？</h3><p>来看这段代码：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ConstantPoolReference</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">String</span> <span class="variable">CONSTANT_STRING</span> <span class="operator">=</span> <span class="string">&quot;Hello, World&quot;</span>; <span class="comment">// 常量，存在于运行时常量池中</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">Class</span>&lt;?&gt; <span class="variable">CONSTANT_CLASS</span> <span class="operator">=</span> Object.class; <span class="comment">// 类类型常量</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="type">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        System.out.println(CONSTANT_STRING);</span><br><span class="line">        System.out.println(CONSTANT_CLASS.getName());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 ConstantPoolReference 中，CONSTANT_STRING 和 CONSTANT_CLASS 作为常量存储在运行时常量池。它们可以用来作为 GC Roots。</p>
+<p>这些常量引用的对象（字符串”Hello, World”和 Object.class 类对象）在常量池中，只要包含这些常量的 ConstantPoolReference 类未被卸载，这些对象就不会被垃圾回收。</p>
+<h2 id="finalize-方法了解吗？"><a href="#finalize-方法了解吗？" class="headerlink" title="finalize()方法了解吗？"></a>finalize()方法了解吗？</h2><p>垃圾回收就是古代的秋后问斩，<code>finalize()</code> 就是刀下留人，在人犯被处决之前，还要做最后一次审计，青天大老爷会看看有没有什么冤情，需不需要刀下留人。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209673501-3373925b-c582-4137-91e2-e54c9bac283b.png" width="865" title crop="0,0,1,1" id="c6nLL" class="ne-image">
+
+<p>如果对象在进行可达性分析后发现没有与 GC Roots 相连接的引用链，那它将会被第一次标记，随后进行一次筛选。</p>
+<p>筛选的条件是对象是否有必要执行 <code>finalize()</code>方法。</p>
+<p>如果对象在 <code>finalize()</code> 中成功拯救自己——只要重新与引用链上的任何一个对象建立关联即可。</p>
+<p>譬如把自己 （this 关键字）赋值给某个类变量或者对象的成员变量，那在第二次标记时它就”逃过一劫“；但是如果没有抓住这个机会，那么对象就真的要被回收了。</p>
+<h2 id="垃圾收集算法了解吗？"><a href="#垃圾收集算法了解吗？" class="headerlink" title="垃圾收集算法了解吗？"></a>垃圾收集算法了解吗？</h2><p>垃圾收集算法主要有三种，分别是标记-清除算法、标记-复制算法和标记-整理算法。</p>
+<h3 id="说说标记-清除算法？"><a href="#说说标记-清除算法？" class="headerlink" title="说说标记-清除算法？"></a>说说标记-清除算法？</h3><p><code>标记-清除</code>算法分为两个阶段：</p>
+<pre><code>- **标记**：标记所有需要回收的对象
+- **清除**：回收所有被标记的对象
+</code></pre>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210627369-bdd75195-f897-4e61-9468-d908b17df777.png" width="994" title crop="0,0,1,1" id="u58ee303e" class="ne-image">
+
+<p>优点是实现简单，缺点是回收过程中会产生内存碎片。</p>
+<h3 id="说说标记-复制算法？"><a href="#说说标记-复制算法？" class="headerlink" title="说说标记-复制算法？"></a>说说标记-复制算法？</h3><p><code>标记-复制</code>算法可以解决标记-清除算法的内存碎片问题，因为它将内存空间划分为两块，每次只使用其中一块。当这一块的内存用完了，就将还存活着的对象复制到另外一块上面，然后清理掉这一块。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210733499-0a811b0f-c184-4ff6-925f-1e8fdd5582f1.png" width="992" title crop="0,0,1,1" id="udb417774" class="ne-image">
+
+<p>缺点是浪费了一半的内存空间。</p>
+<h3 id="说说标记-整理算法？"><a href="#说说标记-整理算法？" class="headerlink" title="说说标记-整理算法？"></a>说说标记-整理算法？</h3><p><code>标记-整理</code>算法是标记-清除复制算法的升级版，它不再划分内存空间，而是将存活的对象向内存的一端移动，然后清理边界以外的内存。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210774135-08e70aca-d09e-4423-97ab-a62983eeaf45.png" width="965" title crop="0,0,1,1" id="u19790e0c" class="ne-image">
+
+<p>缺点是移动对象的成本比较高。</p>
+<h3 id="说说分代收集算法？"><a href="#说说分代收集算法？" class="headerlink" title="说说分代收集算法？"></a>说说分代收集算法？</h3><p><code>分代收集</code>算法是目前主流的垃圾收集算法，它根据对象存活周期的不同将内存划分为几块，一般分为新生代和老年代。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209675109-11ab13f6-f3a9-4657-95aa-a16d5629f91f.png" width="814" title crop="0,0,1,1" id="rlGqZ" class="ne-image">
+
+<p>新生代用复制算法，因为大部分对象生命周期短。老年代用标记-整理算法，因为对象存活率较高。</p>
+<h3 id="为什么要用分代收集呢？"><a href="#为什么要用分代收集呢？" class="headerlink" title="为什么要用分代收集呢？"></a>为什么要用分代收集呢？</h3><p>分代收集算法的核心思想是根据对象的生命周期优化垃圾回收。</p>
+<p>新生代的对象生命周期短，使用复制算法可以快速回收。老年代的对象生命周期长，使用标记-整理算法可以减少移动对象的成本。</p>
+<h3 id="标记复制的标记过程和复制过程会不会停顿？"><a href="#标记复制的标记过程和复制过程会不会停顿？" class="headerlink" title="标记复制的标记过程和复制过程会不会停顿？"></a>标记复制的标记过程和复制过程会不会停顿？</h3><p>在标记-复制算法 中，标记阶段和复制阶段都会触发STW。</p>
+<pre><code>- 标记阶段停顿是为了保证对象的引用关系不被修改。
+- 复制阶段停顿是防止对象在复制过程中被修改。
+</code></pre>
+<h2 id="Minor-GC、Major-GC、Mixed-GC、Full-GC-都是什么意思？"><a href="#Minor-GC、Major-GC、Mixed-GC、Full-GC-都是什么意思？" class="headerlink" title="Minor GC、Major GC、Mixed GC、Full GC 都是什么意思？"></a>Minor GC、Major GC、Mixed GC、Full GC 都是什么意思？</h2><p>Minor GC 也称为 Young GC，是指发生在年轻代的垃圾收集。年轻代包含 Eden 区以及两个 Survivor 区。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209675069-102e9070-4a1a-458a-bc6f-301ba0e703c1.png" width="814" title crop="0,0,1,1" id="vPtIB" class="ne-image">
+
+<p>Major GC 也称为 Old GC，主要指的是发生在老年代的垃圾收集。是 CMS 的特有行为。</p>
+<p>Mixed GC 是 G1 垃圾收集器特有的一种 GC 类型，它在一次 GC 中同时清理年轻代和部分老年代。</p>
+<p>Full GC 是最彻底的垃圾收集，涉及整个 Java 堆和方法区。它是最耗时的 GC，通常在 JVM 压力很大时发生。</p>
+<h3 id="FULL-gc怎么去清理的？"><a href="#FULL-gc怎么去清理的？" class="headerlink" title="FULL gc怎么去清理的？"></a>FULL gc怎么去清理的？</h3><p>Full GC 会从 GC Root 出发，标记所有可达对象。新生代使用复制算法，清空 Eden 区。老年代使用标记-整理算法，回收对象并消除碎片。</p>
+<p>停顿时间较长，会影响系统响应性能。</p>
+<h2 id="Young-GC-什么时候触发？"><a href="#Young-GC-什么时候触发？" class="headerlink" title="Young GC 什么时候触发？"></a>Young GC 什么时候触发？</h2><p>如果 Eden 区没有足够的空间时，就会触发 Young GC 来清理新生代。</p>
+<h2 id="什么时候会触发-Full-GC？"><a href="#什么时候会触发-Full-GC？" class="headerlink" title="什么时候会触发 Full GC？"></a>什么时候会触发 Full GC？</h2><p>在进行 Young GC 的时候，如果发现<code>老年代可用的连续内存空间</code> &lt; <code>新生代历次 Young GC 后升入老年代的对象总和的平均大小</code>，说明本次 Young GC 后升入老年代的对象大小，可能超过了老年代当前可用的内存空间，就会触发 Full GC。</p>
+<p>执行 Young GC 后老年代没有足够的内存空间存放转入的对象，会立即触发一次 Full GC。</p>
+<p><code>System.gc()</code>、<code>jmap -dump</code> 等命令会触发 full gc。</p>
+<h3 id="空间分配担保是什么？"><a href="#空间分配担保是什么？" class="headerlink" title="空间分配担保是什么？"></a>空间分配担保是什么？</h3><p>空间分配担保是指在进行 Minor GC 前，JVM 会确保老年代有足够的空间存放从新生代晋升的对象。如果老年代空间不足，可能会触发 Full GC。</p>
+<h2 id="知道哪些垃圾收集器？"><a href="#知道哪些垃圾收集器？" class="headerlink" title="知道哪些垃圾收集器？"></a>知道哪些垃圾收集器？</h2><p>JVM 的垃圾收集器主要分为两大类：分代收集器和分区收集器，分代收集器的代表是 CMS，分区收集器的代表是 G1 和 ZGC。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210919563-e58b2cc0-3ff9-4ae4-b08a-98610c290ff8.png" width="897" title crop="0,0,1,1" id="ud5babc61" class="ne-image">
+
+<p>CMS 是第一个关注 GC 停顿时间的垃圾收集器，JDK 1.5 时引入，JDK9 被标记弃用，JDK14 被移除。</p>
+<p>G1 在 JDK 1.7 时引入，在 JDK 9 时取代 CMS 成为了默认的垃圾收集器。</p>
+<p>ZGC 是 JDK11 推出的一款低延迟垃圾收集器，适用于大内存低延迟服务的内存管理和回收，在 128G 的大堆下，最大停顿时间才 1.68 ms，性能远胜于 G1 和 CMS。</p>
+<h3 id="说说-Serial-收集器？"><a href="#说说-Serial-收集器？" class="headerlink" title="说说 Serial 收集器？"></a>说说 Serial 收集器？</h3><p>Serial 收集器是最基础、历史最悠久的收集器。</p>
+<p>如同它的名字（串行），它是一个单线程工作的收集器，使用一个处理器或一条收集线程去完成垃圾收集工作。并且进行垃圾收集时，必须暂停其他所有工作线程，直到垃圾收集结束——这就是所谓的“Stop The World”。</p>
+<p>Serial&#x2F;Serial Old 收集器的运行过程如图：</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780210964094-9226cd55-566c-4c5e-8a69-a03f3e6f6853.png" width="911" title crop="0,0,1,1" id="udadb5305" class="ne-image">
+
+<h3 id="说说-ParNew-收集器？"><a href="#说说-ParNew-收集器？" class="headerlink" title="说说 ParNew 收集器？"></a>说说 ParNew 收集器？</h3><p>ParNew 收集器实质上是 Serial 收集器的多线程并行版本，使用多条线程进行垃圾收集。</p>
+<p>ParNew&#x2F;Serial Old 收集器运行示意图如下：</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211026963-4f7b8bee-af5f-40cc-9c96-93827cb6660d.png" width="899" title crop="0,0,1,1" id="uac6eeb68" class="ne-image">
+
+<h3 id="说说-Parallel-Scavenge-收集器？"><a href="#说说-Parallel-Scavenge-收集器？" class="headerlink" title="说说 Parallel Scavenge 收集器？"></a>说说 Parallel Scavenge 收集器？</h3><p>Parallel Scavenge 收集器是一款新生代收集器，基于标记-复制算法实现，也能够并行收集。和 ParNew 有些类似，但 Parallel Scavenge 主要关注的是垃圾收集的吞吐量——所谓吞吐量，就是 CPU 用于运行用户代码的时间和总消耗时间的比值，比值越大，说明垃圾收集的占比越小。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209676992-deba1ec5-2ecc-4d1a-a7bc-9ecdf772fc8b.png" width="674" title crop="0,0,1,1" id="UeAw7" class="ne-image">
+
+<p>根据对象存活周期的不同会将内存划分为几块，一般是把 Java 堆分为新生代和老年代，这样就可以根据各个年代的特点采用最适当的收集算法。</p>
+<h3 id="说说-Serial-Old-收集器？"><a href="#说说-Serial-Old-收集器？" class="headerlink" title="说说 Serial Old 收集器？"></a>说说 Serial Old 收集器？</h3><p>Serial Old 是 Serial 收集器的老年代版本，它同样是一个单线程收集器，使用标记-整理算法。</p>
+<h3 id="说说-Parallel-Old-收集器？"><a href="#说说-Parallel-Old-收集器？" class="headerlink" title="说说 Parallel Old 收集器？"></a>说说 Parallel Old 收集器？</h3><p>Parallel Old 是 Parallel Scavenge 收集器的老年代版本，基于标记-整理算法实现，使用多条 GC 线程在 STW 期间同时进行垃圾回收。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211102949-b339411c-a758-4912-9224-e48c29b2c514.png" width="904" title crop="0,0,1,1" id="u2acccccf" class="ne-image">
+
+<h3 id="说说-CMS-收集器？"><a href="#说说-CMS-收集器？" class="headerlink" title="说说 CMS 收集器？"></a>说说 CMS 收集器？</h3><p>CMS 在 JDK 1.5 时引入，JDK 9 时被标记弃用，JDK 14 时被移除。</p>
+<p>CMS 是一种低延迟的垃圾收集器，采用标记-清除算法，分为初始标记、并发标记、重新标记和并发清除四个阶段，优点是垃圾回收线程和应用线程同时运行，停顿时间短，适合延迟敏感的应用，但容易产生内存碎片，可能触发 Full GC。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211159048-ee3af099-2ce2-41fc-bd2a-bf4a89dcd884.png" width="1440" title crop="0,0,1,1" id="u736d6b6b" class="ne-image">
+
+<h3 id="说说-G1-收集器？"><a href="#说说-G1-收集器？" class="headerlink" title="说说 G1 收集器？"></a>说说 G1 收集器？</h3><p>G1 在 JDK 1.7 时引入，在 JDK 9 时取代 CMS 成为默认的垃圾收集器。</p>
+<p>G1 是一种面向大内存、高吞吐场景的垃圾收集器，它将堆划分为多个小的 Region，通过标记-整理算法，避免了内存碎片问题。优点是停顿时间可控，适合大堆场景，但调优较复杂。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211216883-ac1c713c-8a67-4d97-abec-ab8b6a7e39d0.png" width="1386" title crop="0,0,1,1" id="uad12d0d9" class="ne-image">
+
+<h3 id="说说-ZGC-收集器？"><a href="#说说-ZGC-收集器？" class="headerlink" title="说说 ZGC 收集器？"></a>说说 ZGC 收集器？</h3><p>ZGC 是 JDK 11 时引入的一款低延迟的垃圾收集器，最大特点是将垃圾收集的停顿时间控制在 10ms 以内，即使在 TB 级别的堆内存下也能保持较低的停顿时间。</p>
+<p>它通过并发标记和重定位来避免大部分 Stop-The-World 停顿，主要依赖指针染色来管理对象状态。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209678512-2b4ed270-dd3e-4e19-ae1e-bdaff8e4efdc.png" width="2070" title crop="0,0,1,1" id="Zsjf1" class="ne-image">
+
+<pre><code>- **标记对象的可达性**：通过在指针上增加标记位，不需要额外的标记位即可判断对象的存活状态。
+- **重定位状态**：在对象被移动时，可以通过指针染色来更新对象的引用，而不需要等待全局同步。
+</code></pre>
+<p>适用于需要超低延迟的场景，比如金融交易系统、电商平台。</p>
+<h3 id="垃圾回收器的作用是什么？"><a href="#垃圾回收器的作用是什么？" class="headerlink" title="垃圾回收器的作用是什么？"></a>垃圾回收器的作用是什么？</h3><p>垃圾回收器的核心作用是自动管理 Java 应用程序的运行时内存。它负责识别哪些内存是不再被应用程序使用的，并释放这些内存以便重新使用。</p>
+<p>这一过程减少了程序员手动管理内存的负担，降低了内存泄漏和溢出错误的风险。</p>
+<h2 id="能详细说一下-CMS-的垃圾收集过程吗？"><a href="#能详细说一下-CMS-的垃圾收集过程吗？" class="headerlink" title="能详细说一下 CMS 的垃圾收集过程吗？"></a>能详细说一下 CMS 的垃圾收集过程吗？</h2><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211286665-2e4ef4cb-adcd-419f-9c8d-5f9f1c6485ba.png" width="1108" title crop="0,0,1,1" id="u52b82f3f" class="ne-image">
+
+<p>CMS 使用<strong>标记-清除</strong>算法进行垃圾收集，分 4 大步：</p>
+<pre><code>- **初始标记**：标记所有从 GC Roots 直接可达的对象，这个阶段需要 STW，但速度很快。
+- **并发标记**：从初始标记的对象出发，遍历所有对象，标记所有可达的对象。这个阶段是并发进行的。
+- **重新标记**：完成剩余的标记工作，包括处理并发阶段遗留下来的少量变动，这个阶段通常需要短暂的 STW 停顿。
+- **并发清除**：清除未被标记的对象，回收它们占用的内存空间。
+</code></pre>
+<h3 id="你提到了remark，那它remark具体是怎么执行的？三色标记法？"><a href="#你提到了remark，那它remark具体是怎么执行的？三色标记法？" class="headerlink" title="你提到了remark，那它remark具体是怎么执行的？三色标记法？"></a>你提到了remark，那它remark具体是怎么执行的？三色标记法？</h3><p>是的，remark 阶段通常会结合三色标记法来执行，确保在并发标记期间所有存活对象都被正确标记。目的是修正并发标记阶段中可能遗漏的对象引用变化。</p>
+<p>在 remark 阶段，垃圾收集器会停止应用线程，以确保在这个阶段不会有引用关系的进一步变化。这种暂停通常很短暂。remark 阶段主要包括以下操作：</p>
+<pre><code>1. 处理写屏障记录的引用变化：在并发标记阶段，应用程序可能会更新对象的引用（比如一个黑色对象新增了对一个白色对象的引用），这些变化通过写屏障记录下来。在 remark 阶段，GC 会处理这些记录，确保所有可达对象都正确地标记为灰色或黑色。
+2. 扫描灰色对象：再次遍历灰色对象，处理它们的所有引用，确保引用的对象正确标记为灰色或黑色。
+3. 清理：确保所有引用关系正确处理后，灰色对象标记为黑色，白色对象保持不变。这一步完成后，所有存活对象都应当是黑色的。
+</code></pre>
+<h3 id="什么是三色标记法？"><a href="#什么是三色标记法？" class="headerlink" title="什么是三色标记法？"></a>什么是三色标记法？</h3><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209679273-32aba378-01bf-4501-ba75-ff42007f3cb2.png" width="1080" title crop="0,0,1,1" id="gJXcn" class="ne-image">
+
+<p>三色标记法用于标记对象的存活状态，它将对象分为三类：</p>
+<pre><code>1. 白色（White）：尚未访问的对象。垃圾回收结束后，仍然为白色的对象会被认为是不可达的对象，可以回收。
+2. 灰色（Gray）：已经访问到但未标记完其引用的对象。灰色对象是需要进一步处理的。
+3. 黑色（Black）：已经访问到并且其所有引用对象都已经标记过。黑色对象是完全处理过的，不需要再处理。
+</code></pre>
+<p>三色标记法的工作流程：</p>
+<p>①、初始标记（Initial Marking）：从 GC Roots 开始，标记所有直接可达的对象为灰色。</p>
+<p>②、并发标记（Concurrent Marking）：在此阶段，标记所有灰色对象引用的对象为灰色，然后将灰色对象自身标记为黑色。这个过程是并发的，和应用线程同时进行。</p>
+<p>此阶段的一个问题是，应用线程可能在并发标记期间修改对象的引用关系，导致一些对象的标记状态不准确。</p>
+<p>③、重新标记（Remarking）：重新标记阶段的目标是处理并发标记阶段遗漏的引用变化。为了确保所有存活对象都被正确标记，remark 需要在 STW 暂停期间执行。</p>
+<p>④、使用写屏障（Write Barrier）来捕捉并发标记阶段应用线程对对象引用的更新。通过遍历这些更新的引用来修正标记状态，确保遗漏的对象不会被错误地回收。</p>
+<h2 id="G1-垃圾收集器了解吗？"><a href="#G1-垃圾收集器了解吗？" class="headerlink" title="G1 垃圾收集器了解吗？"></a>G1 垃圾收集器了解吗？</h2><p>G1 在 JDK 1.7 时引入，在 JDK 9 时取代 CMS 成为默认的垃圾收集器。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211382839-1318f5a2-94f7-4e61-b781-11ba11a18fa2.png" width="1386" title crop="0,0,1,1" id="u25f91cf7" class="ne-image">
+
+<p>G1 把 Java 堆划分为多个大小相等的独立区域 Region，每个区域都可以扮演新生代或老年代的角色。</p>
+<p>同时，G1 还有一个专门为大对象设计的 Region，叫 Humongous 区。</p>
+<blockquote>
+<p>大对象的判定规则是，如果一个大对象超过了一个 Region 大小的 50%，比如每个 Region 是 2M，只要一个对象超过了 1M，就会被放入 Humongous 中。</p>
+</blockquote>
+<p>这种区域化管理使得 G1 可以更灵活地进行垃圾收集，只回收部分区域而不是整个新生代或老年代。</p>
+<p>G1 收集器的运行过程大致可划分为这几个步骤：</p>
+<p>①、<strong>并发标记</strong>，G1 通过并发标记的方式找出堆中的垃圾对象。并发标记阶段与应用线程同时执行，不会导致应用线程暂停。</p>
+<p>②、<strong>混合收集</strong>，在并发标记完成后，G1 会计算出哪些区域的回收价值最高（也就是包含最多垃圾的区域），然后优先回收这些区域。这种回收方式包括了部分新生代区域和老年代区域。</p>
+<p>选择回收成本低而收益高的区域进行回收，可以提高回收效率和减少停顿时间。</p>
+<p>③、<strong>可预测的停顿</strong>，G1 在垃圾回收期间仍然需要「Stop the World」。不过，G1 在停顿时间上添加了预测机制，用户可以 JVM 启动时指定期望停顿时间，G1 会尽可能地在这个时间内完成垃圾回收。</p>
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780211426086-d5b2a0a6-6bf4-4938-b285-fb7ce5d974e8.png" width="1107" title crop="0,0,1,1" id="u029b5dc1" class="ne-image">
+
+<h3 id="计算Region的时候怎么和业务代码并行执行"><a href="#计算Region的时候怎么和业务代码并行执行" class="headerlink" title="计算Region的时候怎么和业务代码并行执行"></a>计算Region的时候怎么和业务代码并行执行</h3><p>在 G1 中，堆被划分成很多个大小相等的区域，每个区域叫做 Region。G1 的工作方式是，每次不对整个堆进行垃圾回收，而是计算哪些 Region 中的垃圾最多、回收效率最高，然后只回收这些 Region。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────┐</span><br><span class="line">│ Region1 │ Region2 │ Region3 │ Region4 │ Region5 │</span><br><span class="line">│  年轻代  │  年轻代  │  老年代  │  老年代  │  空闲   │</span><br><span class="line">│ 垃圾: 10%│ 垃圾: 5% │ 垃圾: 70%│ 垃圾: 15%│        │</span><br><span class="line">└─────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+
+<p>第一步，G1 会启动一些 GC 标记线程，这些线程和业务线程并发运行。业务线程执行代码，标记线程同时遍历堆中的对象，找出哪些对象是活的，哪些是垃圾。</p>
+<p>这里需要用到写屏障（Write Barrier）技术，每当业务线程改变对象的引用时，写屏障就会记录下来：”有个引用被改变了”。GC 线程会根据这些记录来调整标记结果。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 简化的写屏障概念示意</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Object</span> &#123;</span><br><span class="line">    Object ref;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 业务线程执行：obj.ref = newRef;</span></span><br><span class="line">    <span class="comment">// 实际执行过程：</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">void</span> <span class="title function_">setRef</span><span class="params">(Object newRef)</span> &#123;</span><br><span class="line">        <span class="comment">// 原始操作</span></span><br><span class="line">        <span class="built_in">this</span>.ref = newRef;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 写屏障操作（由 JVM 自动插入）</span></span><br><span class="line">        writeBarrier(newRef);  <span class="comment">// 通知 GC：&quot;这个对象的引用被改变了&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第二步，并发计算每个 Region 的垃圾占比。</p>
+<p>第三步，G1 根据计算结果选择垃圾最多的几个 Region 进行回收。这时候才会触发 STW，暂停业务线程，对这些 Region 进行垃圾清理。</p>
+<p>因为只清理少数几个 Region，而不是整个堆。所以 STW 的时间很短。</p>
+<h2 id="有了-CMS，为什么还要引入-G1？"><a href="#有了-CMS，为什么还要引入-G1？" class="headerlink" title="有了 CMS，为什么还要引入 G1？"></a>有了 CMS，为什么还要引入 G1？</h2><table>
+<thead>
+<tr>
+<th>特性</th>
+<th>CMS</th>
+<th>G1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>设计目标</td>
+<td>低停顿时间</td>
+<td>可预测的停顿时间</td>
+</tr>
+<tr>
+<td>并发性</td>
+<td>是</td>
+<td>是</td>
+</tr>
+<tr>
+<td>内存碎片</td>
+<td>是，容易产生碎片</td>
+<td>否，通过区域划分和压缩减少碎片</td>
+</tr>
+<tr>
+<td>收集代数</td>
+<td>年轻代和老年代</td>
+<td>整个堆，但区分年轻代和老年代</td>
+</tr>
+<tr>
+<td>并发阶段</td>
+<td>并发标记、并发清理</td>
+<td>并发标记、并发清理、并发回收</td>
+</tr>
+<tr>
+<td>停顿时间预测</td>
+<td>较难预测</td>
+<td>可配置停顿时间目标</td>
+</tr>
+<tr>
+<td>容易出现的问题</td>
+<td>内存碎片、Concurrent Mode Failure</td>
+<td>较少出现长时间停顿</td>
+</tr>
+</tbody></table>
+<p>CMS 适用于对延迟敏感的应用场景，主要目标是减少停顿时间，但容易产生内存碎片。</p>
+<p>G1 则提供了更好的停顿时间预测和内存压缩能力，适用于大内存和多核处理器环境。</p>
+<h2 id="你们线上用的什么垃圾收集器？"><a href="#你们线上用的什么垃圾收集器？" class="headerlink" title="你们线上用的什么垃圾收集器？"></a>你们线上用的什么垃圾收集器？</h2><p>我们生产环境中采用了设计比较优秀的 G1 垃圾收集器，因为它不仅能满足低停顿的要求，而且解决了 CMS 的浮动垃圾问题、内存碎片问题。</p>
+<p>G1 非常适合大内存、多核处理器的环境。</p>
+<blockquote>
+<p>以上是比较符合面试官预期的回答，但实际上，大多数情况下我们可能还是使用的 JDK 8 默认垃圾收集器。</p>
+</blockquote>
+<p>可以通过以下命令查看当前 JVM 的垃圾收集器：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -XX:+PrintCommandLineFlags -version</span><br></pre></td></tr></table></figure>
+
+<img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780209680296-d3278a63-74ce-4193-aa9a-dfa96f45fe9b.png" width="1414" title crop="0,0,1,1" id="WpP1g" class="ne-image">
+
+<p><code>UseParallelGC</code> &#x3D; <code>Parallel Scavenge + Parallel Old</code>，表示新生代用<code>Parallel Scavenge</code>收集器，老年代使用<code>Parallel Old</code> 收集器。</p>
+<p>因此你也可以这样回答：</p>
+<p>我们系统的业务相对复杂，但并发量并不是特别高，所以我们选择了适用于多核处理器、能够并行处理垃圾回收任务，且能提供高吞吐量的<code>Parallel GC</code>。</p>
+<p>但这个说法不讨喜，你也可以回答：</p>
+<p>我们系统采用的是 CMS 收集器，能够最大限度减少应用暂停时间。</p>
+<h3 id="工作中项目使用的什么垃圾回收算法？"><a href="#工作中项目使用的什么垃圾回收算法？" class="headerlink" title="工作中项目使用的什么垃圾回收算法？"></a>工作中项目使用的什么垃圾回收算法？</h3><p>我们生产环境中采用了设计比较优秀的 G1 垃圾收集器，G1 采用的是分区式标记-整理算法，将堆划分为多个区域，按需回收，适用于大内存和多核环境，能够同时考虑吞吐量和暂停时间。</p>
+<p>或者：</p>
+<p>我们系统采用的是 CMS 收集器，CMS 采用的是标记-清除算法，能够并发标记和清除垃圾，减少暂停时间，适用于对延迟敏感的应用。</p>
+<p>再或者：</p>
+<p>我们系统采用的是 Parallel 收集器，Parallel 采用的是年轻代使用复制算法，老年代使用标记-整理算法，适用于高吞吐量要求的应用。</p>
+<h2 id="垃圾收集器应该如何选择？"><a href="#垃圾收集器应该如何选择？" class="headerlink" title="垃圾收集器应该如何选择？"></a>垃圾收集器应该如何选择？</h2><p>如果应用程序只需要一个很小的内存空间（大约 100 MB），或者对停顿时间没有特殊的要求，可以选择 Serial 收集器。</p>
+<p>如果优先考虑应用程序的峰值性能，并且没有时间要求，或者可以接受 1 秒或更长的停顿时间，可以选择 Parallel 收集器。</p>
+<p>如果响应时间比吞吐量优先级高，或者垃圾收集暂停必须保持在大约 1 秒以内，可以选择 CMS&#x2F; G1 收集器。</p>
+<p>如果响应时间是高优先级的，或者堆空间比较大，可以选择 ZGC 收集器。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/9421/">https://jingluo23.github.io/blog.github.io/posts/9421/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/Java%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%AF%87/">Java虚拟机篇</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/8c35/" title="Java虚拟机篇八股文面试篇（二）：内存管理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Java虚拟机篇八股文面试篇（二）：内存管理</div></div></div></a><a class="pagination-related  no-desc" href="/blog.github.io/posts/dfd2/" title="Java虚拟机篇八股文面试篇（四）：JVM 调优"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Java虚拟机篇八股文面试篇（四）：JVM 调优</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/dfd2/" title="Java虚拟机篇八股文面试篇（四）：JVM 调优"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-03</div><div class="info-item-2">Java虚拟机篇八股文面试篇（四）：JVM 调优</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/e66c/" title="Java虚拟机篇八股文面试篇（一）：引言"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-03</div><div class="info-item-2">Java虚拟机篇八股文面试篇（一）：引言</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/a509/" title="Java虚拟机篇八股文面试篇（五）：类加载机制"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-03</div><div class="info-item-2">Java虚拟机篇八股文面试篇（五）：类加载机制</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/8c35/" title="Java虚拟机篇八股文面试篇（二）：内存管理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-03</div><div class="info-item-2">Java虚拟机篇八股文面试篇（二）：内存管理</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/c98c/" title="MyBatis八股文面试题（二）：原理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-04</div><div class="info-item-2">MyBatis八股文面试题（二）：原理</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/f937/" title="Java基础篇八股文面试题（十一）：泛型"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-01</div><div class="info-item-2">Java基础篇八股文面试题（十一）：泛型</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86"><span class="toc-number">1.</span> <span class="toc-text">垃圾收集</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B2%E8%AE%B2-JVM-%E7%9A%84%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E6%9C%BA%E5%88%B6"><span class="toc-number">1.1.</span> <span class="toc-text">讲讲 JVM 的垃圾回收机制</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E7%9A%84%E8%BF%87%E7%A8%8B%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">垃圾回收的过程是什么？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%93%AA%E4%BA%9B%E9%98%B6%E6%AE%B5%E4%BC%9A%E8%A7%A6%E5%8F%91-STW%EF%BC%9F"><span class="toc-number">1.1.2.</span> <span class="toc-text">哪些阶段会触发 STW？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E6%9C%BA%E5%88%B6%E7%9A%84%E6%97%B6%E6%9C%BA%EF%BC%9F%E8%83%BD%E6%89%8B%E5%8A%A8%E8%A7%A6%E5%8F%91%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%90%97%EF%BC%9F%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E4%BC%9A%E6%8A%A2%E5%8D%A0%E4%B8%9A%E5%8A%A1%E4%BB%A3%E7%A0%81%E7%9A%84CPU%E5%90%97%EF%BC%9F"><span class="toc-number">1.1.3.</span> <span class="toc-text">垃圾回收机制的时机？能手动触发垃圾回收吗？垃圾回收会抢占业务代码的CPU吗？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E5%AF%B9%E8%B1%A1%E4%BB%8D%E7%84%B6%E5%AD%98%E6%B4%BB%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">如何判断对象仍然存活？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E6%B3%95%EF%BC%9F"><span class="toc-number">1.2.1.</span> <span class="toc-text">什么是引用计数法？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%81%9A%E5%8F%AF%E8%BE%BE%E6%80%A7%E5%88%86%E6%9E%90%E7%9A%84%E6%97%B6%E5%80%99%EF%BC%8C%E5%BA%94%E8%AF%A5%E6%9C%89%E5%93%AA%E4%BA%9B%E5%89%8D%E7%BD%AE%E6%80%A7%E7%9A%84%E6%93%8D%E4%BD%9C%EF%BC%9F"><span class="toc-number">1.2.2.</span> <span class="toc-text">做可达性分析的时候，应该有哪些前置性的操作？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Java-%E4%B8%AD%E5%8F%AF%E4%BD%9C%E4%B8%BA-GC-Roots-%E7%9A%84%E5%BC%95%E7%94%A8%E6%9C%89%E5%93%AA%E5%87%A0%E7%A7%8D%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">Java 中可作为 GC Roots 的引用有哪几种？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%A0%88%E4%B8%AD%E7%9A%84%E5%BC%95%E7%94%A8%EF%BC%9F"><span class="toc-number">1.3.1.</span> <span class="toc-text">说说虚拟机栈中的引用？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95%E6%A0%88%E4%B8%AD-JNI-%E7%9A%84%E5%BC%95%E7%94%A8%EF%BC%9F"><span class="toc-number">1.3.2.</span> <span class="toc-text">说说本地方法栈中 JNI 的引用？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E7%B1%BB%E9%9D%99%E6%80%81%E5%8F%98%E9%87%8F%EF%BC%9F"><span class="toc-number">1.3.3.</span> <span class="toc-text">说说类静态变量？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E8%BF%90%E8%A1%8C%E6%97%B6%E5%B8%B8%E9%87%8F%E6%B1%A0%E4%B8%AD%E7%9A%84%E5%B8%B8%E9%87%8F%EF%BC%9F"><span class="toc-number">1.3.4.</span> <span class="toc-text">说说运行时常量池中的常量？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#finalize-%E6%96%B9%E6%B3%95%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">finalize()方法了解吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E7%AE%97%E6%B3%95%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">垃圾收集算法了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E6%A0%87%E8%AE%B0-%E6%B8%85%E9%99%A4%E7%AE%97%E6%B3%95%EF%BC%9F"><span class="toc-number">1.5.1.</span> <span class="toc-text">说说标记-清除算法？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E6%A0%87%E8%AE%B0-%E5%A4%8D%E5%88%B6%E7%AE%97%E6%B3%95%EF%BC%9F"><span class="toc-number">1.5.2.</span> <span class="toc-text">说说标记-复制算法？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E6%A0%87%E8%AE%B0-%E6%95%B4%E7%90%86%E7%AE%97%E6%B3%95%EF%BC%9F"><span class="toc-number">1.5.3.</span> <span class="toc-text">说说标记-整理算法？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E5%88%86%E4%BB%A3%E6%94%B6%E9%9B%86%E7%AE%97%E6%B3%95%EF%BC%9F"><span class="toc-number">1.5.4.</span> <span class="toc-text">说说分代收集算法？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E7%94%A8%E5%88%86%E4%BB%A3%E6%94%B6%E9%9B%86%E5%91%A2%EF%BC%9F"><span class="toc-number">1.5.5.</span> <span class="toc-text">为什么要用分代收集呢？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%87%E8%AE%B0%E5%A4%8D%E5%88%B6%E7%9A%84%E6%A0%87%E8%AE%B0%E8%BF%87%E7%A8%8B%E5%92%8C%E5%A4%8D%E5%88%B6%E8%BF%87%E7%A8%8B%E4%BC%9A%E4%B8%8D%E4%BC%9A%E5%81%9C%E9%A1%BF%EF%BC%9F"><span class="toc-number">1.5.6.</span> <span class="toc-text">标记复制的标记过程和复制过程会不会停顿？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Minor-GC%E3%80%81Major-GC%E3%80%81Mixed-GC%E3%80%81Full-GC-%E9%83%BD%E6%98%AF%E4%BB%80%E4%B9%88%E6%84%8F%E6%80%9D%EF%BC%9F"><span class="toc-number">1.6.</span> <span class="toc-text">Minor GC、Major GC、Mixed GC、Full GC 都是什么意思？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#FULL-gc%E6%80%8E%E4%B9%88%E5%8E%BB%E6%B8%85%E7%90%86%E7%9A%84%EF%BC%9F"><span class="toc-number">1.6.1.</span> <span class="toc-text">FULL gc怎么去清理的？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Young-GC-%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%A7%A6%E5%8F%91%EF%BC%9F"><span class="toc-number">1.7.</span> <span class="toc-text">Young GC 什么时候触发？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E4%BC%9A%E8%A7%A6%E5%8F%91-Full-GC%EF%BC%9F"><span class="toc-number">1.8.</span> <span class="toc-text">什么时候会触发 Full GC？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%A9%BA%E9%97%B4%E5%88%86%E9%85%8D%E6%8B%85%E4%BF%9D%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.8.1.</span> <span class="toc-text">空间分配担保是什么？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9F%A5%E9%81%93%E5%93%AA%E4%BA%9B%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.</span> <span class="toc-text">知道哪些垃圾收集器？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-Serial-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.1.</span> <span class="toc-text">说说 Serial 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-ParNew-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.2.</span> <span class="toc-text">说说 ParNew 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-Parallel-Scavenge-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.3.</span> <span class="toc-text">说说 Parallel Scavenge 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-Serial-Old-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.4.</span> <span class="toc-text">说说 Serial Old 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-Parallel-Old-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.5.</span> <span class="toc-text">说说 Parallel Old 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-CMS-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.6.</span> <span class="toc-text">说说 CMS 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-G1-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.7.</span> <span class="toc-text">说说 G1 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-ZGC-%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.9.8.</span> <span class="toc-text">说说 ZGC 收集器？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E5%99%A8%E7%9A%84%E4%BD%9C%E7%94%A8%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.9.9.</span> <span class="toc-text">垃圾回收器的作用是什么？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%83%BD%E8%AF%A6%E7%BB%86%E8%AF%B4%E4%B8%80%E4%B8%8B-CMS-%E7%9A%84%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E8%BF%87%E7%A8%8B%E5%90%97%EF%BC%9F"><span class="toc-number">1.10.</span> <span class="toc-text">能详细说一下 CMS 的垃圾收集过程吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%A0%E6%8F%90%E5%88%B0%E4%BA%86remark%EF%BC%8C%E9%82%A3%E5%AE%83remark%E5%85%B7%E4%BD%93%E6%98%AF%E6%80%8E%E4%B9%88%E6%89%A7%E8%A1%8C%E7%9A%84%EF%BC%9F%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0%E6%B3%95%EF%BC%9F"><span class="toc-number">1.10.1.</span> <span class="toc-text">你提到了remark，那它remark具体是怎么执行的？三色标记法？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E4%B8%89%E8%89%B2%E6%A0%87%E8%AE%B0%E6%B3%95%EF%BC%9F"><span class="toc-number">1.10.2.</span> <span class="toc-text">什么是三色标记法？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#G1-%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.11.</span> <span class="toc-text">G1 垃圾收集器了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%A1%E7%AE%97Region%E7%9A%84%E6%97%B6%E5%80%99%E6%80%8E%E4%B9%88%E5%92%8C%E4%B8%9A%E5%8A%A1%E4%BB%A3%E7%A0%81%E5%B9%B6%E8%A1%8C%E6%89%A7%E8%A1%8C"><span class="toc-number">1.11.1.</span> <span class="toc-text">计算Region的时候怎么和业务代码并行执行</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E4%BA%86-CMS%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%98%E8%A6%81%E5%BC%95%E5%85%A5-G1%EF%BC%9F"><span class="toc-number">1.12.</span> <span class="toc-text">有了 CMS，为什么还要引入 G1？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%A0%E4%BB%AC%E7%BA%BF%E4%B8%8A%E7%94%A8%E7%9A%84%E4%BB%80%E4%B9%88%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%EF%BC%9F"><span class="toc-number">1.13.</span> <span class="toc-text">你们线上用的什么垃圾收集器？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B7%A5%E4%BD%9C%E4%B8%AD%E9%A1%B9%E7%9B%AE%E4%BD%BF%E7%94%A8%E7%9A%84%E4%BB%80%E4%B9%88%E5%9E%83%E5%9C%BE%E5%9B%9E%E6%94%B6%E7%AE%97%E6%B3%95%EF%BC%9F"><span class="toc-number">1.13.1.</span> <span class="toc-text">工作中项目使用的什么垃圾回收算法？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9E%83%E5%9C%BE%E6%94%B6%E9%9B%86%E5%99%A8%E5%BA%94%E8%AF%A5%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%EF%BC%9F"><span class="toc-number">1.14.</span> <span class="toc-text">垃圾收集器应该如何选择？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（六）：分布式限流"></a><div class="content"><a class="title" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流">分布式八股文面试题（六）：分布式限流</a><time datetime="2026-09-08T09:31:21.000Z" title="发表于 2026-09-08 17:31:21">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（五）：分布式设计"></a><div class="content"><a class="title" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计">分布式八股文面试题（五）：分布式设计</a><time datetime="2026-09-08T09:30:14.000Z" title="发表于 2026-09-08 17:30:14">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（四）：分布式一致性算法"></a><div class="content"><a class="title" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法">分布式八股文面试题（四）：分布式一致性算法</a><time datetime="2026-09-08T09:28:28.000Z" title="发表于 2026-09-08 17:28:28">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">83</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>
