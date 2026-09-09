@@ -1,0 +1,527 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Java集合框架篇八股文面试题（二）：List | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="ListArrayList 和 LinkedList 有什么区别？ArrayList 是基于数组实现的，LinkedList 是基于链表实现的。  ArrayList 和 LinkedList 的用途有什么不同？多数情况下，ArrayList 更利于查找，LinkedList 更利于增删。 ①、由于 ArrayList 是基于数组实现的，所以 get(int index) 可以直接通过数组下标获取">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Java集合框架篇八股文面试题（二）：List">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/7c9e/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="ListArrayList 和 LinkedList 有什么区别？ArrayList 是基于数组实现的，LinkedList 是基于链表实现的。  ArrayList 和 LinkedList 的用途有什么不同？多数情况下，ArrayList 更利于查找，LinkedList 更利于增删。 ①、由于 ArrayList 是基于数组实现的，所以 get(int index) 可以直接通过数组下标获取">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-01T08:45:52.000Z">
+<meta property="article:modified_time" content="2026-09-08T14:01:29.383Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Java集合框架篇">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Java集合框架篇八股文面试题（二）：List",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/7c9e/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-01T08:45:52.000Z",
+  "dateModified": "2026-09-08T14:01:29.383Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/7c9e/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Java集合框架篇八股文面试题（二）：List',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">Java集合框架篇八股文面试题（二）：List</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Java集合框架篇八股文面试题（二）：List</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-01T08:45:52.000Z" title="发表于 2026-09-01 16:45:52">2026-09-01</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-08T14:01:29.383Z" title="更新于 2026-09-08 22:01:29">2026-09-08</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>6分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-09-08 22:01:29&quot;}" hidden></div><h1 id="List"><a href="#List" class="headerlink" title="List"></a>List</h1><h2 id="ArrayList-和-LinkedList-有什么区别？"><a href="#ArrayList-和-LinkedList-有什么区别？" class="headerlink" title="ArrayList 和 LinkedList 有什么区别？"></a>ArrayList 和 LinkedList 有什么区别？</h2><p>ArrayList 是基于数组实现的，LinkedList 是基于链表实现的。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131867855-de3cce2a-ec5a-4364-9c18-63b9f0165055.png" width="1042" title crop="0,0,1,1" id="u8cea1aa4" class="ne-image"></p>
+<h3 id="ArrayList-和-LinkedList-的用途有什么不同？"><a href="#ArrayList-和-LinkedList-的用途有什么不同？" class="headerlink" title="ArrayList 和 LinkedList 的用途有什么不同？"></a>ArrayList 和 LinkedList 的用途有什么不同？</h3><p>多数情况下，ArrayList 更利于查找，LinkedList 更利于增删。</p>
+<p>①、由于 ArrayList 是基于数组实现的，所以 <code>get(int index)</code> 可以直接通过数组下标获取，时间复杂度是 O(1)；LinkedList 是基于链表实现的，<code>get(int index)</code> 需要遍历链表，时间复杂度是 O(n)。</p>
+<p>当然，<code>get(E element)</code> 这种查找，两种集合都需要遍历通过 equals 比较获取元素，所以时间复杂度都是 O(n)。</p>
+<p>②、ArrayList 如果增删的是数组的尾部，时间复杂度是 O(1)；如果 add 的时候涉及到扩容，时间复杂度会上升到 O(n)。</p>
+<p>但如果插入的是中间的位置，就需要把插入位置后的元素向前或者向后移动，甚至还有可能触发扩容，效率就会低很多，变成 O(n)。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131913597-bbdb60c2-e159-4c3d-b250-d1feca6ee094.png" width="923" title crop="0,0,1,1" id="u435f0e63" class="ne-image"></p>
+<p>LinkedList 因为是链表结构，插入和删除只需要改变前置节点、后置节点和插入节点的引用，因此不需要移动元素。</p>
+<p>如果是在链表的头部插入或者删除，时间复杂度是 O(1)；如果是在链表的中间插入或者删除，时间复杂度是 O(n)，因为需要遍历链表找到插入位置；如果是在链表的尾部插入或者删除，时间复杂度是 O(1)。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131950699-1b1a7831-5499-4c0b-bbf6-64bb38650518.png" width="925" title crop="0,0,1,1" id="u92a54ce3" class="ne-image"></p>
+<h3 id="ArrayList-和-LinkedList-是否支持随机访问？"><a href="#ArrayList-和-LinkedList-是否支持随机访问？" class="headerlink" title="ArrayList 和 LinkedList 是否支持随机访问？"></a>ArrayList 和 LinkedList 是否支持随机访问？</h3><p>①、ArrayList 是基于数组的，也实现了 RandomAccess 接口，所以它支持随机访问，可以通过下标直接获取元素。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131521347-985e03b5-acfc-44ac-aafa-f60e3fca9beb.png" width="2612" title crop="0,0,1,1" id="yVIdp" class="ne-image"></p>
+<p>②、LinkedList 是基于链表的，所以它没法根据下标直接获取元素，不支持随机访问。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131521724-69593a75-c627-4540-a6b6-9f8026838a14.png" width="2612" title crop="0,0,1,1" id="RWCKt" class="ne-image"></p>
+<h3 id="ArrayList-和-LinkedList-内存占用有何不同？"><a href="#ArrayList-和-LinkedList-内存占用有何不同？" class="headerlink" title="ArrayList 和 LinkedList 内存占用有何不同？"></a>ArrayList 和 LinkedList 内存占用有何不同？</h3><p>ArrayList 是基于数组的，是一块连续的内存空间，所以它的内存占用是比较紧凑的；但如果涉及到扩容，就会重新分配内存，空间是原来的 1.5 倍。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131521308-924f3090-6441-4e0e-afc4-d834f6f2fd72.png" width="1446" title crop="0,0,1,1" id="pmwsX" class="ne-image"></p>
+<p>LinkedList 是基于链表的，每个节点都有一个指向下一个节点和上一个节点的引用，于是每个节点占用的内存空间比 ArrayList 稍微大一点。</p>
+<h3 id="ArrayList-和-LinkedList-的使用场景有什么不同？"><a href="#ArrayList-和-LinkedList-的使用场景有什么不同？" class="headerlink" title="ArrayList 和 LinkedList 的使用场景有什么不同？"></a>ArrayList 和 LinkedList 的使用场景有什么不同？</h3><p>ArrayList 适用于：</p>
+<pre><code>- 随机访问频繁：需要频繁通过索引访问元素的场景。
+- 读取操作远多于写入操作：如存储不经常改变的列表。
+- 末尾添加元素：需要频繁在列表末尾添加元素的场景。
+</code></pre><p>LinkedList 适用于：</p>
+<pre><code>- 在列表中间频繁插入和删除元素的场景。
+- 顺序访问多于随机访问的场景。
+- LinkedList 可以实现队列（FIFO）和栈（LIFO）。
+</code></pre><h3 id="链表和数组有什么区别？"><a href="#链表和数组有什么区别？" class="headerlink" title="链表和数组有什么区别？"></a>链表和数组有什么区别？</h3><pre><code>- 数组在内存中占用的是一块连续的存储空间，因此我们可以通过数组下标快速访问任意元素。数组在创建时必须指定大小，一旦分配内存，数组的大小就固定了。
+- 链表的元素存储在于内存中的任意位置，每个节点通过指针指向下一个节点。
+</code></pre><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780132167899-26c53ef5-6fad-4693-a066-422cfaa629dd.png" width="1404" title crop="0,0,1,1" id="uf6b80814" class="ne-image"></p>
+<h2 id="ArrayList-的扩容机制了解吗？"><a href="#ArrayList-的扩容机制了解吗？" class="headerlink" title="ArrayList 的扩容机制了解吗？"></a>ArrayList 的扩容机制了解吗？</h2><p>了解。当往 ArrayList 中添加元素时，会先检查是否需要扩容，如果当前容量+1 超过数组长度，就会进行扩容。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780132227913-5c718c6f-fc51-4b3d-accb-9ab98762f63f.png" width="895" title crop="0,0,1,1" id="u53827f6c" class="ne-image"></p>
+<p>扩容后的新数组长度是原来的 1.5 倍，然后再把原数组的值拷贝到新数组中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="type">void</span> <span class="title function_">grow</span><span class="params">(<span class="type">int</span> minCapacity)</span> &#123;</span><br><span class="line">    <span class="comment">// overflow-conscious code</span></span><br><span class="line">    <span class="type">int</span> <span class="variable">oldCapacity</span> <span class="operator">=</span> elementData.length;</span><br><span class="line">    <span class="type">int</span> <span class="variable">newCapacity</span> <span class="operator">=</span> oldCapacity + (oldCapacity &gt;&gt; <span class="number">1</span>);</span><br><span class="line">    <span class="keyword">if</span> (newCapacity - minCapacity &lt; <span class="number">0</span>)</span><br><span class="line">        newCapacity = minCapacity;</span><br><span class="line">    <span class="keyword">if</span> (newCapacity - MAX_ARRAY_SIZE &gt; <span class="number">0</span>)</span><br><span class="line">        newCapacity = hugeCapacity(minCapacity);</span><br><span class="line">    <span class="comment">// minCapacity is usually close to size, so this is a win:</span></span><br><span class="line">    elementData = Arrays.copyOf(elementData, newCapacity);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="ArrayList-怎么序列化的知道吗？"><a href="#ArrayList-怎么序列化的知道吗？" class="headerlink" title="ArrayList 怎么序列化的知道吗？"></a>ArrayList 怎么序列化的知道吗？</h2><p>在 ArrayList 中，writeObject 方法被重写了，用于自定义序列化逻辑：只序列化有效数据，因为 elementData 数组的容量一般大于实际的元素数量，声明的时候也加了 transient 关键字。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131521934-67b1fe60-b04f-4e5d-a69c-d84165ed8f3f.png" width="1654" title crop="0,0,1,1" id="hLms7" class="ne-image"></p>
+<h3 id="为什么-ArrayList-不直接序列化元素数组呢？"><a href="#为什么-ArrayList-不直接序列化元素数组呢？" class="headerlink" title="为什么 ArrayList 不直接序列化元素数组呢？"></a>为什么 ArrayList 不直接序列化元素数组呢？</h3><p>出于效率的考虑，数组可能长度 100，但实际只用了 50，剩下的 50 没用到，也就不需要序列化。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="type">void</span> <span class="title function_">writeObject</span><span class="params">(java.io.ObjectOutputStream s)</span></span><br><span class="line">    <span class="keyword">throws</span> java.io.IOException &#123;</span><br><span class="line">    <span class="comment">// 将当前 ArrayList 的结构进行序列化</span></span><br><span class="line">    <span class="type">int</span> <span class="variable">expectedModCount</span> <span class="operator">=</span> modCount;</span><br><span class="line">    s.defaultWriteObject(); <span class="comment">// 序列化非 transient 字段</span></span><br><span class="line">    <span class="comment">// 序列化数组的大小</span></span><br><span class="line">    s.writeInt(size);</span><br><span class="line">    <span class="comment">// 序列化每个元素</span></span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">i</span> <span class="operator">=</span> <span class="number">0</span>; i &lt; size; i++) &#123;</span><br><span class="line">        s.writeObject(elementData[i]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 检查是否在序列化期间发生了并发修改</span></span><br><span class="line">    <span class="keyword">if</span> (modCount != expectedModCount) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">ConcurrentModificationException</span>();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="快速失败fail-fast了解吗？"><a href="#快速失败fail-fast了解吗？" class="headerlink" title="快速失败fail-fast了解吗？"></a>快速失败fail-fast了解吗？</h2><p>fail—fast 是 Java 集合的一种错误检测机制。</p>
+<p>在用迭代器遍历集合对象时，如果线程 A 遍历过程中，线程 B 对集合对象的内容进行了修改，就会抛出 Concurrent Modification Exception。</p>
+<p>迭代器在遍历时直接访问集合中的内容，并且在遍历过程中使用一个 <code>modCount</code> 变量。集合在被遍历期间如果内容发生变化，就会改变<code>modCount</code>的值。每当迭代器使用 <code>hashNext()/next()</code>遍历下一个元素之前，都会检测 modCount 变量是否为 expectedmodCount 值，是的话就返回遍历；否则抛出异常，终止遍历。</p>
+<p>异常的抛出条件是检测到 <code>modCount！=expectedmodCount</code> 这个条件。如果集合发生变化时修改 modCount 值刚好又设置为了 expectedmodCount 值，则异常不会抛出。因此，不能依赖于这个异常是否抛出而进行并发操作的编程，这个异常只建议用于检测并发修改的 bug。</p>
+<p>java.util 包下的集合类都是快速失败的，不能在多线程下发生并发修改（迭代过程中被修改），比如 ArrayList 类。</p>
+<h3 id="什么是安全失败（fail—safe）呢？"><a href="#什么是安全失败（fail—safe）呢？" class="headerlink" title="什么是安全失败（fail—safe）呢？"></a>什么是安全失败（fail—safe）呢？</h3><p>采用安全失败机制的集合容器，在遍历时不是直接在集合内容上访问的，而是先复制原有集合内容，在拷贝的集合上进行遍历。</p>
+<p>原理：由于迭代时是对原集合的拷贝进行遍历，所以在遍历过程中对原集合所作的修改并不能被迭代器检测到，所以不会触发 Concurrent Modification Exception。</p>
+<p>缺点：基于拷贝内容的优点是避免了 Concurrent Modification Exception，但同样地，迭代器并不能访问到修改后的内容，即：迭代器遍历的是开始遍历那一刻拿到的集合拷贝，在遍历期间原集合发生的修改迭代器是不知道的。</p>
+<p>场景：java.util.concurrent 包下的容器都是安全失败，可以在多线程下并发使用，并发修改，比如 CopyOnWriteArrayList 类。</p>
+<h2 id="有哪几种实现-ArrayList-线程安全的方法？"><a href="#有哪几种实现-ArrayList-线程安全的方法？" class="headerlink" title="有哪几种实现 ArrayList 线程安全的方法？"></a>有哪几种实现 ArrayList 线程安全的方法？</h2><p>常用的有两种。</p>
+<p>可以使用 <code>Collections.synchronizedList()</code> 方法，它可以返回一个线程安全的 List。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">SynchronizedList</span> <span class="variable">list</span> <span class="operator">=</span> Collections.synchronizedList(<span class="keyword">new</span> <span class="title class_">ArrayList</span>());</span><br></pre></td></tr></table></figure>
+<p>内部是通过 synchronized 关键字加锁来实现的。</p>
+<p>也可以直接使用 CopyOnWriteArrayList，它是线程安全的 ArrayList，遵循写时复制的原则，每当对列表进行修改时，都会创建一个新副本，这个新副本会替换旧的列表，而对旧列表的所有读取操作仍然在原有的列表上进行。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">CopyOnWriteArrayList</span> <span class="variable">list</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CopyOnWriteArrayList</span>();</span><br></pre></td></tr></table></figure>
+<p>通俗的讲，CopyOnWrite 就是当我们往一个容器添加元素的时候，不直接往容器中添加，而是先复制出一个新的容器，然后在新的容器里添加元素，添加完之后，再将原容器的引用指向新的容器。多个线程在读的时候，不需要加锁，因为当前容器不会添加任何元素。这样就实现了线程安全。</p>
+<h3 id="ArrayList-和-Vector-的区别？"><a href="#ArrayList-和-Vector-的区别？" class="headerlink" title="ArrayList 和 Vector 的区别？"></a>ArrayList 和 Vector 的区别？</h3><p>Vector 属于 JDK 1.0 时期的遗留类，不推荐使用，仍然保留着是因为 Java 希望向后兼容。</p>
+<p>ArrayList 是在 JDK 1.2 时引入的，用于替代 Vector 作为主要的非同步动态数组实现。因为 Vector 所有的方法都使用了 synchronized 关键字进行同步，所以单线程环境下效率较低。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780131522238-a3208e74-4b99-4bf9-bf1b-d974e1ef28ec.png" width="2168" title crop="0,0,1,1" id="x3v1M" class="ne-image"></p>
+<h2 id="CopyOnWriteArrayList-了解多少？"><a href="#CopyOnWriteArrayList-了解多少？" class="headerlink" title="CopyOnWriteArrayList 了解多少？"></a>CopyOnWriteArrayList 了解多少？</h2><p>CopyOnWriteArrayList 就是线程安全版本的 ArrayList。</p>
+<p><code>CopyOnWrite</code>——写时复制，已经明示了它的原理。</p>
+<p>CopyOnWriteArrayList 采用了一种读写分离的并发策略。CopyOnWriteArrayList 容器允许并发读，读操作是无锁的。至于写操作，比如说向容器中添加一个元素，首先将当前容器复制一份，然后在新副本上执行写操作，结束之后再将原容器的引用指向新容器。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780132385028-8b07f6c3-77dd-45a0-ae4a-036442ab6035.png" width="1140" title crop="0,0,1,1" id="ubaa57464" class="ne-image"></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/7c9e/">https://jingluo23.github.io/blog.github.io/posts/7c9e/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/Java%E9%9B%86%E5%90%88%E6%A1%86%E6%9E%B6%E7%AF%87/">Java集合框架篇</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/62e7/" title="Java集合框架篇八股文面试题（一）：引言"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Java集合框架篇八股文面试题（一）：引言</div></div></div></a><a class="pagination-related  no-desc" href="/blog.github.io/posts/77d6/" title="Java集合框架篇八股文面试题（三）：Map"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Java集合框架篇八股文面试题（三）：Map</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/77d6/" title="Java集合框架篇八股文面试题（三）：Map"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-01</div><div class="info-item-2">Java集合框架篇八股文面试题（三）：Map</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/62e7/" title="Java集合框架篇八股文面试题（一）：引言"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-01</div><div class="info-item-2">Java集合框架篇八股文面试题（一）：引言</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/6a4c/" title="Java集合框架篇八股文面试题（四）：Set"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-01</div><div class="info-item-2">Java集合框架篇八股文面试题（四）：Set</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/8533/" title="Java并发编程篇八股文面试题（四）：锁"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-03</div><div class="info-item-2">Java并发编程篇八股文面试题（四）：锁</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/11d9/" title="Java基础篇八股文面试题（三）：面向对象"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-21</div><div class="info-item-2">Java基础篇八股文面试题（三）：面向对象</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/72fa/" title="Redis八股文面试题（一）：基础"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（一）：基础</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#List"><span class="toc-number">1.</span> <span class="toc-text">List</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#ArrayList-%E5%92%8C-LinkedList-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">ArrayList 和 LinkedList 有什么区别？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ArrayList-%E5%92%8C-LinkedList-%E7%9A%84%E7%94%A8%E9%80%94%E6%9C%89%E4%BB%80%E4%B9%88%E4%B8%8D%E5%90%8C%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">ArrayList 和 LinkedList 的用途有什么不同？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#ArrayList-%E5%92%8C-LinkedList-%E6%98%AF%E5%90%A6%E6%94%AF%E6%8C%81%E9%9A%8F%E6%9C%BA%E8%AE%BF%E9%97%AE%EF%BC%9F"><span class="toc-number">1.1.2.</span> <span class="toc-text">ArrayList 和 LinkedList 是否支持随机访问？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#ArrayList-%E5%92%8C-LinkedList-%E5%86%85%E5%AD%98%E5%8D%A0%E7%94%A8%E6%9C%89%E4%BD%95%E4%B8%8D%E5%90%8C%EF%BC%9F"><span class="toc-number">1.1.3.</span> <span class="toc-text">ArrayList 和 LinkedList 内存占用有何不同？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#ArrayList-%E5%92%8C-LinkedList-%E7%9A%84%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF%E6%9C%89%E4%BB%80%E4%B9%88%E4%B8%8D%E5%90%8C%EF%BC%9F"><span class="toc-number">1.1.4.</span> <span class="toc-text">ArrayList 和 LinkedList 的使用场景有什么不同？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%93%BE%E8%A1%A8%E5%92%8C%E6%95%B0%E7%BB%84%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.1.5.</span> <span class="toc-text">链表和数组有什么区别？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ArrayList-%E7%9A%84%E6%89%A9%E5%AE%B9%E6%9C%BA%E5%88%B6%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">ArrayList 的扩容机制了解吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ArrayList-%E6%80%8E%E4%B9%88%E5%BA%8F%E5%88%97%E5%8C%96%E7%9A%84%E7%9F%A5%E9%81%93%E5%90%97%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">ArrayList 怎么序列化的知道吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-ArrayList-%E4%B8%8D%E7%9B%B4%E6%8E%A5%E5%BA%8F%E5%88%97%E5%8C%96%E5%85%83%E7%B4%A0%E6%95%B0%E7%BB%84%E5%91%A2%EF%BC%9F"><span class="toc-number">1.3.1.</span> <span class="toc-text">为什么 ArrayList 不直接序列化元素数组呢？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BF%AB%E9%80%9F%E5%A4%B1%E8%B4%A5fail-fast%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">快速失败fail-fast了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%AE%89%E5%85%A8%E5%A4%B1%E8%B4%A5%EF%BC%88fail%E2%80%94safe%EF%BC%89%E5%91%A2%EF%BC%9F"><span class="toc-number">1.4.1.</span> <span class="toc-text">什么是安全失败（fail—safe）呢？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%89%E5%93%AA%E5%87%A0%E7%A7%8D%E5%AE%9E%E7%8E%B0-ArrayList-%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%9A%84%E6%96%B9%E6%B3%95%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">有哪几种实现 ArrayList 线程安全的方法？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#ArrayList-%E5%92%8C-Vector-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.5.1.</span> <span class="toc-text">ArrayList 和 Vector 的区别？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CopyOnWriteArrayList-%E4%BA%86%E8%A7%A3%E5%A4%9A%E5%B0%91%EF%BC%9F"><span class="toc-number">1.6.</span> <span class="toc-text">CopyOnWriteArrayList 了解多少？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（六）：分布式限流"></a><div class="content"><a class="title" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流">分布式八股文面试题（六）：分布式限流</a><time datetime="2026-09-08T09:31:21.000Z" title="发表于 2026-09-08 17:31:21">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（五）：分布式设计"></a><div class="content"><a class="title" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计">分布式八股文面试题（五）：分布式设计</a><time datetime="2026-09-08T09:30:14.000Z" title="发表于 2026-09-08 17:30:14">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（四）：分布式一致性算法"></a><div class="content"><a class="title" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法">分布式八股文面试题（四）：分布式一致性算法</a><time datetime="2026-09-08T09:28:28.000Z" title="发表于 2026-09-08 17:28:28">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">83</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/blog.github.io/article/categories/'|| '/blog.github.io/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

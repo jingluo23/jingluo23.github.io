@@ -1,0 +1,872 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>MySQL八股文面试题（五）：SQL优化 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="SQL 优化什么是慢 SQL？MySQL 中有一个叫 long_query_time 的参数，原则上执行时间超过该参数值的 SQL 就是慢 SQL，会被记录到慢查询日志中。  可通过 show variables like &#39;long_query_time&#39;; 查看当前的 long_query_time 的参数值。  SQL 的执行过程了解吗？了解。 SQL 的执行过程大致可以分为">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL八股文面试题（五）：SQL优化">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/fb9/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="SQL 优化什么是慢 SQL？MySQL 中有一个叫 long_query_time 的参数，原则上执行时间超过该参数值的 SQL 就是慢 SQL，会被记录到慢查询日志中。  可通过 show variables like &#39;long_query_time&#39;; 查看当前的 long_query_time 的参数值。  SQL 的执行过程了解吗？了解。 SQL 的执行过程大致可以分为">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-13T08:08:49.000Z">
+<meta property="article:modified_time" content="2026-08-19T13:46:54.184Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="MySQL">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MySQL八股文面试题（五）：SQL优化",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/fb9/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-13T08:08:49.000Z",
+  "dateModified": "2026-08-19T13:46:54.184Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/fb9/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'MySQL八股文面试题（五）：SQL优化',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">MySQL八股文面试题（五）：SQL优化</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">MySQL八股文面试题（五）：SQL优化</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-13T08:08:49.000Z" title="发表于 2026-08-13 16:08:49">2026-08-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-19T13:46:54.184Z" title="更新于 2026-08-19 21:46:54">2026-08-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.9k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>24分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-08-19 21:46:54&quot;}" hidden></div><h1 id="SQL-优化"><a href="#SQL-优化" class="headerlink" title="SQL 优化"></a>SQL 优化</h1><h2 id="什么是慢-SQL？"><a href="#什么是慢-SQL？" class="headerlink" title="什么是慢 SQL？"></a>什么是慢 SQL？</h2><p>MySQL 中有一个叫 long_query_time 的参数，原则上执行时间超过该参数值的 SQL 就是慢 SQL，会被记录到慢查询日志中。 </p>
+<p>可通过 <code>show variables like &#39;long_query_time&#39;;</code> 查看当前的 long_query_time 的参数值。 <img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933452707-c45ae747-58e6-4da1-86be-9df8a77deaa9.png" width="1074" title crop="0,0,1,1" id="u27d7e9d7" class="ne-image"></p>
+<h2 id="SQL-的执行过程了解吗？"><a href="#SQL-的执行过程了解吗？" class="headerlink" title="SQL 的执行过程了解吗？"></a>SQL 的执行过程了解吗？</h2><p>了解。 SQL 的执行过程大致可以分为六个阶段：连接管理、语法解析、语义分析、查询优化、执行器调度、存储引擎读写等。Server 层负责理解和规划 SQL 怎么执行，存储引擎层负责数据的真正读写。 </p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950156890-0f89ff16-87cd-4220-9f4b-0763a381d6a8.png" width="1342" title crop="0,0,1,1" id="u02cf8d44" class="ne-image"></p>
+<p> 来详细拆解一下： </p>
+<ol>
+<li><p>客户端发送 SQL 语句给 MySQL 服务器。 </p>
+</li>
+<li><p>如果查询缓存打开则会优先查询缓存，缓存中有对应的结果就直接返回。不过，MySQL 8.0 已经移除了查询缓存。这部分的功能正在被 Redis 等缓存中间件取代。 </p>
+</li>
+<li><p>分析器对 SQL 语句进行语法分析，判断是否有语法错误。 </p>
+</li>
+<li><p>搞清楚 SQL 语句要干嘛后，MySQL 会通过优化器生成执行计划。 </p>
+</li>
+<li><p>执行器调用存储引擎的接口，执行 SQL 语句。 </p>
+</li>
+</ol>
+<p>SQL 执行过程中，优化器通过成本计算预估出执行效率最高的方式，基本的预估维度为： </p>
+<ul>
+<li><p>IO 成本：从磁盘读取数据到内存的开销。 </p>
+</li>
+<li><p>CPU 成本：CPU 处理内存中数据的开销。 </p>
+</li>
+</ul>
+<p>基于这两个维度，可以得出影响 SQL 执行效率的因素有：</p>
+<p><strong>①、IO 成本</strong>，数据量越大，IO 成本越高。所以要尽量查询必要的字段；尽量分页查询；尽量通过索引加快查询。</p>
+<p><strong>②、CPU 成本</strong>，尽量避免复杂的查询条件，如有必要，考虑对子查询结果进行过滤。</p>
+<h3 id="如何优化慢-SQL-呢？"><a href="#如何优化慢-SQL-呢？" class="headerlink" title="如何优化慢 SQL 呢？"></a>如何优化慢 SQL 呢？</h3><p>首先，需要找到那些比较慢的 SQL，可以通过启用慢查询日志，记录那些超过指定执行时间的 SQL 查询。</p>
+<p>也可以使用 <code>show processlist;</code> 命令查看当前正在执行的 SQL 语句，找出执行时间较长的 SQL。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950455374-ebeb1339-1d63-4cc7-8dd2-182c34e73387.png" width="1966" title crop="0,0,1,1" id="IbZ86" class="ne-image"></p>
+<p>或者在业务基建中加入对慢 SQL 的监控，常见的方案有字节码插桩、连接池扩展、ORM 框架扩展等。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950456081-15725823-d97b-49b8-a2da-5d29329bae1f.png" width="3028" title crop="0,0,1,1" id="RQbrG" class="ne-image"></p>
+<p>然后，使用 EXPLAIN 查看慢 SQL 的执行计划，看看有没有用索引，大部分情况下，慢 SQL 的原因都是因为没有用到索引。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> your_table <span class="keyword">WHERE</span> conditions;</span><br></pre></td></tr></table></figure>
+<p>最后，根据分析结果，通过添加索引、优化查询条件、减少返回字段等方式进行优化。</p>
+<h3 id="慢sql日志怎么开启？"><a href="#慢sql日志怎么开启？" class="headerlink" title="慢sql日志怎么开启？"></a>慢sql日志怎么开启？</h3><p>8    编辑 MySQL 的配置文件 my.cnf，设置 slow_query_log 参数为 1。</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">[mysqld]</span></span><br><span class="line"><span class="attr">slow_query_log</span> = <span class="string">1</span></span><br><span class="line"><span class="attr">slow_query_log_file</span> = <span class="string">/var/log/mysql/slow.log</span></span><br><span class="line"><span class="attr">long_query_time</span> = <span class="string">2  # 记录执行时间超过2秒的查询</span></span><br></pre></td></tr></table></figure>
+<p>然后重启 MySQL 就好了。</p>
+<p>也可以通过 set global 命令动态设置。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> slow_query_log <span class="operator">=</span> <span class="string">&#x27;ON&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> slow_query_log_file <span class="operator">=</span> <span class="string">&#x27;/var/log/mysql/slow.log&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> long_query_time <span class="operator">=</span> <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<h2 id="你知道哪些方法来优化-SQL？"><a href="#你知道哪些方法来优化-SQL？" class="headerlink" title="你知道哪些方法来优化 SQL？"></a>你知道哪些方法来优化 SQL？</h2><p>SQL 优化的方法非常多，但本质上就一句话：尽可能少地扫描、尽快地返回结果。</p>
+<p>最常见的做法就是加索引、改写 SQL 让它用上索引，比如说使用覆盖索引、让联合索引遵守最左前缀原则等。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950847028-5dca0e88-bb3e-4c51-990a-a5f13a448de3.png" width="1238" title crop="0,0,1,1" id="ub03e3d9c" class="ne-image"></p>
+<h3 id="如何利用覆盖索引？"><a href="#如何利用覆盖索引？" class="headerlink" title="如何利用覆盖索引？"></a>如何利用覆盖索引？</h3><p>覆盖索引的核心是“查询所需的字段都在同一个索引里”，这样 MySQL 就不需要回表，直接从索引中返回结果。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950457573-d159a82d-a3e4-4219-abb1-0813e55a7361.png" width="1789" title crop="0,0,1,1" id="spUrK" class="ne-image"></p>
+<p>实际使用中，我会优先考虑把 WHERE 和 SELECT 涉及的字段一起建联合索引，并通过 EXPLAIN 观察结果是否有 Using index，确认命中索引。</p>
+<p>举个例子，现在要从 test 表中查询 city 为上海的 name 字段。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> name <span class="keyword">from</span> test <span class="keyword">where</span> city<span class="operator">=</span><span class="string">&#x27;上海&#x27;</span></span><br></pre></td></tr></table></figure>
+<p>如果仅在 city 字段上添加索引，那么这条查询语句会先通过索引找到 city 为上海的行，然后再回表查询 name 字段。</p>
+<p>为了避免回表查询，可以在 city 和 name 字段上建立联合索引，这样查询结果就可以直接从索引中获取。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">alter table</span> test <span class="keyword">add</span> index index1(city,name);</span><br></pre></td></tr></table></figure>
+<h3 id="如何正确使用联合索引？"><a href="#如何正确使用联合索引？" class="headerlink" title="如何正确使用联合索引？"></a>如何正确使用联合索引？</h3><p>使用联合索引最重要的一条是遵守最左前缀原则，也就是查询条件需要从索引的左侧字段开始。</p>
+<p>比如说我们创建了一个三列的联合索引。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> INDEX idx_name_age_sex <span class="keyword">ON</span> <span class="keyword">user</span>(name, age, sex);</span><br></pre></td></tr></table></figure>
+<p>我们来看一下什么样的查询条件可以用到这个索引：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>查询条件</th>
+<th>能否用上 idx_name_age_sex？</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WHERE name = ‘jingluo’</td>
+<td>✅ 可以</td>
+<td>匹配第一列，命中索引</td>
+</tr>
+<tr>
+<td>WHERE name = ‘jingluo’ AND age=20</td>
+<td>✅ 可以</td>
+<td>匹配前两列，命中索引</td>
+</tr>
+<tr>
+<td>WHERE age = 20</td>
+<td>❌ 不行</td>
+<td>第一列没用上，索引失效</td>
+</tr>
+<tr>
+<td>WHERE name=’jingluo’ AND sex=’女’</td>
+<td>✅ 部分可用（只用前一列）</td>
+<td>age 被跳过，后面的列无法使用</td>
+</tr>
+<tr>
+<td>WHERE name LIKE ‘ji%’</td>
+<td>✅ 可以（前缀匹配）</td>
+<td>name 是前缀匹配，不影响使用</td>
+</tr>
+<tr>
+<td>WHERE name LIKE ‘%ngluo%’</td>
+<td>❌ 不行</td>
+<td>通配符在前，不能用索引</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="如何进行分页优化？"><a href="#如何进行分页优化？" class="headerlink" title="如何进行分页优化？"></a>如何进行分页优化？</h3><p>分页优化的核心是避免深度偏移带来的全表扫描，可以通过两种方式来优化：延迟关联和添加书签。</p>
+<p>延迟关联适用于需要从多个表中获取数据且主表行数较多的情况。它首先从索引表中检索出需要的行 ID，然后再根据这些 ID 去关联其他的表获取详细信息。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> e.id, e.name, d.details</span><br><span class="line"><span class="keyword">FROM</span> employees e</span><br><span class="line"><span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.department_id <span class="operator">=</span> d.id</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> e.id</span><br><span class="line">LIMIT <span class="number">1000</span>, <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+<p>延迟关联后，第一步只查主键，速度快，第二步只处理 20 条数据，效率高。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> e.id, e.name, d.details</span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span> id</span><br><span class="line">    <span class="keyword">FROM</span> employees</span><br><span class="line">    <span class="keyword">ORDER</span> <span class="keyword">BY</span> id</span><br><span class="line">    LIMIT <span class="number">1000</span>, <span class="number">20</span></span><br><span class="line">) <span class="keyword">AS</span> sub</span><br><span class="line"><span class="keyword">JOIN</span> employees e <span class="keyword">ON</span> sub.id <span class="operator">=</span> e.id</span><br><span class="line"><span class="keyword">JOIN</span> department d <span class="keyword">ON</span> e.department_id <span class="operator">=</span> d.id;</span><br></pre></td></tr></table></figure>
+<p>添加书签的方式是通过记住上一次查询返回的最后一行主键值，然后在下一次查询的时候从这个值开始，从而跳过偏移量计算，仅扫描目标数据，适合翻页、资讯流等场景。</p>
+<p>假设需要对用户表进行分页。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> id, name</span><br><span class="line"><span class="keyword">FROM</span> users</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> id</span><br><span class="line">LIMIT <span class="number">1000</span>, <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+<p>通过添加书签来优化后，查询不再使用<code>OFFSET</code>，而是从上一页最后一个用户的 ID 开始查询。这种方法可以有效避免不必要的数据扫描，提高了分页查询的效率。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> id, name</span><br><span class="line"><span class="keyword">FROM</span> users</span><br><span class="line"><span class="keyword">WHERE</span> id <span class="operator">&gt;</span> last_max_id  <span class="comment">-- 假设last_max_id是上一页最后一行的ID</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> id</span><br><span class="line">LIMIT <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+<h3 id="为什么分页会变慢？"><a href="#为什么分页会变慢？" class="headerlink" title="为什么分页会变慢？"></a>为什么分页会变慢？</h3><p>分页查询的效率问题主要是由于 OFFSET 的存在，OFFSET 会导致 MySQL 必须扫描和跳过 offset + limit 条数据，这个过程是非常耗时的。</p>
+<p>比如说，我们要查询第 100000 条数据，那么 MySQL 就必须扫描 100000 条数据，然后再返回 10 条数据。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> <span class="keyword">ORDER</span> <span class="keyword">BY</span> id LIMIT <span class="number">100000</span>, <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+<p>数据越多、偏移越大，就越慢！</p>
+<h3 id="JOIN-代替子查询有什么好处？"><a href="#JOIN-代替子查询有什么好处？" class="headerlink" title="JOIN 代替子查询有什么好处？"></a>JOIN 代替子查询有什么好处？</h3><p>第一，JOIN 的 ON 条件能更直接地触发索引，而子查询可能因嵌套导致索引失效。</p>
+<p>第二，JOIN 的一次连接操作替代了子查询的多次重复执行，尤其在大数据量的情况下性能差异明显。</p>
+<p>比如说我们有两个表 orders 和 customers。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> orders (</span><br><span class="line">    order_id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    customer_id <span class="type">INT</span>,</span><br><span class="line">    amount <span class="type">DECIMAL</span>(<span class="number">10</span>,<span class="number">2</span>),</span><br><span class="line">    INDEX idx_customer_id (customer_id)  <span class="comment">-- customer_id字段有索引</span></span><br><span class="line">);</span><br><span class="line"><span class="keyword">CREATE TABLE</span> customers (</span><br><span class="line">    customer_id <span class="type">INT</span> <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">100</span>)</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p>子查询的写法：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> o.order_id, o.amount, </span><br><span class="line">       (<span class="keyword">SELECT</span> c.name </span><br><span class="line">        <span class="keyword">FROM</span> customers c </span><br><span class="line">        <span class="keyword">WHERE</span> c.customer_id <span class="operator">=</span> o.customer_id) <span class="keyword">AS</span> customer_name</span><br><span class="line"><span class="keyword">FROM</span> orders o;</span><br></pre></td></tr></table></figure>
+<p>JOIN 的写法：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> o.order_id, o.amount, c.name <span class="keyword">AS</span> customer_name</span><br><span class="line"><span class="keyword">FROM</span> orders o</span><br><span class="line"><span class="keyword">JOIN</span> customers c <span class="keyword">ON</span> o.customer_id <span class="operator">=</span> c.customer_id;</span><br></pre></td></tr></table></figure>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>子查询</th>
+<th>JOIN</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>索引使用</td>
+<td>内层子查询 <code>WHERE c.customer_id = o.customer_id</code> 每次执行时，可能无法直接利用 orders 表的 customer_id 索引。</td>
+<td>JOIN 的 ON 条件 <code>o.customer_id = c.customer_id</code> 可以直接利用 orders 的 idx_customer_id 索引，加速连接过程。</td>
+</tr>
+<tr>
+<td>执行计划</td>
+<td>子查询会被重复执行（每次外层 orders 行都会触发一次子查询），导致全表扫描。</td>
+<td>优化器可能选择通过索引快速关联两张表，减少数据扫描量。例如，先通过 orders 的索引找到 customer_id，再与 customers 主键快速匹配。</td>
+</tr>
+<tr>
+<td>性能表现</td>
+<td>当 orders 表数据量大时，子查询可能因重复执行导致性能急剧下降。</td>
+<td>JOIN 的一次连接操作通常更高效，尤其在大数据量时。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>对于子查询，执行流程是这样的：</p>
+<pre><code>- 外层 orders 表的每一行都会触发一次子查询。
+- 如果 orders 表有 1000 条记录，则子查询会执行 1000 次。
+- 每次子查询都需要单独查询 customers 表（即使 customer_id 相同）。
+</code></pre><p>而 JOIN 的执行流程是这样的：</p>
+<pre><code>- 数据库优化器会将两张表的连接操作合并为一次执行。
+- 通过索引（如 orders.customer_id 和 customers.customer_id）快速关联数据。
+- 仅执行一次关联操作，而非多次子查询。
+</code></pre><p>来看一下子查询的执行计划：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN <span class="keyword">SELECT</span> o.order_id, </span><br><span class="line">               (<span class="keyword">SELECT</span> c.name <span class="keyword">FROM</span> customers c <span class="keyword">WHERE</span> c.customer_id <span class="operator">=</span> o.customer_id) </span><br><span class="line">        <span class="keyword">FROM</span> orders o;</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950456962-a31d0803-2939-41f4-82f5-6876f04b24bf.png" width="2150" title crop="0,0,1,1" id="IrjBQ" class="ne-image"></p>
+<p>子查询（DEPENDENT SUBQUERY）类型表明其依赖外层查询的每一行，导致重复执行。</p>
+<p>再对比看一下 JOIN 的执行计划：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN <span class="keyword">SELECT</span> o.order_id, </span><br><span class="line">               (<span class="keyword">SELECT</span> c.name <span class="keyword">FROM</span> customers c <span class="keyword">WHERE</span> c.customer_id <span class="operator">=</span> o.customer_id) </span><br><span class="line">        <span class="keyword">FROM</span> orders o;</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950457113-139be681-5719-44ea-9a07-4e8f9a3a6704.png" width="2156" title crop="0,0,1,1" id="srThD" class="ne-image"></p>
+<p>JOIN 通过 eq_ref 类型直接利用主键（customers.customer_id）快速关联，减少扫描次数。</p>
+<h3 id="JOIN操作为什么要小表驱动大表？"><a href="#JOIN操作为什么要小表驱动大表？" class="headerlink" title="JOIN操作为什么要小表驱动大表？"></a>JOIN操作为什么要小表驱动大表？</h3><p>第一，如果大表的 JOIN 字段有索引，那么小表的每一行都可以通过索引快速匹配大表。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950458493-a95db939-1451-4ede-843b-b72231e26959.png" width="1182" title crop="0,0,1,1" id="QDMKG" class="ne-image"></p>
+<p>时间复杂度为小表行数 N 乘以大表索引查找复杂度 log(大表行数 M)，总复杂度为 N*log(M)。</p>
+<p>显然小表做驱动表比大表做驱动表的时间复杂度 M*log(N) 更低。</p>
+<p>第二，如果大表没有索引，需要将小表的数据加载到内存，再全表扫描大表进行匹配。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950458595-c088b35e-fecb-4fb0-afa2-bc710d764a8b.png" width="950" title crop="0,0,1,1" id="b1jly" class="ne-image"></p>
+<p>时间复杂度为小表分段数 K 乘以大表行数 M，其中 K = 小表行数 N / 内存大小 join_buffer_size。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950458248-664d347e-af53-4520-87b0-13d513afc557.png" width="974" title crop="0,0,1,1" id="sKMpC" class="ne-image"></p>
+<p>显然小表做驱动表的时候 K 的值更小，大表做驱动表的时候需要多次分段。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 小表驱动（高效）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> small_table s</span><br><span class="line"><span class="keyword">JOIN</span> large_table l <span class="keyword">ON</span> s.id <span class="operator">=</span> l.id;  <span class="comment">-- l.id有索引</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 大表驱动（低效）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> large_table l</span><br><span class="line"><span class="keyword">JOIN</span> small_table s <span class="keyword">ON</span> l.id <span class="operator">=</span> s.id;  <span class="comment">-- s.id无索引</span></span><br></pre></td></tr></table></figure>
+<pre><code>1. 当使用 left join 时，左表是驱动表，右表是被驱动表。
+2. 当使用 right join 时，刚好相反。
+3. 当使用 join 时，MySQL 会选择数据量比较小的表作为驱动表，大表作为被驱动表。
+</code></pre><p>为了验证这一点，我特意新建了两个表 departments 和 employees。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950458448-bd93c176-590a-4aa1-a22d-5901d3724733.png" width="1176" title crop="0,0,1,1" id="BhpEY" class="ne-image"></p>
+<p>插入测试数据：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 插入测试数据</span></span><br><span class="line"><span class="keyword">INSERT INTO</span> departments <span class="keyword">VALUES</span></span><br><span class="line">    (<span class="number">1</span>, <span class="string">&#x27;研发部&#x27;</span>),</span><br><span class="line">    (<span class="number">2</span>, <span class="string">&#x27;市场部&#x27;</span>),</span><br><span class="line">    (<span class="number">3</span>, <span class="string">&#x27;人事部&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 插入更多数据到员工表</span></span><br><span class="line"><span class="keyword">INSERT INTO</span> employees <span class="keyword">VALUES</span></span><br><span class="line">    (<span class="number">1</span>, <span class="string">&#x27;张三&#x27;</span>, <span class="number">1</span>),</span><br><span class="line">    (<span class="number">2</span>, <span class="string">&#x27;李四&#x27;</span>, <span class="number">1</span>),</span><br><span class="line">    (<span class="number">3</span>, <span class="string">&#x27;王二&#x27;</span>, <span class="number">2</span>),</span><br><span class="line">    (<span class="number">4</span>, <span class="string">&#x27;赵六&#x27;</span>, <span class="number">2</span>),</span><br><span class="line">    (<span class="number">5</span>, <span class="string">&#x27;钱七&#x27;</span>, <span class="number">3</span>),</span><br><span class="line">    (<span class="number">6</span>, <span class="string">&#x27;孙八&#x27;</span>, <span class="keyword">NULL</span>),</span><br><span class="line">    (<span class="number">7</span>, <span class="string">&#x27;周九&#x27;</span>, <span class="number">1</span>),</span><br><span class="line">    (<span class="number">8</span>, <span class="string">&#x27;吴十&#x27;</span>, <span class="number">2</span>);</span><br></pre></td></tr></table></figure>
+<p>然后用 explain 查看执行计划：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950459216-f183b703-bb6a-45c4-ab17-5230911d874c.png" width="3060" title crop="0,0,1,1" id="WBMOD" class="ne-image"></p>
+<p>当使用 left join 的时候，第一行是 employees 表，说明左表是驱动表；当使用 right join 的时候，第一行是 departments 表，说明右表是驱动表；当使用 join 的时候，第一行是 departments 表，说明 MySQL 默认选择了小表作为驱动表。</p>
+<p>这里的小表指实际参与 JOIN 的数据量，而不是表的总行数。大表经过 where 条件过滤后也可能成为逻辑小表。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 实际参与JOIN的数据量决定小表</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> large_table l</span><br><span class="line"><span class="keyword">JOIN</span> small_table s <span class="keyword">ON</span> l.id <span class="operator">=</span> s.id</span><br><span class="line"><span class="keyword">WHERE</span> l.created_at <span class="operator">&gt;</span> <span class="string">&#x27;2025-01-01&#x27;</span>;  <span class="comment">-- l经过过滤后可能成为小表</span></span><br></pre></td></tr></table></figure>
+<p>也可以强制通过 STRAIGHT_JOIN 提示 MySQL 使用指定的驱动表。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">explain <span class="keyword">select</span> table_1.col1, table_2.col2, table_3.col2</span><br><span class="line"><span class="keyword">from</span> table_1</span><br><span class="line">straight_join table_2 <span class="keyword">on</span> table_1.col1<span class="operator">=</span>table_2.col1</span><br><span class="line">straight_join table_3 <span class="keyword">on</span> table_1.col1 <span class="operator">=</span> table_3.col1;</span><br><span class="line"></span><br><span class="line">explain <span class="keyword">select</span> straight_join table_1.col1, table_2.col2, table_3.col2</span><br><span class="line"><span class="keyword">from</span> table_1</span><br><span class="line"><span class="keyword">join</span> table_2 <span class="keyword">on</span> table_1.col1<span class="operator">=</span>table_2.col1</span><br><span class="line"><span class="keyword">join</span> table_3 <span class="keyword">on</span> table_1.col1 <span class="operator">=</span> table_3.col1;</span><br></pre></td></tr></table></figure>
+<h3 id="为什么要避免使用-JOIN-关联太多的表？"><a href="#为什么要避免使用-JOIN-关联太多的表？" class="headerlink" title="为什么要避免使用 JOIN 关联太多的表？"></a>为什么要避免使用 JOIN 关联太多的表？</h3><p>第一，多表 JOIN 的执行路径会随着表的数量呈现指数级增长，优化器需要估算所有路径的成本，有可能会导致出现大表驱动小表的情况。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> A</span><br><span class="line"><span class="keyword">JOIN</span> B <span class="keyword">ON</span> A.id <span class="operator">=</span> B.a_id</span><br><span class="line"><span class="keyword">JOIN</span> C <span class="keyword">ON</span> B.id <span class="operator">=</span> C.b_id</span><br><span class="line"><span class="keyword">JOIN</span> D <span class="keyword">ON</span> C.id <span class="operator">=</span> D.c_id</span><br><span class="line"><span class="keyword">JOIN</span> E <span class="keyword">ON</span> D.id <span class="operator">=</span> E.d_id;  <span class="comment">-- 5 个表，优化器需评估 5! = 120 种顺序</span></span><br></pre></td></tr></table></figure>
+<p>第二，多表 JOIN 需要缓存中间结果集，可能超出 join_buffer_size，这种情况下内存临时表就会转为磁盘临时表，性能也会急剧下降。</p>
+<p>《阿里巴巴 Java 开发手册》上就规定，不要使用 join 关联太多的表，最多不要超过 3 张表。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950459245-b7d697cc-b6ca-40d3-bf13-7f0bac2fa994.png" width="1450" title crop="0,0,1,1" id="A7207" class="ne-image"></p>
+<h3 id="如何进行排序优化？"><a href="#如何进行排序优化？" class="headerlink" title="如何进行排序优化？"></a>如何进行排序优化？</h3><p>第一，对 ORDER BY 涉及的字段创建索引，避免 filesort。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 优化前（可能触发 filesort）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">ORDER</span> <span class="keyword">BY</span> age <span class="keyword">DESC</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 优化后（添加索引）</span></span><br><span class="line"><span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD</span> INDEX idx_age (age);</span><br></pre></td></tr></table></figure>
+<p>如果是多个字段，联合索引需要保证 ORDER BY 的列是索引的最左前缀。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 联合索引需与 ORDER BY 顺序一致（age 在前，name 在后）</span></span><br><span class="line"><span class="keyword">ALTER TABLE</span> users <span class="keyword">ADD</span> INDEX idx_age_name (age, name);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 有效利用索引的查询</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">ORDER</span> <span class="keyword">BY</span> age, name;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 无效案例（索引失效，因 name 在索引中排在 age 之后）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">ORDER</span> <span class="keyword">BY</span> name, age;</span><br></pre></td></tr></table></figure>
+<p>第二，可以适当调整排序参数，如增大 sort_buffer_size、max_length_for_sort_data 等，让排序在内存中完成。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950459546-4afa12e5-7eb9-4427-a9dc-f3cad20e5b1d.png" width="1118" title crop="0,0,1,1" id="xrYDK" class="ne-image"></p>
+<pre><code>- sort_buffer_size：用于控制排序缓冲区的大小，默认为 256KB。也就是说，如果排序的数据量小于 256KB，MySQL 会在内存中直接排序；否则就要在磁盘上进行 filesort。
+- max_length_for_sort_data：单行数据的最大长度，会影响排序算法选择。如果单行数据超过该值，MySQL 会使用双路排序，否则使用单路排序。
+- max_sort_length：限制字符串排序时比较的前缀长度。当 MySQL 不得不对 text、blob 字段进行排序时，会截取前 max_sort_length 个字符进行比较。
+</code></pre><p>第三，可以通过 where 和 limit 限制待排序的数据量，减少排序的开销。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 优化前</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">ORDER</span> <span class="keyword">BY</span> age LIMIT <span class="number">100</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 优化后（减少数据传输和排序开销）</span></span><br><span class="line"><span class="keyword">SELECT</span> id, name, age <span class="keyword">FROM</span> users <span class="keyword">ORDER</span> <span class="keyword">BY</span> age LIMIT <span class="number">100</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 深度分页优化（避免 OFFSET 扫描全表）</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">ORDER</span> <span class="keyword">BY</span> age LIMIT <span class="number">10000</span>, <span class="number">20</span>;  <span class="comment">-- 低效</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> age <span class="operator">&gt;</span> last_age <span class="keyword">ORDER</span> <span class="keyword">BY</span> age LIMIT <span class="number">20</span>;  <span class="comment">-- 高效（记录上一页最后一条的 age 值）</span></span><br></pre></td></tr></table></figure>
+<h3 id="什么是-filesort？"><a href="#什么是-filesort？" class="headerlink" title="什么是 filesort？"></a>什么是 filesort？</h3><p>当不能使用索引生成排序结果的时候，MySQL 需要自己进行排序，如果数据量比较小，会在内存中进行；如果数据量比较大就需要写临时文件到磁盘再排序，我们将这个过程称为文件排序。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950459813-4968b5a9-73a4-40af-ae01-0265a32b8b2a.png" width="1168" title crop="0,0,1,1" id="RFwjS" class="ne-image"></p>
+<p>好，让我们来验证一下 filesort 的情况，建表、插入数据。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950459963-f3029e65-a2a2-49f1-8243-c7ccf22882ac.png" width="1054" title crop="0,0,1,1" id="T5NRQ" class="ne-image"></p>
+<p>执行 explain 查看执行计划。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950459917-5418a422-c94b-4050-a253-e7224136f5b1.png" width="1338" title crop="0,0,1,1" id="Il2Qx" class="ne-image"></p>
+<p>能够看得出来，当 order by id 也就是主键的时候，没有触发 filesort；当 order by age 的时候，由于没有索引，就触发了 filesort。</p>
+<h3 id="全字段排序和-rowid-排序了解多少？"><a href="#全字段排序和-rowid-排序了解多少？" class="headerlink" title="全字段排序和 rowid 排序了解多少？"></a>全字段排序和 rowid 排序了解多少？</h3><p>当排序字段是索引字段且满足最左前缀原则时，MySQL 可以直接利用索引的有序性完成排序。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950460518-eb1d8725-f218-4ee7-aad4-6c1b41fbb90f.png" width="511" title crop="0,0,1,1" id="GK4K2" class="ne-image"></p>
+<p>当无法使用索引排序时，MySQL 需要在内存或磁盘中进行排序操作，分为全字段排序和 rowid 排序两种算法。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950461224-e2d84cbb-a5c2-4a74-b3e2-8696a321ecaa.png" width="1142" title crop="0,0,1,1" id="HZqFZ" class="ne-image"></p>
+<p>全字段排序会一次性取出满足条件行的所有字段，然后在 sort buffer 中进行排序，排序后直接返回结果，无需回表。</p>
+<p>以 <code>SELECT * FROM user WHERE name = &quot;王二&quot; ORDER BY age</code> 为例：</p>
+<pre><code>- 从 name 索引中找到第一个满足 `name=&#39;张三&#39;` 的主键 id；
+- 根据主键 id 取出整行所有的字段，存入 sort buffer；
+- 重复上述过程直到处理完所有满足条件的行
+- 对 sort buffer 中的数据按 age 排序，返回结果。
+</code></pre><p>优点是仅需要一次磁盘 IO，缺点是内存占用大，如果数量超过 sort buffer 的话，需要分片读取并借助临时文件合并排序，IO 次数反而会增加。</p>
+<p>也无法处理包含 text 和 blob 类型的字段。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950461703-4ae87b3b-1704-45e0-a54a-7aec10bbd507.png" width="1142" title crop="0,0,1,1" id="ZreZB" class="ne-image"></p>
+<p>rowid 排序分为两个阶段：</p>
+<pre><code>- 第一阶段：根据查询条件取出排序字段和主键 ID，存入 sort buffer 进行排序；
+- 第二阶段：根据排序后的主键 ID 回表取出其他需要的字段。
+</code></pre><p>同样以 <code>SELECT * FROM user WHERE name = &quot;王二&quot; ORDER BY age</code> 为例：</p>
+<pre><code>- 从 name 索引中找到第一个满足 `name=&#39;张三&#39;` 的主键 id；
+- 根据主键 id 取出排序字段 age，连同主键 id 一起存入 sort buffer；
+- 重复上述过程直到处理完所有满足条件的行
+- 对 sort buffer 中的数据按 age 排序；
+- 遍历排序后的主键 id，回表取出其他所需字段，返回结果。
+</code></pre><p>优点是内存占用较少，适合字段多或者数据量大的场景，缺点是需要两次磁盘 IO。</p>
+<p>MySQL 会根据系统变量 max_length_for_sort_data 和查询字段的总大小来决定使用全字段排序还是 rowid 排序。</p>
+<p>如果查询字段总长度 &lt;= max_length_for_sort_data，MySQL 会使用全字段排序；否则会使用 rowid 排序。</p>
+<h3 id="你对-Sort-merge-passes-参数了解吗？"><a href="#你对-Sort-merge-passes-参数了解吗？" class="headerlink" title="你对 Sort_merge_passes 参数了解吗？"></a>你对 Sort_merge_passes 参数了解吗？</h3><p>Sort_merge_passes 是一个状态变量，用于统计 MySQL 在执行排序操作时进行归并排序的次数。</p>
+<p>当 MySQL 需要进行排序但排序数据无法完全放入 sort_buffer_size 定义的内存缓冲区时，就会使用临时文件进行外部排序，这时就会产生 Sort_merge_passes。</p>
+<p>如果 Sort_merge_passes 在短时间内快速激增，说明排序操作的数据量较大，需要调整 sort_buffer_size 或者优化查询语句。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950461460-3195e59a-5ce4-47ee-8b19-fa1c041863b4.png" width="1050" title crop="0,0,1,1" id="yoBAd" class="ne-image"></p>
+<p>MySQL 在执行排序操作时，会经历两个过程：</p>
+<pre><code>- 内存排序阶段，MySQL 首先尝试在 sort buffer 中进行排序。如果数据量小于 sort_buffer_size 缓冲区大小，会完全在内存中完成快速排序。
+- 外部排序阶段，如果数据量超过 sort_buffer_size，MySQL 会将数据分成多个块，每块单独排序后写入临时文件，然后对这些已排序的块进行归并排序。每次归并操作都会增加 Sort_merge_passes 的计数。
+</code></pre><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779951790118-7b7da034-efdb-4c76-b19b-0465b8b09328.png" width="1126" title crop="0,0,1,1" id="u137d5603" class="ne-image"></p>
+<h3 id="条件下推你了解多少？"><a href="#条件下推你了解多少？" class="headerlink" title="条件下推你了解多少？"></a>条件下推你了解多少？</h3><p>条件下推的核心思想是将外层的过滤条件，比如说 where、join 等，尽可能地下推到查询计划的更底层，比如说子查询、连接操作之前，从而减少中间结果的数据量。</p>
+<p>比如说原始查询是：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> (</span><br><span class="line">  <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> orders <span class="keyword">WHERE</span> total <span class="operator">&gt;</span> <span class="number">100</span></span><br><span class="line">) <span class="keyword">AS</span> subquery</span><br><span class="line"><span class="keyword">WHERE</span> subquery.status <span class="operator">=</span> <span class="string">&#x27;shipped&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>就可以将条件下推到子查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> (</span><br><span class="line">  <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> orders <span class="keyword">WHERE</span> total <span class="operator">&gt;</span> <span class="number">100</span> <span class="keyword">AND</span> status <span class="operator">=</span> <span class="string">&#x27;shipped&#x27;</span></span><br><span class="line">) <span class="keyword">AS</span> subquery;</span><br></pre></td></tr></table></figure>
+<p>这样就可以减少查询返回的数据量，避免外层再过滤。</p>
+<p>再比如说 union 中的原始查询是：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">(<span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t1) </span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span> </span><br><span class="line">(<span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t2)</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> col LIMIT <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+<p>就可以将条件下推到每个子查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(<span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t1 <span class="keyword">ORDER</span> <span class="keyword">BY</span> col LIMIT <span class="number">10</span>)</span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span> </span><br><span class="line">(<span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t2 <span class="keyword">ORDER</span> <span class="keyword">BY</span> col LIMIT <span class="number">10</span>);</span><br></pre></td></tr></table></figure>
+<p>每个子查询仅返回前 10 条数据，减少临时表的数据量。</p>
+<p>再比如说连接查询 join 中的原始查询是：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> orders</span><br><span class="line"><span class="keyword">JOIN</span> customers <span class="keyword">ON</span> orders.customer_id <span class="operator">=</span> customers.id</span><br><span class="line"><span class="keyword">WHERE</span> customers.country <span class="operator">=</span> <span class="string">&#x27;china&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>就可以将条件下推到表扫描的时候：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> orders</span><br><span class="line"><span class="keyword">JOIN</span> (</span><br><span class="line">  <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> customers <span class="keyword">WHERE</span> country <span class="operator">=</span> <span class="string">&#x27;china&#x27;</span></span><br><span class="line">) <span class="keyword">AS</span> filtered_customers</span><br><span class="line"><span class="keyword">ON</span> orders.customer_id <span class="operator">=</span> filtered_customers.id;</span><br></pre></td></tr></table></figure>
+<p>先过滤 customers 表，减少 join 时的数据量。</p>
+<h3 id="为什么要尽量避免使用-select-？"><a href="#为什么要尽量避免使用-select-？" class="headerlink" title="为什么要尽量避免使用 select *？"></a>为什么要尽量避免使用 select *？</h3><p>SELECT * 会强制 MySQL 读取表中所有字段的数据，包括应用程序可能并不需要的，比如 text、blob 类型的大字段。</p>
+<p>加载冗余数据会占用更多的缓存空间，从而挤占其他重要数据的缓存资源，降低整体系统的吞吐量。</p>
+<p>也会增加网络传输的开销，尤其是在大字段的情况下。</p>
+<p>最重要的是，SELECT * 可能会导致覆盖索引失效，本来可以走索引的查询最后变成了全表扫描。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 使用覆盖索引（假设索引为 idx_country）</span></span><br><span class="line"><span class="keyword">SELECT</span> id, country <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> country <span class="operator">=</span> <span class="string">&#x27;china&#x27;</span>;  <span class="comment">-- 可能仅扫描索引</span></span><br><span class="line"><span class="comment">-- 使用 SELECT *</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> country <span class="operator">=</span> <span class="string">&#x27;china&#x27;</span>;            <span class="comment">-- 需回表读取所有列</span></span><br></pre></td></tr></table></figure>
+<h3 id="你还知道哪些-SQL-优化方法？"><a href="#你还知道哪些-SQL-优化方法？" class="headerlink" title="你还知道哪些 SQL 优化方法？"></a>你还知道哪些 SQL 优化方法？</h3><p><strong>①、避免使用 != 或者 &lt;&gt; 操作符</strong></p>
+<p><code>!=</code> 或者 <code>&lt;&gt;</code> 操作符会导致 MySQL 无法使用索引，从而导致全表扫描。</p>
+<p>可以把<code>column&lt;&gt;&#39;aaa&#39;</code>，改成<code>column&gt;&#39;aaa&#39; or column&lt;&#39;aaa&#39;</code>。</p>
+<p><strong>②、使用前缀索引</strong></p>
+<p>比如，邮箱的后缀一般都是固定的<code>@xxx.com</code>，那么类似这种后面几位为固定值的字段就非常适合定义为前缀索引：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">alter table</span> test <span class="keyword">add</span> index index2(email(<span class="number">6</span>));</span><br></pre></td></tr></table></figure>
+<p>需要注意的是，MySQL 无法利用前缀索引做 order by 和 group by 操作。</p>
+<p><strong>③、避免在列上使用函数</strong></p>
+<p>在 where 子句中直接对列使用函数会导致索引失效，因为 MySQL 需要对每行的列应用函数后再进行比较。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> name <span class="keyword">from</span> test <span class="keyword">where</span> date_format(create_time,<span class="string">&#x27;%Y-%m-%d&#x27;</span>)<span class="operator">=</span><span class="string">&#x27;2021-01-01&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>可以改成：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> name <span class="keyword">from</span> test <span class="keyword">where</span> create_time<span class="operator">&gt;=</span><span class="string">&#x27;2021-01-01 00:00:00&#x27;</span> <span class="keyword">and</span> create_time<span class="operator">&lt;</span><span class="string">&#x27;2021-01-02 00:00:00&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>通过日期的范围查询，而不是在列上使用函数，可以利用 create_time 上的索引。</p>
+<h2 id="explain平常有用过吗？"><a href="#explain平常有用过吗？" class="headerlink" title="explain平常有用过吗？"></a>explain平常有用过吗？</h2><p>经常用，explain 是 MySQL 提供的一个用于查看 SQL 执行计划的工具，可以帮助我们分析查询语句的性能问题。</p>
+<p>一共有 10 来个输出参数。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779952064359-08bb7bfa-2ae4-4152-946e-6aa50258e444.png" width="968" title crop="0,0,1,1" id="ub66a7d77" class="ne-image"></p>
+<p>比如说 <code>type=ALL,key=NULL</code> 表示 SQL 正在全表扫描，可以考虑为 where 字段添加索引进行优化；<code>Extra=Using filesort</code> 表示 SQL 正在文件排序，可以考虑为 order by 字段添加索引。</p>
+<p>使用方式也非常简单，直接在 select 前加上 <code>explain</code> 关键字就可以了。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">explain <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> students <span class="keyword">where</span> name<span class="operator">=</span><span class="string">&#x27;王二&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>更高级的用法可以配合 <code>format=json</code> 参数，将 explain 的输出结果以 JSON 格式返回。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">explain format<span class="operator">=</span>json <span class="keyword">select</span> <span class="operator">*</span> <span class="keyword">from</span> students <span class="keyword">where</span> name<span class="operator">=</span><span class="string">&#x27;王二&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950463067-fd3a8649-2c6c-4604-80ea-f85804cf41db.png" width="972" title crop="0,0,1,1" id="nSx97" class="ne-image"></p>
+<h3 id="explain-输出结果中常见的字段含义理解吗？"><a href="#explain-输出结果中常见的字段含义理解吗？" class="headerlink" title="explain 输出结果中常见的字段含义理解吗？"></a>explain 输出结果中常见的字段含义理解吗？</h3><p>在 EXPLAIN 输出结果中我最关注的字段是 type、key、rows 和 Extra。</p>
+<p>我会通过它们判断 SQL 有没有走索引、是否全表扫描、预估扫描行数是否太大，以及是否触发了 filesort 或临时表。一旦发现问题，比如 type=ALL 或者 Extra=Using filesort，我会考虑建索引、改写 SQL 或控制查询结果集来做优化。</p>
+<p>以 <code>EXPLAIN SELECT * FROM orders WHERE user_id = 100</code> 的输出为例：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>值</th>
+<th>含义与优化指导</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>1</td>
+<td>查询序列号。</td>
+</tr>
+<tr>
+<td>select_type</td>
+<td>SIMPLE</td>
+<td>简单查询（无子查询或 UNION）。复杂场景还有 PRIMARY、SUBQUERY、DERIVED 等。</td>
+</tr>
+<tr>
+<td>table</td>
+<td>orders</td>
+<td>当前步骤操作的表名。</td>
+</tr>
+<tr>
+<td>partitions</td>
+<td>NULL</td>
+<td>涉及的分区。</td>
+</tr>
+<tr>
+<td>type</td>
+<td>ref</td>
+<td>访问类型：关键性能指标，常见类型：   - system/const：唯一值匹配（性能最佳）   - eq_ref：主键/唯一索引连接   - ref：非唯一索引匹配   - range：索引范围扫描   - index：全索引扫描   - ALL：全表扫描（需优化）</td>
+</tr>
+<tr>
+<td>possible_keys</td>
+<td>idx_user_id</td>
+<td>可能使用的索引。若为空，说明无合适索引。</td>
+</tr>
+<tr>
+<td>key</td>
+<td>idx_user_id</td>
+<td>实际选择的索引。若为 NULL，表示未使用索引。</td>
+</tr>
+<tr>
+<td>key_len</td>
+<td>4</td>
+<td>索引使用的字节数，可判断是否使用完整索引。例如，联合索引 (a,b)，若 key_len=4 可能只用到了 a 列。</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>const</td>
+<td>与索引比较的列或常量（如 WHERE user_id=100 中的 100）。</td>
+</tr>
+<tr>
+<td>rows</td>
+<td>50</td>
+<td>预估扫描行数。数值越小越好，若与实际差距大，可能统计信息过期（需 ANALYZE TABLE）。</td>
+</tr>
+<tr>
+<td>filtered</td>
+<td>100.00</td>
+<td>查询条件过滤后剩余行的百分比。例如 rows=1000 且 filtered=10%，则最终返回约 100 行。</td>
+</tr>
+<tr>
+<td>Extra</td>
+<td>Using where</td>
+<td>附加信息：   - Using index：覆盖索引（无需回表）   - Using temporary：使用临时表   - Using filesort：文件排序</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>非表格版本：</p>
+<p>①、<strong>id</strong> 列：查询的执行顺序编号。id 相同：同一执行层级，按 table 列从上到下顺序执行（如多表 JOIN）；id 递增：嵌套子查询，数值越大优先级越高，越先执行。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t1 <span class="keyword">JOIN</span> (<span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t2 <span class="keyword">WHERE</span> id <span class="operator">=</span> <span class="number">1</span>) <span class="keyword">AS</span> sub;</span><br></pre></td></tr></table></figure>
+<p>t2 子查询的 id=2，优先执行。</p>
+<p>②、<strong>select_type</strong> 列：查询的类型。常见的类型有：</p>
+<pre><code>- SIMPLE：简单查询，不包含子查询或者 UNION。
+- PRIMARY：查询中如果包含子查询，则最外层查询被标记为 PRIMARY。需要关注子查询或派生表性能。
+- SUBQUERY：子查询；需要避免多层嵌套，尽量改写为 JOIN。
+- DERIVED：派生表（FROM 子句中的子查询）。需要减少派生表数据量，或物化为临时表。
+</code></pre><p>③、<strong>table</strong> 列：查的哪个表。</p>
+<pre><code>- derivedN：表示派生表（N 对应 id）。
+- unionNM,N：表示 UNION 合并的结果（M、N 为参与 UNION 的 id）。
+</code></pre><p>④、<strong>type</strong> 列：表示 MySQL 在表中找到所需行的方式。</p>
+<pre><code>- system，表仅有一行（系统表或衍生表），无需优化。
+- const：通过主键或唯一索引找到一行（如 WHERE id = 1）。理想情况。
+- eq_ref：对主键/唯一索引 JOIN 匹配（如 `A JOIN B ON A.id = B.id`）。确保 JOIN 字段有索引。
+- ref：非唯一索引匹配（如 `WHERE name = &#39;王二&#39;`，name 有普通索引）。
+- range：只检索给定范围的行，使用索引来检索。在`where`语句中使用 `bettween...and`、`&lt;`、`&gt;`、`&lt;=`、`in` 等条件查询 `type` 都是 `range`。
+- index：全索引扫描，如果不需要回表，可接受；否则考虑覆盖索引。
+- ALL：全表扫描，效率最低。
+</code></pre><p>⑤、<strong>possible_keys</strong> 列：可能会用到的索引，但并不一定实际被使用。</p>
+<p>⑥、<strong>key</strong> 列：实际使用的索引。如果为 NULL，则没有使用索引。如果为 PRIMARY，则使用了主键索引。</p>
+<p>⑦、<strong>key_len</strong> 列：使用的索引字节数，反映索引列的利用率。使用联合索引 (a, b)，key_len 是 a 和 b 的字节总和（仅当查询条件用到 a 或 a+b 时有效）。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 表结构：CREATE TABLE t (a INT, b VARCHAR(20), INDEX idx_a_b (a, b));</span></span><br><span class="line">EXPLAIN <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> t <span class="keyword">WHERE</span> a <span class="operator">=</span> <span class="number">1</span> <span class="keyword">AND</span> b <span class="operator">=</span> <span class="string">&#x27;test&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>key_len = 4（INT） + 20*3（utf8） + 2 = 66 字节。</p>
+<p>⑧、<strong>ref</strong> 列：与索引列比较的值或列。</p>
+<pre><code>- const：常量。例如 WHERE `column = &#39;value&#39;`。
+- func：函数。例如 WHERE `column = func(column)`。
+</code></pre><p>⑨、<strong>rows</strong> 列：优化器估算的需要扫描的行数。数值越小越好，若与实际差距大，可能统计信息过期（需 ANALYZE TABLE）。结合 filtered 字段可以计算最终返回行数（rows × filtered）。</p>
+<p>⑩、<strong>Extra</strong> 列：附加信息。</p>
+<pre><code>- Using index：覆盖索引，无需回表。
+- Using where：存储引擎返回结果后，Server 层需要再次过滤（条件未完全下推）。
+- Using temporary ：使用临时表（常见于 GROUP BY、DISTINCT）。
+- Using filesort：文件排序（常见于 ORDER BY）。考虑为 ORDER BY 字段添加索引。
+- Select tables optimized away：优化器已优化（如 COUNT(*) 通过索引直接统计）。
+- Using join buffer：使用连接缓冲区（Block Nested Loop 或 Hash Join）。考虑增大 join_buffer_size。
+</code></pre><p>示例：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779950463074-a3287a59-3cfd-4c9e-9788-cb6753580c3f.png" width="1444" title crop="0,0,1,1" id="ilOjH" class="ne-image"></p>
+<h3 id="type的执行效率等级，达到什么级别比较合适？"><a href="#type的执行效率等级，达到什么级别比较合适？" class="headerlink" title="type的执行效率等级，达到什么级别比较合适？"></a>type的执行效率等级，达到什么级别比较合适？</h3><p>从高到低的效率排序是 system、const、eq_ref、ref、range、index 和 ALL。</p>
+<p>一般情况下，建议 type 值达到 const、eq_ref 或 ref，因为这些类型表明查询使用了索引，效率较高。</p>
+<p>如果是范围查询，range 类型也是可以接受的。</p>
+<p>ALL 类型表示全表扫描，性能最差，往往不可接受，需要优化。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/fb9/">https://jingluo23.github.io/blog.github.io/posts/fb9/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/MySQL/">MySQL</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/dca3/" title="MySQL八股文面试题（四）：日志"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">MySQL八股文面试题（四）：日志</div></div></div></a><a class="pagination-related  no-desc" href="/blog.github.io/posts/a7b1/" title="MySQL八股文面试题（六）：索引"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">MySQL八股文面试题（六）：索引</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/49fe/" title="MySQL八股文面试题（九）：高可用"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（九）：高可用</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/ad1e/" title="MySQL八股文面试题（十）：运维"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（十）：运维</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/a886/" title="MySQL八股文面试题（三）：存储引擎"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（三）：存储引擎</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/b8cf/" title="MySQL八股文面试题（八）：事务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（八）：事务</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/56af/" title="MySQL八股文面试题（七）：锁"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（七）：锁</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/ce13/" title="MySQL八股文面试题（二）：数据库架构"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（二）：数据库架构</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#SQL-%E4%BC%98%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">SQL 优化</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E6%85%A2-SQL%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">什么是慢 SQL？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL-%E7%9A%84%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">SQL 的执行过程了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BC%98%E5%8C%96%E6%85%A2-SQL-%E5%91%A2%EF%BC%9F"><span class="toc-number">1.2.1.</span> <span class="toc-text">如何优化慢 SQL 呢？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%85%A2sql%E6%97%A5%E5%BF%97%E6%80%8E%E4%B9%88%E5%BC%80%E5%90%AF%EF%BC%9F"><span class="toc-number">1.2.2.</span> <span class="toc-text">慢sql日志怎么开启？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%A0%E7%9F%A5%E9%81%93%E5%93%AA%E4%BA%9B%E6%96%B9%E6%B3%95%E6%9D%A5%E4%BC%98%E5%8C%96-SQL%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">你知道哪些方法来优化 SQL？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%88%A9%E7%94%A8%E8%A6%86%E7%9B%96%E7%B4%A2%E5%BC%95%EF%BC%9F"><span class="toc-number">1.3.1.</span> <span class="toc-text">如何利用覆盖索引？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E6%AD%A3%E7%A1%AE%E4%BD%BF%E7%94%A8%E8%81%94%E5%90%88%E7%B4%A2%E5%BC%95%EF%BC%9F"><span class="toc-number">1.3.2.</span> <span class="toc-text">如何正确使用联合索引？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E5%88%86%E9%A1%B5%E4%BC%98%E5%8C%96%EF%BC%9F"><span class="toc-number">1.3.3.</span> <span class="toc-text">如何进行分页优化？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%88%86%E9%A1%B5%E4%BC%9A%E5%8F%98%E6%85%A2%EF%BC%9F"><span class="toc-number">1.3.4.</span> <span class="toc-text">为什么分页会变慢？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#JOIN-%E4%BB%A3%E6%9B%BF%E5%AD%90%E6%9F%A5%E8%AF%A2%E6%9C%89%E4%BB%80%E4%B9%88%E5%A5%BD%E5%A4%84%EF%BC%9F"><span class="toc-number">1.3.5.</span> <span class="toc-text">JOIN 代替子查询有什么好处？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#JOIN%E6%93%8D%E4%BD%9C%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%B0%8F%E8%A1%A8%E9%A9%B1%E5%8A%A8%E5%A4%A7%E8%A1%A8%EF%BC%9F"><span class="toc-number">1.3.6.</span> <span class="toc-text">JOIN操作为什么要小表驱动大表？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E9%81%BF%E5%85%8D%E4%BD%BF%E7%94%A8-JOIN-%E5%85%B3%E8%81%94%E5%A4%AA%E5%A4%9A%E7%9A%84%E8%A1%A8%EF%BC%9F"><span class="toc-number">1.3.7.</span> <span class="toc-text">为什么要避免使用 JOIN 关联太多的表？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C%E6%8E%92%E5%BA%8F%E4%BC%98%E5%8C%96%EF%BC%9F"><span class="toc-number">1.3.8.</span> <span class="toc-text">如何进行排序优化？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-filesort%EF%BC%9F"><span class="toc-number">1.3.9.</span> <span class="toc-text">什么是 filesort？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%A8%E5%AD%97%E6%AE%B5%E6%8E%92%E5%BA%8F%E5%92%8C-rowid-%E6%8E%92%E5%BA%8F%E4%BA%86%E8%A7%A3%E5%A4%9A%E5%B0%91%EF%BC%9F"><span class="toc-number">1.3.10.</span> <span class="toc-text">全字段排序和 rowid 排序了解多少？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%A0%E5%AF%B9-Sort-merge-passes-%E5%8F%82%E6%95%B0%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.3.11.</span> <span class="toc-text">你对 Sort_merge_passes 参数了解吗？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9D%A1%E4%BB%B6%E4%B8%8B%E6%8E%A8%E4%BD%A0%E4%BA%86%E8%A7%A3%E5%A4%9A%E5%B0%91%EF%BC%9F"><span class="toc-number">1.3.12.</span> <span class="toc-text">条件下推你了解多少？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%B0%BD%E9%87%8F%E9%81%BF%E5%85%8D%E4%BD%BF%E7%94%A8-select-%EF%BC%9F"><span class="toc-number">1.3.13.</span> <span class="toc-text">为什么要尽量避免使用 select *？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%A0%E8%BF%98%E7%9F%A5%E9%81%93%E5%93%AA%E4%BA%9B-SQL-%E4%BC%98%E5%8C%96%E6%96%B9%E6%B3%95%EF%BC%9F"><span class="toc-number">1.3.14.</span> <span class="toc-text">你还知道哪些 SQL 优化方法？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#explain%E5%B9%B3%E5%B8%B8%E6%9C%89%E7%94%A8%E8%BF%87%E5%90%97%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">explain平常有用过吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#explain-%E8%BE%93%E5%87%BA%E7%BB%93%E6%9E%9C%E4%B8%AD%E5%B8%B8%E8%A7%81%E7%9A%84%E5%AD%97%E6%AE%B5%E5%90%AB%E4%B9%89%E7%90%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.4.1.</span> <span class="toc-text">explain 输出结果中常见的字段含义理解吗？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#type%E7%9A%84%E6%89%A7%E8%A1%8C%E6%95%88%E7%8E%87%E7%AD%89%E7%BA%A7%EF%BC%8C%E8%BE%BE%E5%88%B0%E4%BB%80%E4%B9%88%E7%BA%A7%E5%88%AB%E6%AF%94%E8%BE%83%E5%90%88%E9%80%82%EF%BC%9F"><span class="toc-number">1.4.2.</span> <span class="toc-text">type的执行效率等级，达到什么级别比较合适？</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（六）：分布式限流"></a><div class="content"><a class="title" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流">分布式八股文面试题（六）：分布式限流</a><time datetime="2026-09-08T09:31:21.000Z" title="发表于 2026-09-08 17:31:21">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（五）：分布式设计"></a><div class="content"><a class="title" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计">分布式八股文面试题（五）：分布式设计</a><time datetime="2026-09-08T09:30:14.000Z" title="发表于 2026-09-08 17:30:14">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（四）：分布式一致性算法"></a><div class="content"><a class="title" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法">分布式八股文面试题（四）：分布式一致性算法</a><time datetime="2026-09-08T09:28:28.000Z" title="发表于 2026-09-08 17:28:28">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">83</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/blog.github.io/article/categories/'|| '/blog.github.io/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

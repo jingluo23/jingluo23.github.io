@@ -1,0 +1,851 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>MySQL八股文面试题（一）：MySQL基础 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="MySQL 基础什么是 MySQL？MySQL 是一个开源的关系型数据库，现在隶属于 Oracle 公司，是国内使用频率最高的一种数据库。 怎么删除&#x2F;创建一张表？可以使用 DROP TABLE 来删除表，使用 CREATE TABLE 来创建表。 创建表的时候，可以通过 PRIMARY KEY 设定主键。 123456CREATE TABLE users (    id INT AUTO_INCR">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL八股文面试题（一）：MySQL基础">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/40ac/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="MySQL 基础什么是 MySQL？MySQL 是一个开源的关系型数据库，现在隶属于 Oracle 公司，是国内使用频率最高的一种数据库。 怎么删除&#x2F;创建一张表？可以使用 DROP TABLE 来删除表，使用 CREATE TABLE 来创建表。 创建表的时候，可以通过 PRIMARY KEY 设定主键。 123456CREATE TABLE users (    id INT AUTO_INCR">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-13T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-08-19T13:46:54.183Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="MySQL">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MySQL八股文面试题（一）：MySQL基础",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/40ac/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-13T07:12:21.000Z",
+  "dateModified": "2026-08-19T13:46:54.183Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/40ac/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'MySQL八股文面试题（一）：MySQL基础',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">MySQL八股文面试题（一）：MySQL基础</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">MySQL八股文面试题（一）：MySQL基础</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-13T07:12:21.000Z" title="发表于 2026-08-13 15:12:21">2026-08-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-19T13:46:54.183Z" title="更新于 2026-08-19 21:46:54">2026-08-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.3k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>18分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-08-19 21:46:54&quot;}" hidden></div><h1 id="MySQL-基础"><a href="#MySQL-基础" class="headerlink" title="MySQL 基础"></a>MySQL 基础</h1><h2 id="什么是-MySQL？"><a href="#什么是-MySQL？" class="headerlink" title="什么是 MySQL？"></a>什么是 MySQL？</h2><p>MySQL 是一个开源的关系型数据库，现在隶属于 Oracle 公司，是国内使用频率最高的一种数据库。</p>
+<h3 id="怎么删除-创建一张表？"><a href="#怎么删除-创建一张表？" class="headerlink" title="怎么删除/创建一张表？"></a>怎么删除/创建一张表？</h3><p>可以使用 <code>DROP TABLE</code> 来删除表，使用 <code>CREATE TABLE</code> 来创建表。</p>
+<p>创建表的时候，可以通过 <code>PRIMARY KEY</code> 设定主键。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> users (</span><br><span class="line">    id <span class="type">INT</span> AUTO_INCREMENT,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">100</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">    email <span class="type">VARCHAR</span>(<span class="number">100</span>),</span><br><span class="line">    <span class="keyword">PRIMARY KEY</span> (id)</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<h3 id="请写一个升序-降序的-SQL-语句？"><a href="#请写一个升序-降序的-SQL-语句？" class="headerlink" title="请写一个升序/降序的 SQL 语句？"></a>请写一个升序/降序的 SQL 语句？</h3><p>在 SQL 中，可以使用 <code>ORDER BY</code> 子句来对查询结果进行升序或者降序。默认情况下，查询结果是升序的。如果需要降序，可以通过 <code>DESC</code> 关键字来实现。</p>
+<p>比如说在员工表中，我们要按工资降序，就可以使用 <code>ORDER BY salary DESC</code> 来完成。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">  id, </span><br><span class="line">  name, </span><br><span class="line">  salary</span><br><span class="line"><span class="keyword">FROM</span> </span><br><span class="line">  employees</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> </span><br><span class="line">  salary <span class="keyword">DESC</span>;</span><br></pre></td></tr></table></figure>
+<p>如果需对多个字段进行排序，例如按工资降序，按名字升序，就可以 <code>ORDER BY salary DESC, name ASC</code> 来完成。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">  id, </span><br><span class="line">  name, </span><br><span class="line">  salary</span><br><span class="line"><span class="keyword">FROM</span> </span><br><span class="line">  employees</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> </span><br><span class="line">  salary <span class="keyword">DESC</span>, name <span class="keyword">ASC</span>;</span><br></pre></td></tr></table></figure>
+<h3 id="MySQL出现性能差的原因有哪些？"><a href="#MySQL出现性能差的原因有哪些？" class="headerlink" title="MySQL出现性能差的原因有哪些？"></a>MySQL出现性能差的原因有哪些？</h3><p>可能是 SQL 查询使用了全表扫描，也可能是查询语句过于复杂，如多表 JOIN 或嵌套子查询，也有可能是单表数据量过大。</p>
+<p>通常情况下，添加索引就能解决大部分性能问题。对于一些热点数据，还可以通过增加 Redis 缓存，来减轻数据库的访问压力。</p>
+<h2 id="两张表怎么进行连接？"><a href="#两张表怎么进行连接？" class="headerlink" title="两张表怎么进行连接？"></a>两张表怎么进行连接？</h2><p>可以通过内连接 <code>inner join</code>、外连接 <code>outer join</code>、交叉连接 <code>cross join</code> 来合并多个表的查询结果。</p>
+<h3 id="什么是内连接？"><a href="#什么是内连接？" class="headerlink" title="什么是内连接？"></a>什么是内连接？</h3><p>内连接用于返回两个表中有匹配关系的行。假设有两张表，用户表和订单表，想查询有订单的用户，就可以使用内连接 <code>users INNER JOIN orders</code>，按照用户 ID 关联就行了。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> </span><br><span class="line">  users.name, </span><br><span class="line">  orders.order_id</span><br><span class="line"><span class="keyword">FROM</span> </span><br><span class="line">  users</span><br><span class="line"><span class="keyword">INNER</span> <span class="keyword">JOIN</span> </span><br><span class="line">  orders </span><br><span class="line"><span class="keyword">ON</span> </span><br><span class="line">  users.id <span class="operator">=</span> orders.user_id;</span><br></pre></td></tr></table></figure>
+<p>只有那些在两个表中都存在 user_id 的记录才会出现在查询结果中。</p>
+<h3 id="什么是外连接？"><a href="#什么是外连接？" class="headerlink" title="什么是外连接？"></a>什么是外连接？</h3><p>和内连接不同，外连接不仅返回两个表中匹配的行，还返回没有匹配的行，用 <code>null</code> 来填充。</p>
+<p>外连接又分为左外连接 <code>left join</code> 和右外连接 <code>right join</code>。</p>
+<p>left join 会保留左表中符合条件的所有记录，如果右表中有匹配的记录，就返回匹配的记录，否则就用 <code>null</code>填充。常用于某表中有，但另外一张表中可能没有的数据的查询场景。</p>
+<p>假设要查询所有用户及他们的订单，即使用户没有下单，就可以使用左连接：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> users.id, users.name, orders.order_id</span><br><span class="line"><span class="keyword">FROM</span> users</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> orders <span class="keyword">ON</span> users.id <span class="operator">=</span> orders.user_id;</span><br></pre></td></tr></table></figure>
+<p>查询前：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">users</th>
+<th></th>
+<th style="text-align:center">orders</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">id</td>
+<td>name</td>
+<td style="text-align:center">user_id</td>
+<td>order_id</td>
+</tr>
+<tr>
+<td style="text-align:center">1</td>
+<td>王二</td>
+<td style="text-align:center">1</td>
+<td>10</td>
+</tr>
+<tr>
+<td style="text-align:center">2</td>
+<td>张三</td>
+<td style="text-align:center">2</td>
+<td>20</td>
+</tr>
+<tr>
+<td style="text-align:center">3</td>
+<td>李四</td>
+<td style="text-align:center"></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>查询后：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">id</th>
+<th style="text-align:center">name</th>
+<th style="text-align:center">order_id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1</td>
+<td style="text-align:center">王二</td>
+<td style="text-align:center">10</td>
+</tr>
+<tr>
+<td style="text-align:center">2</td>
+<td style="text-align:center">张三</td>
+<td style="text-align:center">20</td>
+</tr>
+<tr>
+<td style="text-align:center">3</td>
+<td style="text-align:center">李四</td>
+<td style="text-align:center">null</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>右连接就是左连接的镜像，right join 会保留右表中符合条件的所有记录，如果左表中有匹配的记录，就返回匹配的记录，否则就用 null 填充。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">id</th>
+<th style="text-align:center">name</th>
+<th style="text-align:center">order_id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">1</td>
+<td style="text-align:center">王二</td>
+<td style="text-align:center">10</td>
+</tr>
+<tr>
+<td style="text-align:center">2</td>
+<td style="text-align:center">张三</td>
+<td style="text-align:center">20</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="什么是交叉连接？"><a href="#什么是交叉连接？" class="headerlink" title="什么是交叉连接？"></a>什么是交叉连接？</h3><p>交叉连接会返回两张表的笛卡尔积，也就是将左表的每一行与右表的每一行进行组合，返回的行数是两张表行数的乘积。</p>
+<p>假设有 A 表和 B 表，A 表有 2 行数据，B 表有 3 行数据，那么交叉连接的结果就是 2 ✖️ 3 = 6 行。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> A.id, B.id</span><br><span class="line"><span class="keyword">FROM</span> A</span><br><span class="line"><span class="keyword">CROSS</span> <span class="keyword">JOIN</span> B;</span><br></pre></td></tr></table></figure>
+<p>笛卡尔积是数学中的一个概念，例如集合 <code>A={a,b}</code>，集合 <code>B={0,1,2}</code>，那么 A✖️B={<a,0>,<a,1>,<a,2>,<b,0>,<b,1>,<b,2>,}。</b,2></b,1></b,0></a,2></a,1></a,0></p>
+<h3 id="内连接、左连接、右连接有什么区别？"><a href="#内连接、左连接、右连接有什么区别？" class="headerlink" title="内连接、左连接、右连接有什么区别？"></a>内连接、左连接、右连接有什么区别？</h3><p>MySQL 的连接主要分为内连接和外连接，外连接又可以分为左连接和右连接。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933525898-df9269aa-689f-419a-ae4a-5766658467ed.png" width="966" title crop="0,0,1,1" id="xMTLI" class="ne-image"></p>
+<p>内连接可以用来找出两个表中共同的记录，相当于两个数据集的交集。</p>
+<p>左连接和右连接可以用来找出两个表中不同的记录，相当于两个数据集的并集。两者的区别是，左连接会保留左表中符合条件的所有记录，右连接则刚好相反。</p>
+<p>有三张表，一张文章表 article，主要存文章标题 title， 一张文章详情表 article_detail，主要存文章的内容 content，一张文章评论表 comment，主要存评论 content，三个表通过文章 id 关联。</p>
+<p>先来看内连接：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">LEFT</span>(a.title, <span class="number">20</span>) <span class="keyword">AS</span> ArticleTitle, <span class="keyword">LEFT</span>(c.content, <span class="number">20</span>) <span class="keyword">AS</span> CommentContent</span><br><span class="line"><span class="keyword">FROM</span> article a</span><br><span class="line"><span class="keyword">INNER</span> <span class="keyword">JOIN</span> comment c <span class="keyword">ON</span> a.id <span class="operator">=</span> c.article_id</span><br><span class="line">LIMIT <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933525879-2af178cc-657d-40aa-8981-d2b38ad7c9ae.png" width="1964" title crop="0,0,1,1" id="a9OeJ" class="ne-image"></p>
+<p>返回至少有一条评论的文章标题和评论内容（前 20 个字符），只返回符合条件的前 2 条记录。</p>
+<p>再来看左连接：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">LEFT</span>(a.title, <span class="number">20</span>) <span class="keyword">AS</span> ArticleTitle, <span class="keyword">LEFT</span>(c.content, <span class="number">20</span>) <span class="keyword">AS</span> CommentContent</span><br><span class="line"><span class="keyword">FROM</span> article a</span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> comment c <span class="keyword">ON</span> a.id <span class="operator">=</span> c.article_id</span><br><span class="line">LIMIT <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933526377-35399420-4426-4c81-8c13-49f52fc727fa.png" width="1952" title crop="0,0,1,1" id="fKq92" class="ne-image"></p>
+<p>返回所有文章的标题和文章评论，即使某些文章没有评论（填充为 NULL）。</p>
+<p>最后来看右连接：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="keyword">LEFT</span>(a.title, <span class="number">20</span>) <span class="keyword">AS</span> ArticleTitle, <span class="keyword">LEFT</span>(c.content, <span class="number">20</span>) <span class="keyword">AS</span> CommentContent</span><br><span class="line"><span class="keyword">FROM</span> comment c</span><br><span class="line"><span class="keyword">RIGHT</span> <span class="keyword">JOIN</span> article a <span class="keyword">ON</span> a.id <span class="operator">=</span> c.article_id</span><br><span class="line">LIMIT <span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933526288-3e9b8f7c-0e43-49d8-819f-05fbe212d1ad.png" width="1932" title crop="0,0,1,1" id="z6a6k" class="ne-image"></p>
+<h2 id="说一下数据库的三大范式？"><a href="#说一下数据库的三大范式？" class="headerlink" title="说一下数据库的三大范式？"></a>说一下数据库的三大范式？</h2><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779936855548-67b6270a-cb39-4834-89ba-1bbfa0e04c9b.png" width="670" title crop="0,0,1,1" id="u312ccb4a" class="ne-image"></p>
+<p>第一范式，确保表的每一列都是不可分割的基本数据单元，比如说用户地址，应该拆分成省、市、区、详细地址等 4 个字段。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933526513-b07a8e7c-ea0f-438c-91be-044488e3cad8.png" width="639" title crop="0,0,1,1" id="o8gjv" class="ne-image"></p>
+<p>第二范式，要求表中的每一列都和主键直接相关。比如在订单表中，商品名称、单位、商品价格等字段应该拆分到商品表中。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933527326-0d91bb24-cbf6-47a1-93cf-34c50e2d0dc4.png" width="683" title crop="0,0,1,1" id="iGy4I" class="ne-image"></p>
+<p>然后新建一个订单商品关联表，用订单编号和商品编号进行关联就好了。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933527386-ac505a3f-7683-4387-a8ec-f5c4c177040d.png" width="698" title crop="0,0,1,1" id="osD41" class="ne-image"></p>
+<p>第三范式，非主键列应该只依赖于主键列。比如说在设计订单信息表的时候，可以把客户名称、所属公司、联系方式等信息拆分到客户信息表中，然后在订单信息表中用客户编号进行关联。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933527420-d22edce8-5d05-4998-93ed-a02fddb9e812.png" width="586" title crop="0,0,1,1" id="VKEzh" class="ne-image"></p>
+<h3 id="建表的时候需要考虑哪些问题？"><a href="#建表的时候需要考虑哪些问题？" class="headerlink" title="建表的时候需要考虑哪些问题？"></a>建表的时候需要考虑哪些问题？</h3><p>首先需要考虑表是否符合数据库的三大范式，确保字段不可再分，消除非主键依赖，确保字段仅依赖于主键等。</p>
+<p>然后在选择字段类型时，应该尽量选择合适的数据类型。</p>
+<p>在字符集上，尽量选择 utf8mb4，这样不仅可以支持中文和英文，还可以支持表情符号等。</p>
+<p>当数据量较大时，比如上千万行数据，需要考虑分表。比如订单表，可以采用水平分表的方式来分散单表存储压力。</p>
+<h2 id="varchar-与-char-的区别？"><a href="#varchar-与-char-的区别？" class="headerlink" title="varchar 与 char 的区别？"></a>varchar 与 char 的区别？</h2><p>varchar 是可变长度的字符类型，原则上最多可以容纳 65535 个字符，但考虑字符集，以及 MySQL 需要 1 到 2 个字节来表示字符串长度，所以实际上最大可以设置到 65533。</p>
+<blockquote>
+<p>latin1 字符集，且列属性定义为 NOT NULL。</p>
+</blockquote>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779937160533-092ca4f8-2b8d-4ac2-877a-74314893999a.png" width="928" title crop="0,0,1,1" id="u0453cc26" class="ne-image"></p>
+<p>char 是固定长度的字符类型，当定义一个 <code>CHAR(10)</code> 字段时，不管实际存储的字符长度是多少，都只会占用 10 个字符的空间。如果插入的数据小于 10 个字符，剩余的部分会用空格填充。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>CHAR(4)</th>
+<th>存储需求（字节）</th>
+<th>VARCHAR(4)</th>
+<th>存储需求（字节）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>‘’</td>
+<td>‘    ‘</td>
+<td>4</td>
+<td>‘’</td>
+<td>1</td>
+</tr>
+<tr>
+<td>‘ab’</td>
+<td>‘ab   ‘</td>
+<td>4</td>
+<td>‘ab’</td>
+<td>3</td>
+</tr>
+<tr>
+<td>‘abcd’</td>
+<td>‘abcd’</td>
+<td>4</td>
+<td>‘abcd’</td>
+<td>5</td>
+</tr>
+<tr>
+<td>‘abcdefgh’</td>
+<td>‘abcd’</td>
+<td>4</td>
+<td>‘abcd’</td>
+<td>5</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="blob-和-text-有什么区别？"><a href="#blob-和-text-有什么区别？" class="headerlink" title="blob 和 text 有什么区别？"></a>blob 和 text 有什么区别？</h2><p>blob 用于存储二进制数据，比如图片、音频、视频、文件等；但实际开发中，我们都会把这些文件存储到 OSS 或者文件服务器上，然后在数据库中存储文件的 URL。</p>
+<p>text 用于存储文本数据，比如文章、评论、日志等。</p>
+<h2 id="DATETIME-和-TIMESTAMP-有什么区别？"><a href="#DATETIME-和-TIMESTAMP-有什么区别？" class="headerlink" title="DATETIME 和 TIMESTAMP 有什么区别？"></a>DATETIME 和 TIMESTAMP 有什么区别？</h2><p>DATETIME 直接存储日期和时间的完整值，与时区无关。</p>
+<p>TIMESTAMP 存储的是 Unix 时间戳，1970-01-01 00:00:01 UTC 以来的秒数，受时区影响。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779937326837-9f07bfd6-a4d3-4a79-a05b-a4db01265d19.png" width="574" title crop="0,0,1,1" id="u80edfab5" class="ne-image"></p>
+<p>另外，DATETIME 的默认值为 null，占用 8 个字节；TIMESTAMP 的默认值为当前时间——CURRENT_TIMESTAMP，占 4 个字节，实际开发中更常用，因为可以自动更新。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933527747-9f1ffea4-cc19-4ade-bed2-4753eb3ffa1c.png" width="872" title crop="0,0,1,1" id="qA78k" class="ne-image"></p>
+<h2 id="in和exists的区别？"><a href="#in和exists的区别？" class="headerlink" title="in和exists的区别？"></a>in和exists的区别？</h2><p>当使用 IN 时，MySQL 会首先执行子查询，然后将子查询的结果集用于外部查询的条件。这意味着子查询的结果集需要全部加载到内存中。</p>
+<p>而 EXISTS 会对外部查询的每一行，执行一次子查询。如果子查询返回任何行，则 <code>EXISTS</code> 条件为真。<code>EXISTS</code> 关注的是子查询是否返回行，而不是返回的具体值。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- IN 的临时表可能成为性能瓶颈</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users </span><br><span class="line"><span class="keyword">WHERE</span> id <span class="keyword">IN</span> (<span class="keyword">SELECT</span> user_id <span class="keyword">FROM</span> orders <span class="keyword">WHERE</span> amount <span class="operator">&gt;</span> <span class="number">100</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- EXISTS 可以利用关联索引</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> users u</span><br><span class="line"><span class="keyword">WHERE</span> <span class="keyword">EXISTS</span> (<span class="keyword">SELECT</span> <span class="number">1</span> <span class="keyword">FROM</span> orders o </span><br><span class="line">            <span class="keyword">WHERE</span> o.user_id <span class="operator">=</span> u.id <span class="keyword">AND</span> o.amount <span class="operator">&gt;</span> <span class="number">100</span>);</span><br></pre></td></tr></table></figure>
+<p><code>IN</code> 适用于子查询结果集较小的情况。如果子查询返回大量数据，<code>IN</code> 的性能可能会下降，因为它需要将整个结果集加载到内存。</p>
+<p>而 EXISTS 适用于子查询结果集可能很大的情况。由于 <code>EXISTS</code> 只需要判断子查询是否返回行，而不需要加载整个结果集，因此在某些情况下性能更好，特别是当子查询可以使用索引时。</p>
+<h3 id="NULL值陷阱了解吗？"><a href="#NULL值陷阱了解吗？" class="headerlink" title="NULL值陷阱了解吗？"></a>NULL值陷阱了解吗？</h3><p><code>IN</code>: 如果子查询的结果集中包含 <code>NULL</code> 值，可能会导致意外的结果。例如，<code>WHERE column IN (subquery)</code>，如果 <code>subquery</code> 返回 <code>NULL</code>，则 <code>column IN (subquery)</code> 永远不会为真，除非 <code>column</code> 本身也为 <code>NULL</code>。</p>
+<p><code>EXISTS</code>: 对 <code>NULL</code> 值的处理更加直接。<code>EXISTS</code> 只是检查子查询是否返回行，不关心行的具体值，因此不受 <code>NULL</code> 值的影响。</p>
+<h2 id="记录货币用什么类型比较好？"><a href="#记录货币用什么类型比较好？" class="headerlink" title="记录货币用什么类型比较好？"></a>记录货币用什么类型比较好？</h2><p>如果是电商、交易、账单等涉及货币的场景，建议使用 DECIMAL 类型，因为 DECIMAL 类型是精确数值类型，不会出现浮点数计算误差。</p>
+<p>例如，<code>DECIMAL(19,4)</code> 可以存储最多 19 位数字，其中 4 位是小数。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> orders (</span><br><span class="line">    id <span class="type">INT</span> AUTO_INCREMENT,</span><br><span class="line">    amount <span class="type">DECIMAL</span>(<span class="number">19</span>,<span class="number">4</span>),</span><br><span class="line">    <span class="keyword">PRIMARY KEY</span> (id)</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p>如果是银行，涉及到支付的场景，建议使用 BIGINT 类型。可以将货币金额乘以一个固定因子，比如 100，表示以“分”为单位，然后存储为 <code>BIGINT</code>。这种方式既避免了浮点数问题，同时也提供了不错的性能。但在展示的时候需要除以相应的因子。</p>
+<h3 id="为什么不推荐使用-FLOAT-或-DOUBLE？"><a href="#为什么不推荐使用-FLOAT-或-DOUBLE？" class="headerlink" title="为什么不推荐使用 FLOAT 或 DOUBLE？"></a>为什么不推荐使用 FLOAT 或 DOUBLE？</h3><p>因为 FLOAT 和 DOUBLE 都是浮点数类型，会存在精度问题。</p>
+<p>在许多编程语言中，<code>0.1 + 0.2</code> 的结果会是类似 <code>0.30000000000000004</code> 的值，而不是预期的 <code>0.3</code>。</p>
+<h2 id="怎么存储-emoji"><a href="#怎么存储-emoji" class="headerlink" title="怎么存储 emoji?"></a>怎么存储 emoji?</h2><p>因为 emoji（😊）是 4 个字节的 UTF-8 字符，而 MySQL 的 utf8 字符集只支持最多 3 个字节的 UTF-8 字符，所以在 MySQL 中存储 emoji 时，需要使用 utf8mb4 字符集。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER TABLE</span> mytable <span class="keyword">CONVERT</span> <span class="keyword">TO</span> <span class="keyword">CHARACTER SET</span> utf8mb4 <span class="keyword">COLLATE</span> utf8mb4_unicode_ci;</span><br></pre></td></tr></table></figure>
+<p>MySQL 8.0 已经默认支持 utf8mb4 字符集，可以通过 <code>SHOW VARIABLES WHERE Variable_name LIKE &#39;character\_set\_%&#39; OR Variable_name LIKE &#39;collation%&#39;;</code> 查看。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933527888-c0d25ddc-46a9-4f17-8478-78feeed6e81c.png" width="1174" title crop="0,0,1,1" id="nQrc7" class="ne-image"></p>
+<h2 id="drop、delete-与-truncate-的区别？"><a href="#drop、delete-与-truncate-的区别？" class="headerlink" title="drop、delete 与 truncate 的区别？"></a>drop、delete 与 truncate 的区别？</h2><p>DROP 是物理删除，用来删除整张表，包括表结构，且不能回滚。</p>
+<p>DELETE 支持行级删除，可以带 WHERE 条件，可以回滚。</p>
+<p>TRUNCATE 用于清空表中的所有数据，但会保留表结构，不能回滚。</p>
+<h2 id="UNION-与-UNION-ALL-的区别？"><a href="#UNION-与-UNION-ALL-的区别？" class="headerlink" title="UNION 与 UNION ALL 的区别？"></a>UNION 与 UNION ALL 的区别？</h2><p>UNION 会自动去除合并后结果集中的重复行。UNION ALL 不会去重，会将所有结果集合并起来。</p>
+<h2 id="count-1-、count-与-count-列名-的区别？"><a href="#count-1-、count-与-count-列名-的区别？" class="headerlink" title="count(1)、count(*) 与 count(列名) 的区别？"></a>count(1)、count(*) 与 count(列名) 的区别？</h2><p>在 InnoDB 引擎中，<code>COUNT(1)</code> 和 <code>COUNT(*)</code> 没有区别，都是用来统计所有行，包括 NULL。</p>
+<p>如果表有索引，<code>COUNT(*)</code> 会直接用索引统计，而不是全表扫描，而 <code>COUNT(1)</code> 也会被 MySQL 优化为 <code>COUNT(*)</code>。</p>
+<p><code>COUNT(列名)</code> 只统计列名不为 NULL 的行数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">-- 假设 users 表：</span><br><span class="line">+----+-------+------------+</span><br><span class="line">| id | name  | email      |</span><br><span class="line">+----+-------+------------+</span><br><span class="line">| 1  | 张三  | zhang@xx.com |</span><br><span class="line">| 2  | 李四  | NULL       |</span><br><span class="line">| 3  | 王二  | wang@xx.com |</span><br><span class="line">+----+-------+------------+</span><br><span class="line"></span><br><span class="line">-- COUNT(*)</span><br><span class="line">SELECT COUNT(*) FROM users;</span><br><span class="line">-- 结果：3  （统计所有行）</span><br><span class="line"></span><br><span class="line">-- COUNT(1)</span><br><span class="line">SELECT COUNT(1) FROM users;</span><br><span class="line">-- 结果：3  （统计所有行）</span><br><span class="line"></span><br><span class="line">-- COUNT(email)</span><br><span class="line">SELECT COUNT(email) FROM users;</span><br><span class="line">-- 结果：2  （NULL 不计入统计）</span><br></pre></td></tr></table></figure>
+<p>这里解释一下，假设有这样一张表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> t1 (</span><br><span class="line">    id <span class="type">INT</span>,</span><br><span class="line">    name <span class="type">VARCHAR</span>(<span class="number">50</span>),</span><br><span class="line">    <span class="keyword">value</span> <span class="type">INT</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p>插入的数据为：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">INSERT INTO</span> t1 <span class="keyword">VALUES</span> </span><br><span class="line">    (<span class="number">1</span>, <span class="string">&#x27;A&#x27;</span>, <span class="number">10</span>),</span><br><span class="line">    (<span class="number">2</span>, <span class="string">&#x27;B&#x27;</span>, <span class="keyword">NULL</span>),  <span class="comment">-- NULL in value column</span></span><br><span class="line">    (<span class="number">3</span>, <span class="string">&#x27;C&#x27;</span>, <span class="number">30</span>),</span><br><span class="line">    (<span class="number">4</span>, <span class="keyword">NULL</span>, <span class="number">40</span>),   <span class="comment">-- NULL in name column</span></span><br><span class="line">    (<span class="number">5</span>, <span class="string">&#x27;E&#x27;</span>, <span class="keyword">NULL</span>);  <span class="comment">-- NULL in value column</span></span><br></pre></td></tr></table></figure>
+<p>因为 id 列没有索引，所以 <code>select count(*)</code> 是全表扫描。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933528333-31e66b2d-a6f4-42c8-a054-cdbe7df5cc53.png" width="1296" title crop="0,0,1,1" id="cNHeh" class="ne-image"></p>
+<p>然后我们给 id 列加上索引。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">alter table</span> t1 <span class="keyword">add</span> <span class="keyword">primary key</span> (id);</span><br></pre></td></tr></table></figure>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933528552-01627114-639e-444c-91df-0b137fa4d566.png" width="1108" title crop="0,0,1,1" id="vNR5a" class="ne-image"></p>
+<p>再来看一下 <code>select count(*)</code>，发现用了索引（MySQL 默认为给主键添加索引）。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933528532-45316b31-5883-4470-b8fd-28bbec607eb4.png" width="1266" title crop="0,0,1,1" id="rN4XH" class="ne-image"></p>
+<p>另外，MySQL 8.0 官方手册有明确说明，InnoDB 引擎对 <code>SELECT COUNT(*)</code> 和 <code>SELECT COUNT(1)</code> 的处理方式完全一致，性能并无差异。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933528752-d11d9193-d48b-46f9-a840-d35fc1c91dd8.png" width="1118" title crop="0,0,1,1" id="YnxQz" class="ne-image"></p>
+<h2 id="SQL-查询语句的执行顺序了解吗？"><a href="#SQL-查询语句的执行顺序了解吗？" class="headerlink" title="SQL 查询语句的执行顺序了解吗？"></a>SQL 查询语句的执行顺序了解吗？</h2><p>了解。先执行 FROM 确定主表，再执行 JOIN 连接，然后 WHERE 进行过滤，接着 GROUP BY 进行分组，HAVING 过滤聚合结果，SELECT 选择最终列，ORDER BY 排序，最后 LIMIT 限制返回行数。</p>
+<p>WHERE 先执行是为了减少数据量，HAVING 只能过滤聚合数据，ORDER BY 必须在 SELECT 之后排序最终结果，LIMIT 最后执行以减少数据传输。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933529304-18d624fd-e1f6-4dda-98a1-3549b4723900.png" width="1080" title crop="0,0,1,1" id="yGzFC" class="ne-image"></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>执行顺序</th>
+<th>SQL 关键字</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>①</td>
+<td>FROM</td>
+<td>确定主表，准备数据</td>
+</tr>
+<tr>
+<td>②</td>
+<td>ON</td>
+<td>连接多个表的条件</td>
+</tr>
+<tr>
+<td>③</td>
+<td>JOIN</td>
+<td>执行 INNER JOIN / LEFT JOIN 等</td>
+</tr>
+<tr>
+<td>④</td>
+<td>WHERE</td>
+<td>过滤行数据（提高效率）</td>
+</tr>
+<tr>
+<td>⑤</td>
+<td>GROUP BY</td>
+<td>进行分组</td>
+</tr>
+<tr>
+<td>⑥</td>
+<td>HAVING</td>
+<td>过滤聚合后的数据</td>
+</tr>
+<tr>
+<td>⑦</td>
+<td>SELECT</td>
+<td>选择最终返回的列</td>
+</tr>
+<tr>
+<td>⑧</td>
+<td>DISTINCT</td>
+<td>进行去重</td>
+</tr>
+<tr>
+<td>⑨</td>
+<td>ORDER BY</td>
+<td>对最终结果排序</td>
+</tr>
+<tr>
+<td>⑩</td>
+<td>LIMIT</td>
+<td>限制返回行数</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这个执行顺序与编写 SQL 语句的顺序不同，这也是为什么有时候在 SELECT 子句中定义的别名不能在 WHERE 子句中使用得原因，因为 WHERE 是在 SELECT 之前执行的。</p>
+<h3 id="LIMIT-为什么在最后执行？"><a href="#LIMIT-为什么在最后执行？" class="headerlink" title="LIMIT 为什么在最后执行？"></a>LIMIT 为什么在最后执行？</h3><p>因为 LIMIT 是在最终结果集上执行的，如果在 WHERE 之前执行 LIMIT，那么就会先返回所有行，然后再进行 LIMIT 限制，这样会增加数据传输的开销。</p>
+<h3 id="ORDER-BY-为什么在-SELECT-之后执行？"><a href="#ORDER-BY-为什么在-SELECT-之后执行？" class="headerlink" title="ORDER BY 为什么在 SELECT 之后执行？"></a>ORDER BY 为什么在 SELECT 之后执行？</h3><p>因为排序需要基于最终返回的列，如果 ORDER BY 早于 SELECT 执行，计算 <code>COUNT(*)</code> 之类的聚合函数就会出问题。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> name, <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> order_count</span><br><span class="line"><span class="keyword">FROM</span> orders</span><br><span class="line"><span class="keyword">GROUP</span> <span class="keyword">BY</span> name</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> order_count <span class="keyword">DESC</span>;</span><br></pre></td></tr></table></figure>
+<h2 id="介绍一下-MySQL-的常用命令"><a href="#介绍一下-MySQL-的常用命令" class="headerlink" title="介绍一下 MySQL 的常用命令"></a>介绍一下 MySQL 的常用命令</h2><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779938188839-3a43fc29-ba94-4805-a028-0b825d238406.png" width="1494" title crop="0,0,1,1" id="ucfcc847d" class="ne-image"></p>
+<p>MySQL 的常用命令主要包括数据库操作命令、表操作命令、行数据 CRUD 命令、索引和约束的创建修改命令、用户和权限管理的命令、事务控制的命令等。</p>
+<h3 id="说说数据库操作命令？"><a href="#说说数据库操作命令？" class="headerlink" title="说说数据库操作命令？"></a>说说数据库操作命令？</h3><p><code>CREATE DATABASE database_name;</code> 用于创建数据库；<code>DROP DATABASE database_name;</code> 用于删除数据库；<code>SHOW DATABASES;</code> 用于显示所有数据库；<code>USE database_name;</code> 用于切换数据库。</p>
+<h3 id="说说表操作命令？"><a href="#说说表操作命令？" class="headerlink" title="说说表操作命令？"></a>说说表操作命令？</h3><p><code>CREATE TABLE table_name (列名1 数据类型1, 列名2 数据类型2,...);</code> 用于创建表；<code>DROP TABLE table_name;</code> 用于删除表；<code>SHOW TABLES;</code> 用于显示所有表；<code>DESCRIBE table_name;</code> 用于查看表结构；<code>ALTER TABLE table_name ADD column_name datatype;</code> 用于修改表。</p>
+<h3 id="说说行数据的-CRUD-命令？"><a href="#说说行数据的-CRUD-命令？" class="headerlink" title="说说行数据的 CRUD 命令？"></a>说说行数据的 CRUD 命令？</h3><p><code>INSERT INTO table_name (column1, column2, ...) VALUES (value1, value2, ...);</code> 用于插入数据；<code>SELECT column_names FROM table_name WHERE condition;</code> 用于查询数据；<code>UPDATE table_name SET column1 = value1, column2 = value2 WHERE condition;</code> 用于更新数据；<code>DELETE FROM table_name WHERE condition;</code> 用于删除数据。</p>
+<h3 id="说说索引和约束的创建修改命令？"><a href="#说说索引和约束的创建修改命令？" class="headerlink" title="说说索引和约束的创建修改命令？"></a>说说索引和约束的创建修改命令？</h3><p><code>CREATE INDEX index_name ON table_name (column_name);</code> 用于创建索引；<code>ALTER TABLE table_name ADD PRIMARY KEY (column_name);</code> 用于添加主键；<code>ALTER TABLE table_name ADD CONSTRAINT fk_name FOREIGN KEY (column_name) REFERENCES parent_table (parent_column_name);</code> 用于添加外键。</p>
+<h3 id="说说用户和权限管理的命令？"><a href="#说说用户和权限管理的命令？" class="headerlink" title="说说用户和权限管理的命令？"></a>说说用户和权限管理的命令？</h3><p><code>CREATE USER &#39;username&#39;@&#39;host&#39; IDENTIFIED BY &#39;password&#39;;</code> 用于创建用户；<code>GRANT ALL PRIVILEGES ON database_name.table_name TO &#39;username&#39;@&#39;host&#39;;</code> 用于授予权限；<code>REVOKE ALL PRIVILEGES ON database_name.table_name FROM &#39;username&#39;@&#39;host&#39;;</code> 用于撤销权限；<code>DROP USER &#39;username&#39;@&#39;host&#39;;</code> 用于删除用户。</p>
+<h3 id="说说事务控制的命令？"><a href="#说说事务控制的命令？" class="headerlink" title="说说事务控制的命令？"></a>说说事务控制的命令？</h3><p><code>START TRANSACTION;</code> 用于开始事务；<code>COMMIT;</code> 用于提交事务；<code>ROLLBACK;</code> 用于回滚事务。</p>
+<h2 id="MySQL-bin-目录下的可执行文件了解吗"><a href="#MySQL-bin-目录下的可执行文件了解吗" class="headerlink" title="MySQL bin 目录下的可执行文件了解吗"></a>MySQL bin 目录下的可执行文件了解吗</h2><p>了解的。MySQL 的 bin 目录下有很多可执行文件，主要用于管理 MySQL 服务器、数据库、表、数据等。比如说：</p>
+<ul>
+<li>mysql：用于连接 MySQL 服务器</li>
+<li>mysqldump：用于数据库备份，对数据备份、迁移或恢复时非常有用</li>
+<li>mysqladmin：用来执行一些管理操作，比如说创建数据库、删除数据库、查看 MySQL 服务器的状态等。</li>
+<li>mysqlcheck：用于检查、修复、分析和优化数据库表，对数据库的维护和性能优化非常有用。</li>
+<li>mysqlimport：用于从文本文件中导入数据到数据库表中，适合批量数据导入。</li>
+<li>mysqlshow：用于显示 MySQL 数据库服务器中的数据库、表、列等信息。</li>
+<li>mysqlbinlog：用于查看 MySQL 二进制日志文件的内容，可以用于恢复数据、查看数据变更等。</li>
+</ul>
+<h2 id="MySQL-第-3-10-条记录怎么查？"><a href="#MySQL-第-3-10-条记录怎么查？" class="headerlink" title="MySQL 第 3-10 条记录怎么查？"></a>MySQL 第 3-10 条记录怎么查？</h2><p>可以使用 limit 语句，结合偏移量和行数来实现。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> table_name LIMIT <span class="number">2</span>, <span class="number">8</span>;</span><br></pre></td></tr></table></figure>
+<p>limit 语句用于限制查询结果的数量，偏移量表示从哪条记录开始，行数表示返回的记录数量。</p>
+<pre><code>- 2：偏移量，表示跳过前两条记录，从第三条记录开始。
+- 8：行数，表示从偏移量开始，返回 8 条记录。
+</code></pre><p>偏移量是从 0 开始的，即第一条记录的偏移量是 0；如果想从第 3 条记录开始，偏移量就应该是 2。</p>
+<h2 id="用过哪些-MySQL-函数？"><a href="#用过哪些-MySQL-函数？" class="headerlink" title="用过哪些 MySQL 函数？"></a>用过哪些 MySQL 函数？</h2><p>用过挺多的，比如说处理字符串的函数：</p>
+<pre><code>- `CONCAT()`: 用于连接两个或多个字符串。
+- `LENGTH()`: 用于返回字符串的长度。
+- `SUBSTRING()`: 从字符串中提取子字符串。
+- `REPLACE()`: 替换字符串中的某部分。
+- `TRIM()`: 去除字符串两侧的空格或其他指定字符。
+</code></pre><p>实测数据：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 连接字符串</span></span><br><span class="line"><span class="keyword">SELECT</span> CONCAT(<span class="string">&#x27;鲸落&#x27;</span>, <span class="string">&#x27; &#x27;</span>, <span class="string">&#x27;AI&#x27;</span>) <span class="keyword">AS</span> concatenated_string;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 获取字符串长度</span></span><br><span class="line"><span class="keyword">SELECT</span> LENGTH(<span class="string">&#x27;鲸落 AI&#x27;</span>) <span class="keyword">AS</span> string_length;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 提取子字符串</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">SUBSTRING</span>(<span class="string">&#x27;鲸落 AI&#x27;</span>, <span class="number">1</span>, <span class="number">5</span>) <span class="keyword">AS</span> substring;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 替换字符串内容</span></span><br><span class="line"><span class="keyword">SELECT</span> REPLACE(<span class="string">&#x27;鲸落 AI&#x27;</span>, <span class="string">&#x27;AI&#x27;</span>, <span class="string">&#x27;MySQL&#x27;</span>) <span class="keyword">AS</span> replaced_string;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 去除字符串两侧的空格</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">TRIM</span>(<span class="string">&#x27;  鲸落 AI  &#x27;</span>) <span class="keyword">AS</span> trimmed_string;</span><br></pre></td></tr></table></figure>
+<p>处理数字的函数：</p>
+<pre><code>- `ABS()`: 返回一个数的绝对值。
+- `ROUND()`: 四舍五入到指定的小数位数。
+- `MOD()`: 返回除法操作的余数。
+</code></pre><p>实测数据：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 返回绝对值</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">ABS</span>(<span class="number">-123</span>) <span class="keyword">AS</span> absolute_value;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 四舍五入</span></span><br><span class="line"><span class="keyword">SELECT</span> ROUND(<span class="number">123.4567</span>, <span class="number">2</span>) <span class="keyword">AS</span> rounded_value;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 余数</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">MOD</span>(<span class="number">10</span>, <span class="number">3</span>) <span class="keyword">AS</span> modulus;</span><br></pre></td></tr></table></figure>
+<p>日期和时间处理函数：</p>
+<pre><code>- `NOW()`: 返回当前的日期和时间。
+- `CURDATE()`: 返回当前的日期。
+</code></pre><p>实测数据：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 返回当前日期和时间</span></span><br><span class="line"><span class="keyword">SELECT</span> NOW() <span class="keyword">AS</span> current_date_time;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 返回当前日期</span></span><br><span class="line"><span class="keyword">SELECT</span> CURDATE() <span class="keyword">AS</span> <span class="built_in">current_date</span>;</span><br></pre></td></tr></table></figure>
+<p>汇总函数：</p>
+<pre><code>- `SUM()`: 计算数值列的总和。
+- `AVG()`: 计算数值列的平均值。
+- `COUNT()`: 计算某列的行数。
+</code></pre><p>实测数据：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 创建一个表并插入数据进行聚合查询</span></span><br><span class="line"><span class="keyword">CREATE TABLE</span> sales (</span><br><span class="line">    product_id <span class="type">INT</span>,</span><br><span class="line">    sales_amount <span class="type">DECIMAL</span>(<span class="number">10</span>, <span class="number">2</span>)</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line"><span class="keyword">INSERT INTO</span> sales (product_id, sales_amount) <span class="keyword">VALUES</span> (<span class="number">1</span>, <span class="number">100.00</span>);</span><br><span class="line"><span class="keyword">INSERT INTO</span> sales (product_id, sales_amount) <span class="keyword">VALUES</span> (<span class="number">1</span>, <span class="number">150.00</span>);</span><br><span class="line"><span class="keyword">INSERT INTO</span> sales (product_id, sales_amount) <span class="keyword">VALUES</span> (<span class="number">2</span>, <span class="number">200.00</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 计算总和</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">SUM</span>(sales_amount) <span class="keyword">AS</span> total_sales <span class="keyword">FROM</span> sales;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 计算平均值</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">AVG</span>(sales_amount) <span class="keyword">AS</span> average_sales <span class="keyword">FROM</span> sales;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 计算总行数</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">AS</span> total_entries <span class="keyword">FROM</span> sales;</span><br></pre></td></tr></table></figure>
+<p>逻辑函数：</p>
+<pre><code>- `IF()`: 如果条件为真，则返回一个值；否则返回另一个值。
+- `CASE`: 根据一系列条件返回值。
+</code></pre><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- IF函数</span></span><br><span class="line"><span class="keyword">SELECT</span> IF(<span class="number">1</span> <span class="operator">&gt;</span> <span class="number">0</span>, <span class="string">&#x27;True&#x27;</span>, <span class="string">&#x27;False&#x27;</span>) <span class="keyword">AS</span> simple_if;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- CASE表达式</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">CASE</span> <span class="keyword">WHEN</span> <span class="number">1</span> <span class="operator">&gt;</span> <span class="number">0</span> <span class="keyword">THEN</span> <span class="string">&#x27;True&#x27;</span> <span class="keyword">ELSE</span> <span class="string">&#x27;False&#x27;</span> <span class="keyword">END</span> <span class="keyword">AS</span> case_expression;</span><br></pre></td></tr></table></figure>
+<h2 id="说说-SQL-的隐式数据类型转换？"><a href="#说说-SQL-的隐式数据类型转换？" class="headerlink" title="说说 SQL 的隐式数据类型转换？"></a>说说 SQL 的隐式数据类型转换？</h2><p>当一个整数和一个浮点数相加时，整数会被转换为浮点数。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="number">1</span> <span class="operator">+</span> <span class="number">1.0</span>; <span class="comment">-- 结果为 2.0</span></span><br></pre></td></tr></table></figure>
+<p>当一个字符串和一个整数相加时，字符串会被转换为整数。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="string">&#x27;1&#x27;</span> <span class="operator">+</span> <span class="number">1</span>; <span class="comment">-- 结果为 2</span></span><br></pre></td></tr></table></figure>
+<p>隐式转换会导致意想不到的结果，最好通过显式转换来规避。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> <span class="built_in">CAST</span>(<span class="string">&#x27;1&#x27;</span> <span class="keyword">AS</span> SIGNED <span class="type">INTEGER</span>) <span class="operator">+</span> <span class="number">1</span>; <span class="comment">-- 结果为 2</span></span><br></pre></td></tr></table></figure>
+<p>实际验证结果：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1779933529276-3580d588-f339-48f0-8be9-920e6facf1f3.png" width="934" title crop="0,0,1,1" id="HW40e" class="ne-image"></p>
+<h2 id="说说-SQL-的语法树解析？"><a href="#说说-SQL-的语法树解析？" class="headerlink" title="说说 SQL 的语法树解析？"></a>说说 SQL 的语法树解析？</h2><p>SQL 语法树解析是将 SQL 查询语句转换成抽象语法树 —— AST 的过程，是数据库引擎处理查询的第一步，也是防止 SQL 注入的重要手段。</p>
+<p>通常分为 3 个阶段。</p>
+<p>第一个阶段，词法分析：拆解 SQL 语句，识别关键字、表名、列名等。</p>
+<p>比如说：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> id, name <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> age <span class="operator">&gt;</span> <span class="number">18</span>;</span><br></pre></td></tr></table></figure>
+<p>将会被拆解为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[SELECT] [id] [,] [name] [FROM] [users] [WHERE] [age] [&gt;] [18] [;]</span><br></pre></td></tr></table></figure>
+<p>第二个阶段，语法分析：检查 SQL 是否符合语法规则，并构建抽象语法树。</p>
+<p>比如说上面的语句会被构建成如下的语法树：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">        SELECT</span><br><span class="line">       /      \</span><br><span class="line">   Columns     FROM</span><br><span class="line">  /      \      |</span><br><span class="line">id      name  users</span><br><span class="line">             |</span><br><span class="line">           WHERE</span><br><span class="line">             |</span><br><span class="line">          age &gt; 18</span><br></pre></td></tr></table></figure>
+<p>或者这样表示：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">SELECT</span><br><span class="line"> ├── COLUMNS: id, name</span><br><span class="line"> ├── FROM: users</span><br><span class="line"> ├── WHERE</span><br><span class="line"> │    ├── CONDITION: age &gt; 18</span><br></pre></td></tr></table></figure>
+<p>第三个阶段，语义分析：检查表、列是否存在，进行权限验证等。</p>
+<p>比如说执行：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span> id, name <span class="keyword">FROM</span> users <span class="keyword">WHERE</span> age <span class="operator">&gt;</span> <span class="string">&#x27;eighteen&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>会报错：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR: Column &#x27;age&#x27; is INT, but &#x27;eighteen&#x27; is STRING.</span><br></pre></td></tr></table></figure></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/40ac/">https://jingluo23.github.io/blog.github.io/posts/40ac/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/MySQL/">MySQL</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width no-desc" href="/blog.github.io/posts/ce13/" title="MySQL八股文面试题（二）：数据库架构"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">MySQL八股文面试题（二）：数据库架构</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/56af/" title="MySQL八股文面试题（七）：锁"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（七）：锁</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/dca3/" title="MySQL八股文面试题（四）：日志"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（四）：日志</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/ce42/" title="MySQL八股文面试题（十一）：SQL 题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（十一）：SQL 题</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/49fe/" title="MySQL八股文面试题（九）：高可用"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（九）：高可用</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/ad1e/" title="MySQL八股文面试题（十）：运维"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（十）：运维</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/a7b1/" title="MySQL八股文面试题（六）：索引"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">MySQL八股文面试题（六）：索引</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#MySQL-%E5%9F%BA%E7%A1%80"><span class="toc-number">1.</span> <span class="toc-text">MySQL 基础</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-MySQL%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">什么是 MySQL？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E5%88%A0%E9%99%A4-%E5%88%9B%E5%BB%BA%E4%B8%80%E5%BC%A0%E8%A1%A8%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">怎么删除&#x2F;创建一张表？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B7%E5%86%99%E4%B8%80%E4%B8%AA%E5%8D%87%E5%BA%8F-%E9%99%8D%E5%BA%8F%E7%9A%84-SQL-%E8%AF%AD%E5%8F%A5%EF%BC%9F"><span class="toc-number">1.1.2.</span> <span class="toc-text">请写一个升序&#x2F;降序的 SQL 语句？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#MySQL%E5%87%BA%E7%8E%B0%E6%80%A7%E8%83%BD%E5%B7%AE%E7%9A%84%E5%8E%9F%E5%9B%A0%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="toc-number">1.1.3.</span> <span class="toc-text">MySQL出现性能差的原因有哪些？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%A4%E5%BC%A0%E8%A1%A8%E6%80%8E%E4%B9%88%E8%BF%9B%E8%A1%8C%E8%BF%9E%E6%8E%A5%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">两张表怎么进行连接？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%86%85%E8%BF%9E%E6%8E%A5%EF%BC%9F"><span class="toc-number">1.2.1.</span> <span class="toc-text">什么是内连接？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E5%A4%96%E8%BF%9E%E6%8E%A5%EF%BC%9F"><span class="toc-number">1.2.2.</span> <span class="toc-text">什么是外连接？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E4%BA%A4%E5%8F%89%E8%BF%9E%E6%8E%A5%EF%BC%9F"><span class="toc-number">1.2.3.</span> <span class="toc-text">什么是交叉连接？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%85%E8%BF%9E%E6%8E%A5%E3%80%81%E5%B7%A6%E8%BF%9E%E6%8E%A5%E3%80%81%E5%8F%B3%E8%BF%9E%E6%8E%A5%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.2.4.</span> <span class="toc-text">内连接、左连接、右连接有什么区别？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E4%B8%80%E4%B8%8B%E6%95%B0%E6%8D%AE%E5%BA%93%E7%9A%84%E4%B8%89%E5%A4%A7%E8%8C%83%E5%BC%8F%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">说一下数据库的三大范式？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BB%BA%E8%A1%A8%E7%9A%84%E6%97%B6%E5%80%99%E9%9C%80%E8%A6%81%E8%80%83%E8%99%91%E5%93%AA%E4%BA%9B%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="toc-number">1.3.1.</span> <span class="toc-text">建表的时候需要考虑哪些问题？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#varchar-%E4%B8%8E-char-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">varchar 与 char 的区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#blob-%E5%92%8C-text-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">blob 和 text 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DATETIME-%E5%92%8C-TIMESTAMP-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.6.</span> <span class="toc-text">DATETIME 和 TIMESTAMP 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#in%E5%92%8Cexists%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.7.</span> <span class="toc-text">in和exists的区别？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#NULL%E5%80%BC%E9%99%B7%E9%98%B1%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.7.1.</span> <span class="toc-text">NULL值陷阱了解吗？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B0%E5%BD%95%E8%B4%A7%E5%B8%81%E7%94%A8%E4%BB%80%E4%B9%88%E7%B1%BB%E5%9E%8B%E6%AF%94%E8%BE%83%E5%A5%BD%EF%BC%9F"><span class="toc-number">1.8.</span> <span class="toc-text">记录货币用什么类型比较好？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E6%8E%A8%E8%8D%90%E4%BD%BF%E7%94%A8-FLOAT-%E6%88%96-DOUBLE%EF%BC%9F"><span class="toc-number">1.8.1.</span> <span class="toc-text">为什么不推荐使用 FLOAT 或 DOUBLE？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E5%AD%98%E5%82%A8-emoji"><span class="toc-number">1.9.</span> <span class="toc-text">怎么存储 emoji?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#drop%E3%80%81delete-%E4%B8%8E-truncate-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.10.</span> <span class="toc-text">drop、delete 与 truncate 的区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#UNION-%E4%B8%8E-UNION-ALL-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.11.</span> <span class="toc-text">UNION 与 UNION ALL 的区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#count-1-%E3%80%81count-%E4%B8%8E-count-%E5%88%97%E5%90%8D-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.12.</span> <span class="toc-text">count(1)、count(*) 与 count(列名) 的区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SQL-%E6%9F%A5%E8%AF%A2%E8%AF%AD%E5%8F%A5%E7%9A%84%E6%89%A7%E8%A1%8C%E9%A1%BA%E5%BA%8F%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.13.</span> <span class="toc-text">SQL 查询语句的执行顺序了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#LIMIT-%E4%B8%BA%E4%BB%80%E4%B9%88%E5%9C%A8%E6%9C%80%E5%90%8E%E6%89%A7%E8%A1%8C%EF%BC%9F"><span class="toc-number">1.13.1.</span> <span class="toc-text">LIMIT 为什么在最后执行？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#ORDER-BY-%E4%B8%BA%E4%BB%80%E4%B9%88%E5%9C%A8-SELECT-%E4%B9%8B%E5%90%8E%E6%89%A7%E8%A1%8C%EF%BC%9F"><span class="toc-number">1.13.2.</span> <span class="toc-text">ORDER BY 为什么在 SELECT 之后执行？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8B%E7%BB%8D%E4%B8%80%E4%B8%8B-MySQL-%E7%9A%84%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4"><span class="toc-number">1.14.</span> <span class="toc-text">介绍一下 MySQL 的常用命令</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E6%95%B0%E6%8D%AE%E5%BA%93%E6%93%8D%E4%BD%9C%E5%91%BD%E4%BB%A4%EF%BC%9F"><span class="toc-number">1.14.1.</span> <span class="toc-text">说说数据库操作命令？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E8%A1%A8%E6%93%8D%E4%BD%9C%E5%91%BD%E4%BB%A4%EF%BC%9F"><span class="toc-number">1.14.2.</span> <span class="toc-text">说说表操作命令？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E8%A1%8C%E6%95%B0%E6%8D%AE%E7%9A%84-CRUD-%E5%91%BD%E4%BB%A4%EF%BC%9F"><span class="toc-number">1.14.3.</span> <span class="toc-text">说说行数据的 CRUD 命令？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E7%B4%A2%E5%BC%95%E5%92%8C%E7%BA%A6%E6%9D%9F%E7%9A%84%E5%88%9B%E5%BB%BA%E4%BF%AE%E6%94%B9%E5%91%BD%E4%BB%A4%EF%BC%9F"><span class="toc-number">1.14.4.</span> <span class="toc-text">说说索引和约束的创建修改命令？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E7%94%A8%E6%88%B7%E5%92%8C%E6%9D%83%E9%99%90%E7%AE%A1%E7%90%86%E7%9A%84%E5%91%BD%E4%BB%A4%EF%BC%9F"><span class="toc-number">1.14.5.</span> <span class="toc-text">说说用户和权限管理的命令？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4%E4%BA%8B%E5%8A%A1%E6%8E%A7%E5%88%B6%E7%9A%84%E5%91%BD%E4%BB%A4%EF%BC%9F"><span class="toc-number">1.14.6.</span> <span class="toc-text">说说事务控制的命令？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-bin-%E7%9B%AE%E5%BD%95%E4%B8%8B%E7%9A%84%E5%8F%AF%E6%89%A7%E8%A1%8C%E6%96%87%E4%BB%B6%E4%BA%86%E8%A7%A3%E5%90%97"><span class="toc-number">1.15.</span> <span class="toc-text">MySQL bin 目录下的可执行文件了解吗</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-%E7%AC%AC-3-10-%E6%9D%A1%E8%AE%B0%E5%BD%95%E6%80%8E%E4%B9%88%E6%9F%A5%EF%BC%9F"><span class="toc-number">1.16.</span> <span class="toc-text">MySQL 第 3-10 条记录怎么查？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E8%BF%87%E5%93%AA%E4%BA%9B-MySQL-%E5%87%BD%E6%95%B0%EF%BC%9F"><span class="toc-number">1.17.</span> <span class="toc-text">用过哪些 MySQL 函数？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-SQL-%E7%9A%84%E9%9A%90%E5%BC%8F%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B%E8%BD%AC%E6%8D%A2%EF%BC%9F"><span class="toc-number">1.18.</span> <span class="toc-text">说说 SQL 的隐式数据类型转换？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4-SQL-%E7%9A%84%E8%AF%AD%E6%B3%95%E6%A0%91%E8%A7%A3%E6%9E%90%EF%BC%9F"><span class="toc-number">1.19.</span> <span class="toc-text">说说 SQL 的语法树解析？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（六）：分布式限流"></a><div class="content"><a class="title" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流">分布式八股文面试题（六）：分布式限流</a><time datetime="2026-09-08T09:31:21.000Z" title="发表于 2026-09-08 17:31:21">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（五）：分布式设计"></a><div class="content"><a class="title" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计">分布式八股文面试题（五）：分布式设计</a><time datetime="2026-09-08T09:30:14.000Z" title="发表于 2026-09-08 17:30:14">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（四）：分布式一致性算法"></a><div class="content"><a class="title" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法">分布式八股文面试题（四）：分布式一致性算法</a><time datetime="2026-09-08T09:28:28.000Z" title="发表于 2026-09-08 17:28:28">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">83</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/blog.github.io/article/categories/'|| '/blog.github.io/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

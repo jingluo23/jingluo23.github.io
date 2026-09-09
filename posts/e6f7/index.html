@@ -1,0 +1,565 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>RocketMQ八股文面试题（二）：进阶 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="进阶如何保证消息的可用性&#x2F;可靠性&#x2F;不丢失呢？消息可能在哪些阶段丢失呢？可能会在这三个阶段发生丢失：生产阶段、存储阶段、消费阶段。 所以要从这三个阶段考虑：  生产在生产阶段，主要通过请求确认机制，来保证消息的可靠传递。 - 1、同步发送的时候，要注意处理响应结果和异常。如果返回响应 OK，表示消息成功发送到了 Broker，如果响应失败，或者发生其它异常，都应该重试。 - 2、异步发送的时候，应该">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RocketMQ八股文面试题（二）：进阶">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/e6f7/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="进阶如何保证消息的可用性&#x2F;可靠性&#x2F;不丢失呢？消息可能在哪些阶段丢失呢？可能会在这三个阶段发生丢失：生产阶段、存储阶段、消费阶段。 所以要从这三个阶段考虑：  生产在生产阶段，主要通过请求确认机制，来保证消息的可靠传递。 - 1、同步发送的时候，要注意处理响应结果和异常。如果返回响应 OK，表示消息成功发送到了 Broker，如果响应失败，或者发生其它异常，都应该重试。 - 2、异步发送的时候，应该">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-08T02:30:41.000Z">
+<meta property="article:modified_time" content="2026-09-08T14:01:29.384Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="RocketMQ">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "RocketMQ八股文面试题（二）：进阶",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/e6f7/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-08T02:30:41.000Z",
+  "dateModified": "2026-09-08T14:01:29.384Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/e6f7/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'RocketMQ八股文面试题（二）：进阶',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">RocketMQ八股文面试题（二）：进阶</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">RocketMQ八股文面试题（二）：进阶</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-08T02:30:41.000Z" title="发表于 2026-09-08 10:30:41">2026-09-08</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-08T14:01:29.384Z" title="更新于 2026-09-08 22:01:29">2026-09-08</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>12分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-09-08 22:01:29&quot;}" hidden></div><h1 id="进阶"><a href="#进阶" class="headerlink" title="进阶"></a>进阶</h1><h2 id="如何保证消息的可用性-可靠性-不丢失呢？"><a href="#如何保证消息的可用性-可靠性-不丢失呢？" class="headerlink" title="如何保证消息的可用性/可靠性/不丢失呢？"></a>如何保证消息的可用性/可靠性/不丢失呢？</h2><p>消息可能在哪些阶段丢失呢？可能会在这三个阶段发生丢失：生产阶段、存储阶段、消费阶段。</p>
+<p>所以要从这三个阶段考虑：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285176549-24f9e1cb-e3c9-45eb-b334-8547f0befe88.png" width="785" title crop="0,0,1,1" id="eeVmu" class="ne-image"></p>
+<h3 id="生产"><a href="#生产" class="headerlink" title="生产"></a>生产</h3><p>在生产阶段，主要<strong>通过请求确认机制，来保证消息的可靠传递</strong>。</p>
+<pre><code>- 1、同步发送的时候，要注意处理响应结果和异常。如果返回响应 OK，表示消息成功发送到了 Broker，如果响应失败，或者发生其它异常，都应该重试。
+- 2、异步发送的时候，应该在回调方法里检查，如果发送失败或者异常，都应该进行重试。
+- 3、如果发生超时的情况，也可以通过查询日志的 API，来检查是否在 Broker 存储成功。
+</code></pre><h3 id="存储"><a href="#存储" class="headerlink" title="存储"></a>存储</h3><p>存储阶段，可以通过<strong>配置可靠性优先的 Broker 参数来避免因为宕机丢消息</strong>，简单说就是可靠性优先的场景都应该使用同步。</p>
+<pre><code>- 1、消息只要持久化到 CommitLog（日志文件）中，即使 Broker 宕机，未消费的消息也能重新恢复再消费。
+- 2、Broker 的刷盘机制：同步刷盘和异步刷盘，不管哪种刷盘都可以保证消息一定存储在 pagecache 中（内存中），但是同步刷盘更可靠，它是 Producer 发送消息后等数据持久化到磁盘之后再返回响应给 Producer。
+</code></pre><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285176793-6091dbd3-5179-4db0-8211-8f7eae3cad96.png" width="1080" title crop="0,0,1,1" id="WWeSF" class="ne-image"></p>
+<pre><code>- 3、Broker 通过主从模式来保证高可用，Broker 支持 Master 和 Slave 同步复制、Master 和 Slave 异步复制模式，生产者的消息都是发送给 Master，但是消费既可以从 Master 消费，也可以从 Slave 消费。同步复制模式可以保证即使 Master 宕机，消息肯定在 Slave 中有备份，保证了消息不会丢失。
+</code></pre><h3 id="消费"><a href="#消费" class="headerlink" title="消费"></a>消费</h3><p>从 Consumer 角度分析，如何保证消息被成功消费？</p>
+<pre><code>- Consumer 保证消息成功消费的关键在于确认的时机，不要在收到消息后就立即发送消费确认，而是应该在执行完所有消费业务逻辑之后，再发送消费确认。因为消息队列维护了消费的位置，逻辑执行失败了，没有确认，再去队列拉取消息，就还是之前的一条。
+</code></pre><h2 id="如何处理消息重复的问题呢？"><a href="#如何处理消息重复的问题呢？" class="headerlink" title="如何处理消息重复的问题呢？"></a>如何处理消息重复的问题呢？</h2><p>RocketMQ 可以保证消息一定投递，且不丢失，但无法保证消息不重复消费。</p>
+<p>因此，需要在业务端做好消息的幂等性处理，或者做消息去重。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285176898-ce44b0f0-b81a-423d-b857-6a87ae37d700.png" width="502" title crop="0,0,1,1" id="NqAmM" class="ne-image"></p>
+<p>幂等性是指一个操作可以执行多次而不会产生副作用，即无论执行多少次，结果都是相同的。可以在业务逻辑中加入检查逻辑，确保同一消息多次消费不会产生副作用。</p>
+<p>例如，在支付场景下，消费者消费扣款的消息，对一笔订单执行扣款操作，金额为100元。</p>
+<p>如果因网络不稳定等原因导致扣款消息重复投递，消费者重复消费了该扣款消息，但最终的业务结果要保证只扣款一次，金额为100元。如果扣款操作是符合要求的，那么就可以认为整个消费过程实现了消息幂等。</p>
+<p>消息去重，是指在消费者消费消息之前，先检查一下是否已经消费过这条消息，如果消费过了，就不再消费。</p>
+<p>业务端可以通过一个专门的表来记录已经消费过的消息 ID，每次消费消息之前，先查询一下这个表，如果已经存在，就不再消费。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">processMessage</span><span class="params">(String messageId, String message)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (!isMessageProcessed(messageId)) &#123;</span><br><span class="line">        <span class="comment">// 处理消息</span></span><br><span class="line">        markMessageAsProcessed(messageId);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="type">boolean</span> <span class="title function_">isMessageProcessed</span><span class="params">(String messageId)</span> &#123;</span><br><span class="line">    <span class="comment">// 查询去重表，检查消息ID是否存在</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span> <span class="type">void</span> <span class="title function_">markMessageAsProcessed</span><span class="params">(String messageId)</span> &#123;</span><br><span class="line">    <span class="comment">// 将消息ID插入去重表</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="如何保证消息的幂等性？"><a href="#如何保证消息的幂等性？" class="headerlink" title="如何保证消息的幂等性？"></a>如何保证消息的幂等性？</h3><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285176825-c1442a07-41a2-488f-814d-f485f26e60d7.png" width="738" title crop="0,0,1,1" id="XdgAH" class="ne-image"></p>
+<p>首先，消息必须携带业务唯一标识，可以通过雪花算法生成全局唯一 ID。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Message</span> <span class="variable">msg</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Message</span>(TOPIC <span class="comment">/* Topic */</span>,</span><br><span class="line">             TAG <span class="comment">/* Tag */</span>,</span><br><span class="line">               (<span class="string">&quot;Hello RocketMQ &quot;</span> + i).getBytes(RemotingHelper.DEFAULT_CHARSET) <span class="comment">/* Message body */</span></span><br><span class="line">             );</span><br><span class="line">message.setKey(<span class="string">&quot;ORDERID_100&quot;</span>); <span class="comment">// 订单编号</span></span><br><span class="line"><span class="type">SendResult</span> <span class="variable">sendResult</span> <span class="operator">=</span> producer.send(message);      </span><br></pre></td></tr></table></figure>
+<p>其次，在消费者接收到消息后，判断 Redis 中是否存在该业务主键的标志位，若存在标志位，则认为消费成功，否则执行业务逻辑，执行完成后，在缓存中添加标志位。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">ConsumeConcurrentlyStatus</span> <span class="title function_">consumeMessage</span><span class="params">(List&lt;MessageExt&gt; msgs, ConsumeConcurrentlyContext context)</span> &#123;</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">        <span class="keyword">for</span> (MessageExt messageExt : msgs) &#123;</span><br><span class="line">           <span class="type">String</span> <span class="variable">bizKey</span> <span class="operator">=</span> messageExt.getKeys(); <span class="comment">// 唯一业务主键</span></span><br><span class="line">           <span class="comment">//1. 判断是否存在标志</span></span><br><span class="line">           <span class="keyword">if</span>(redisTemplate.hasKey(RedisKeyConstants.WAITING_SEND_LOCK + bizKey)) &#123;</span><br><span class="line">                     <span class="keyword">continue</span>;</span><br><span class="line">                &#125;</span><br><span class="line">              <span class="comment">//2. 执行业务逻辑</span></span><br><span class="line">           <span class="comment">//TODO do business</span></span><br><span class="line">           <span class="comment">//3. 设置标志位</span></span><br><span class="line">           redisTemplate.opsForValue().set(RedisKeyConstants.WAITING_SEND_LOCK + bizKey, <span class="string">&quot;1&quot;</span>, <span class="number">72</span>, TimeUnit.HOURS);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> ConsumeConcurrentlyStatus.CONSUME_SUCCESS;</span><br><span class="line">    &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">        logger.error(<span class="string">&quot;consumeMessage error: &quot;</span>, e);</span><br><span class="line">        <span class="keyword">return</span> ConsumeConcurrentlyStatus.RECONSUME_LATER;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后，利用数据库的唯一索引来防止业务的重复插入。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> `t_order` (</span><br><span class="line">  `id` <span class="type">bigint</span>(<span class="number">20</span>) <span class="keyword">NOT NULL</span> AUTO_INCREMENT,</span><br><span class="line">  `order_id` <span class="type">varchar</span>(<span class="number">64</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;订单编号&#x27;</span>,</span><br><span class="line">  `order_name` <span class="type">varchar</span>(<span class="number">64</span>) <span class="keyword">NOT NULL</span> COMMENT <span class="string">&#x27;订单名称&#x27;</span>,</span><br><span class="line">  <span class="keyword">PRIMARY KEY</span> (`id`),</span><br><span class="line">  <span class="keyword">UNIQUE</span> KEY `order_id` (`order_id`)</span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8mb4 COMMENT<span class="operator">=</span><span class="string">&#x27;订单表&#x27;</span>;</span><br></pre></td></tr></table></figure>
+<p>最后，在数据库表中使用版本号，通过乐观锁机制来保证幂等性。每次更新操作时检查版本号是否一致，只有一致时才执行更新并递增版本号。如果版本号不一致，则说明操作已被执行过，拒绝重复操作。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">updateRecordWithOptimisticLock</span><span class="params">(<span class="type">int</span> id, String newValue, <span class="type">int</span> expectedVersion)</span> &#123;</span><br><span class="line">    <span class="type">int</span> <span class="variable">updatedRows</span> <span class="operator">=</span> jdbcTemplate.update(</span><br><span class="line">        <span class="string">&quot;UPDATE records SET value = ?, version = version + 1 WHERE id = ? AND version = ?&quot;</span>,</span><br><span class="line">        newValue, id, expectedVersion</span><br><span class="line">    );</span><br><span class="line">    <span class="keyword">if</span> (updatedRows == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">OptimisticLockingFailureException</span>(<span class="string">&quot;Record has been modified by another transaction&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>或者悲观锁机制，通过数据库的锁机制来保证幂等性。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="type">void</span> <span class="title function_">updateRecordWithPessimisticLock</span><span class="params">(<span class="type">int</span> id)</span> &#123;</span><br><span class="line">    jdbcTemplate.queryForObject(<span class="string">&quot;SELECT * FROM records WHERE id = ? FOR UPDATE&quot;</span>, id);</span><br><span class="line">    jdbcTemplate.update(<span class="string">&quot;UPDATE records SET value = ? WHERE id = ?&quot;</span>, <span class="string">&quot;newValue&quot;</span>, id);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="雪花算法了解吗？"><a href="#雪花算法了解吗？" class="headerlink" title="雪花算法了解吗？"></a>雪花算法了解吗？</h3><p>雪花算法是由 Twitter 开发的一种分布式唯一 ID 生成算法。</p>
+<p>雪花算法以 64 bit 来存储组成 ID 的4 个部分：</p>
+<pre><code>1. 最高位占1 bit，始终为 0，表示正数。
+2. 中位占 41 bit，值为毫秒级时间戳；
+3. 中下位占 10 bit，机器 ID（包括数据中心 ID 和机器 ID），可以支持 1024 个节点。
+4. 末位占 12 bit，值为当前毫秒内生成的不同的自增序列，值的上限为 4096；
+</code></pre><p>目前雪花算法的实现比较多，可以直接使用 Hutool 工具类库中的 <code>IdUtil.getSnowflake()</code> 方法来获取雪花 ID。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">long</span> <span class="variable">id</span> <span class="operator">=</span> IdUtil.getSnowflakeNextId();</span><br></pre></td></tr></table></figure>
+<h2 id="怎么处理消息积压？"><a href="#怎么处理消息积压？" class="headerlink" title="怎么处理消息积压？"></a>怎么处理消息积压？</h2><p>发生了消息积压，这时候就得想办法赶紧把积压的消息消费完，就得考虑提高消费能力，一般有两种办法：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285519570-f600ffe1-a73c-4536-bed1-2207d1b9d2d7.png" width="1080" title crop="0,0,1,1" id="u22537bd5" class="ne-image"></p>
+<pre><code>- **消费者扩容**：如果当前 Topic 的 Message Queue 的数量大于消费者数量，就可以对消费者进行扩容，增加消费者，来提高消费能力，尽快把积压的消息消费玩。
+- **消息迁移 Queue 扩容**：如果当前 Topic 的 Message Queue 的数量小于或者等于消费者数量，这种情况，再扩容消费者就没什么用，就得考虑扩容 Message Queue。可以新建一个临时的 Topic，临时的 Topic 多设置一些 Message Queue，然后先用一些消费者把消费的数据丢到临时的 Topic，因为不用业务处理，只是转发一下消息，还是很快的。接下来用扩容的消费者去消费新的 Topic 里的数据，消费完了之后，恢复原状。
+</code></pre><p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285552923-abad4f04-d1d7-4194-b667-8f845653dc02.png" width="1080" title crop="0,0,1,1" id="u420ed02e" class="ne-image"></p>
+<h2 id="顺序消息如何实现？"><a href="#顺序消息如何实现？" class="headerlink" title="顺序消息如何实现？"></a>顺序消息如何实现？</h2><p>RocketMQ 提供了两种级别的顺序消息：全局顺序和局部顺序。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285177219-2d35015f-ac4c-48b7-aaee-c0d2fe9acf30.png" width="682" title crop="0,0,1,1" id="E4fqY" class="ne-image"></p>
+<p>全局顺序是指整个 Topic 的所有消息都严格按照发送顺序消费，这种方式性能比较低，实际项目中用得不多。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285597722-36b53b13-03c3-42bd-9dd1-4d955b75095a.png" width="1080" title crop="0,0,1,1" id="u09c33c74" class="ne-image"></p>
+<p>局部顺序是指特定分区内的消息保证顺序，这是我们常用的方式。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285629888-73058a55-a02a-4e2f-ace2-76a112239d2a.png" width="1080" title crop="0,0,1,1" id="u75cb4194" class="ne-image"></p>
+<p>要保证顺序，关键是要把需要保证顺序的消息发送到同一个 MessageQueue 中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 根据订单ID选择队列，保证同一订单的消息在同一队列</span></span><br><span class="line">producer.send(message, <span class="keyword">new</span> <span class="title class_">MessageQueueSelector</span>() &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">MessageQueue</span> <span class="title function_">select</span><span class="params">(List&lt;MessageQueue&gt; mqs, Message msg, Object arg)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">orderId</span> <span class="operator">=</span> (String) arg;</span><br><span class="line">        <span class="type">int</span> <span class="variable">index</span> <span class="operator">=</span> orderId.hashCode() % mqs.size();</span><br><span class="line">        <span class="keyword">return</span> mqs.get(index);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;, orderId);</span><br></pre></td></tr></table></figure>
+<p>每个 MessageQueue 在 Broker 中对应一个 ConsumeQueue，消息按照到达 Broker 的顺序依次写入。</p>
+<p>当消费者开始消费某个 MessageQueue 时，会在 Broker 端对该队列加锁，其他消费者就无法同时消费这个队列。这样确保了同一时间只有一个消费者在处理某个队列的消息，从而保证了消费顺序。</p>
+<h2 id="如何实现消息过滤？"><a href="#如何实现消息过滤？" class="headerlink" title="如何实现消息过滤？"></a>如何实现消息过滤？</h2><p>有两种方案：</p>
+<pre><code>- 一种是在 Broker 端按照 Consumer 的去重逻辑进行过滤，这样做的好处是避免了无用的消息传输到 Consumer 端，缺点是加重了 Broker 的负担，实现起来相对复杂。
+- 另一种是在 Consumer 端过滤，比如按照消息设置的 tag 去重，这样的好处是实现起来简单，缺点是有大量无用的消息到达了 Consumer 端只能丢弃不处理。
+</code></pre><p>一般采用 Cosumer 端过滤，如果希望提高吞吐量，可以采用 Broker 过滤。</p>
+<p>对消息的过滤有三种方式：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285688315-5caf66d6-4469-44ec-9743-5a347c09cbcf.png" width="1064" title crop="0,0,1,1" id="u603e5365" class="ne-image"></p>
+<pre><code>- 根据 Tag 过滤：这是最常见的一种，用起来高效简单
+</code></pre><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(&quot;CID_EXAMPLE&quot;);</span><br><span class="line">consumer.subscribe(&quot;TOPIC&quot;, &quot;TAGA || TAGB || TAGC&quot;);</span><br></pre></td></tr></table></figure>
+<pre><code>- SQL 表达式过滤：SQL 表达式过滤更加灵活
+</code></pre><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">DefaultMQPushConsumer consumer = new DefaultMQPushConsumer(&quot;please_rename_unique_group_name_4&quot;);</span><br><span class="line">// 只有订阅的消息有这个属性a, a &gt;=0 and a &lt;= 3</span><br><span class="line">consumer.subscribe(&quot;TopicTest&quot;, MessageSelector.bySql(&quot;a between 0 and 3&quot;);</span><br><span class="line">consumer.registerMessageListener(new MessageListenerConcurrently() &#123;</span><br><span class="line">   @Override</span><br><span class="line">   public ConsumeConcurrentlyStatus consumeMessage(List&lt;MessageExt&gt; msgs, ConsumeConcurrentlyContext context) &#123;</span><br><span class="line">       return ConsumeConcurrentlyStatus.CONSUME_SUCCESS;</span><br><span class="line">   &#125;</span><br><span class="line">&#125;);</span><br><span class="line">consumer.start();</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<pre><code>- Filter Server 方式：最灵活，也是最复杂的一种方式，允许用户自定义函数进行过滤
+</code></pre><h2 id="延时消息了解吗？"><a href="#延时消息了解吗？" class="headerlink" title="延时消息了解吗？"></a>延时消息了解吗？</h2><p>电商的订单超时自动取消，就是一个典型的利用延时消息的例子，用户提交了一个订单，就可以发送一个延时消息，1h 后去检查这个订单的状态，如果还是未付款就取消订单释放库存。</p>
+<p>RocketMQ 是支持延时消息的，只需要在生产消息的时候设置消息的延时级别：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">// 实例化一个生产者来产生延时消息</span><br><span class="line">DefaultMQProducer producer = new DefaultMQProducer(&quot;ExampleProducerGroup&quot;);</span><br><span class="line">// 启动生产者</span><br><span class="line">producer.start();</span><br><span class="line">int totalMessagesToSend = 100;</span><br><span class="line">for (int i = 0; i &lt; totalMessagesToSend; i++) &#123;</span><br><span class="line">    Message message = new Message(&quot;TestTopic&quot;, (&quot;Hello scheduled message &quot; + i).getBytes());</span><br><span class="line">    // 设置延时等级3,这个消息将在10s之后发送(现在只支持固定的几个时间,详看delayTimeLevel)</span><br><span class="line">    message.setDelayTimeLevel(3);</span><br><span class="line">    // 发送消息</span><br><span class="line">    producer.send(message);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>但是目前 RocketMQ 支持的延时级别是有限的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">private String messageDelayLevel = &quot;1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h&quot;;</span><br></pre></td></tr></table></figure>
+<h3 id="RocketMQ-怎么实现延时消息的？"><a href="#RocketMQ-怎么实现延时消息的？" class="headerlink" title="RocketMQ 怎么实现延时消息的？"></a>RocketMQ 怎么实现延时消息的？</h3><p>简单，八个字：<code>临时存储</code>+<code>定时任务</code>。</p>
+<p>Broker 收到延时消息了，会先发送到主题（SCHEDULE_TOPIC_XXXX）的相应时间段的 Message Queue 中，然后通过一个定时任务轮询这些队列，到期后，把消息投递到目标 Topic 的队列中，然后消费者就可以正常消费这些消息。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780293185687-04fd10d4-56d9-4944-b12b-4213d5aa0c03.png" width="1080" title crop="0,0,1,1" id="u521ed258" class="ne-image"></p>
+<h2 id="怎么实现分布式消息事务的？半消息？"><a href="#怎么实现分布式消息事务的？半消息？" class="headerlink" title="怎么实现分布式消息事务的？半消息？"></a>怎么实现分布式消息事务的？半消息？</h2><p>半消息：是指暂时还不能被 Consumer 消费的消息，Producer 成功发送到 Broker 端的消息，但是此消息被标记为 “暂不可投递” 状态，只有等 Producer 端执行完本地事务后经过二次确认了之后，Consumer 才能消费此条消息。</p>
+<p>依赖半消息，可以实现分布式消息事务，其中的关键在于二次确认以及消息回查：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780293247730-5bc5117d-6099-4838-b348-27a538ae5077.png" width="1080" title crop="0,0,1,1" id="ue968f680" class="ne-image"></p>
+<pre><code>- 1、Producer 向 broker 发送半消息
+- 2、Producer 端收到响应，消息发送成功，此时消息是半消息，标记为 “不可投递” 状态，Consumer 消费不了。
+- 3、Producer 端执行本地事务。
+- 4、正常情况本地事务执行完成，Producer 向 Broker 发送 Commit/Rollback，如果是 Commit，Broker 端将半消息标记为正常消息，Consumer 可以消费，如果是 Rollback，Broker 丢弃此消息。
+- 5、异常情况，Broker 端迟迟等不到二次确认。在一定时间后，会查询所有的半消息，然后到 Producer 端查询半消息的执行情况。
+- 6、Producer 端查询本地事务的状态
+- 7、根据事务的状态提交 commit/rollback 到 broker 端。（5，6，7 是消息回查）
+- 8、消费者段消费到消息之后，执行本地事务。
+</code></pre><h2 id="死信队列知道吗？"><a href="#死信队列知道吗？" class="headerlink" title="死信队列知道吗？"></a>死信队列知道吗？</h2><p>死信队列用于存储那些无法被正常处理的消息，这些消息被称为死信（Dead Letter）。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285178082-4f81a9a0-aa5c-41ec-a4c6-0b1f54783577.png" width="656" title crop="0,0,1,1" id="PTaRV" class="ne-image"></p>
+<p>产生死信的原因是，消费者在处理消息时发生异常，且达到了最大重试次数。当消费失败的原因排查并解决后，可以重发这些死信消息，让消费者重新消费；如果暂时无法处理，为避免到期后死信消息被删除，可以先将死信消息导出并进行保存。</p>
+<h2 id="如何保证-RocketMQ-的高可用？"><a href="#如何保证-RocketMQ-的高可用？" class="headerlink" title="如何保证 RocketMQ 的高可用？"></a>如何保证 RocketMQ 的高可用？</h2><p>NameServer 因为是无状态，且不相互通信的，所以只要集群部署就可以保证高可用。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780285178179-f9749871-55d2-48b5-b544-dcba08df3e31.png" width="530" title crop="0,0,1,1" id="UJXAf" class="ne-image"></p>
+<p>RocketMQ 的高可用主要是在体现在 Broker 的读和写的高可用，Broker 的高可用是通过<code>集群</code>和<code>主从</code>实现的。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780293351398-cb672c41-a87a-41cd-a3cc-fcb1b013f375.png" width="886" title crop="0,0,1,1" id="u740aa8af" class="ne-image"></p>
+<p>Broker 可以配置两种角色：Master 和 Slave，Master 角色的 Broker 支持读和写，Slave 角色的 Broker 只支持读，Master 会向 Slave 同步消息。</p>
+<p>也就是说 Producer 只能向 Master 角色的 Broker 写入消息，Cosumer 可以从 Master 和 Slave 角色的 Broker 读取消息。</p>
+<p>Consumer 的配置文件中，并不需要设置是从 Master 读还是从 Slave 读，当 Master 不可用或者繁忙的时候， Consumer 的读请求会被自动切换到从 Slave。有了自动切换 Consumer 这种机制，当一个 Master 角色的机器出现故障后，Consumer 仍然可以从 Slave 读取消息，不影响 Consumer 读取消息，这就实现了读的高可用。</p>
+<p>如何达到发送端写的高可用性呢？在创建 Topic 的时候，把 Topic 的多个 Message Queue 创建在多个 Broker 组上（相同 Broker 名称，不同 brokerId 机器组成 Broker 组），这样当 Broker 组的 Master 不可用后，其他组 Master 仍然可用， Producer 仍然可以发送消息 RocketMQ 目前还不支持把 Slave 自动转成 Master ，如果机器资源不足，需要把 Slave 转成 Master ，则要手动停止 Slave 色的 Broker ，更改配置文件，用新的配置文件启动 Broker。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/e6f7/">https://jingluo23.github.io/blog.github.io/posts/e6f7/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/RocketMQ/">RocketMQ</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/8b9c/" title="RocketMQ八股文面试题（一）：基础"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">RocketMQ八股文面试题（一）：基础</div></div></div></a><a class="pagination-related  no-desc" href="/blog.github.io/posts/dfe3/" title="RocketMQ八股文面试题（三）：原理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">RocketMQ八股文面试题（三）：原理</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/8b9c/" title="RocketMQ八股文面试题（一）：基础"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">RocketMQ八股文面试题（一）：基础</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/dfe3/" title="RocketMQ八股文面试题（三）：原理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">RocketMQ八股文面试题（三）：原理</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/19d3/" title="Redis八股文面试题（八）：Redis题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（八）：Redis题</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/3ea9/" title="Java基础篇八股文面试题（十二）：注解"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-01</div><div class="info-item-2">Java基础篇八股文面试题（十二）：注解</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/11d9/" title="Java基础篇八股文面试题（三）：面向对象"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-21</div><div class="info-item-2">Java基础篇八股文面试题（三）：面向对象</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/7aaa/" title="Redis八股文面试题（二）：持久化"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（二）：持久化</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6"><span class="toc-number">1.</span> <span class="toc-text">进阶</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E6%B6%88%E6%81%AF%E7%9A%84%E5%8F%AF%E7%94%A8%E6%80%A7-%E5%8F%AF%E9%9D%A0%E6%80%A7-%E4%B8%8D%E4%B8%A2%E5%A4%B1%E5%91%A2%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">如何保证消息的可用性&#x2F;可靠性&#x2F;不丢失呢？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7"><span class="toc-number">1.1.1.</span> <span class="toc-text">生产</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%98%E5%82%A8"><span class="toc-number">1.1.2.</span> <span class="toc-text">存储</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B6%88%E8%B4%B9"><span class="toc-number">1.1.3.</span> <span class="toc-text">消费</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%A4%84%E7%90%86%E6%B6%88%E6%81%AF%E9%87%8D%E5%A4%8D%E7%9A%84%E9%97%AE%E9%A2%98%E5%91%A2%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">如何处理消息重复的问题呢？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%E6%B6%88%E6%81%AF%E7%9A%84%E5%B9%82%E7%AD%89%E6%80%A7%EF%BC%9F"><span class="toc-number">1.2.1.</span> <span class="toc-text">如何保证消息的幂等性？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9B%AA%E8%8A%B1%E7%AE%97%E6%B3%95%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.2.2.</span> <span class="toc-text">雪花算法了解吗？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E5%A4%84%E7%90%86%E6%B6%88%E6%81%AF%E7%A7%AF%E5%8E%8B%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">怎么处理消息积压？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A1%BA%E5%BA%8F%E6%B6%88%E6%81%AF%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">顺序消息如何实现？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%AE%9E%E7%8E%B0%E6%B6%88%E6%81%AF%E8%BF%87%E6%BB%A4%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">如何实现消息过滤？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BB%B6%E6%97%B6%E6%B6%88%E6%81%AF%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.6.</span> <span class="toc-text">延时消息了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#RocketMQ-%E6%80%8E%E4%B9%88%E5%AE%9E%E7%8E%B0%E5%BB%B6%E6%97%B6%E6%B6%88%E6%81%AF%E7%9A%84%EF%BC%9F"><span class="toc-number">1.6.1.</span> <span class="toc-text">RocketMQ 怎么实现延时消息的？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E5%AE%9E%E7%8E%B0%E5%88%86%E5%B8%83%E5%BC%8F%E6%B6%88%E6%81%AF%E4%BA%8B%E5%8A%A1%E7%9A%84%EF%BC%9F%E5%8D%8A%E6%B6%88%E6%81%AF%EF%BC%9F"><span class="toc-number">1.7.</span> <span class="toc-text">怎么实现分布式消息事务的？半消息？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%BB%E4%BF%A1%E9%98%9F%E5%88%97%E7%9F%A5%E9%81%93%E5%90%97%EF%BC%9F"><span class="toc-number">1.8.</span> <span class="toc-text">死信队列知道吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81-RocketMQ-%E7%9A%84%E9%AB%98%E5%8F%AF%E7%94%A8%EF%BC%9F"><span class="toc-number">1.9.</span> <span class="toc-text">如何保证 RocketMQ 的高可用？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（六）：分布式限流"></a><div class="content"><a class="title" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流">分布式八股文面试题（六）：分布式限流</a><time datetime="2026-09-08T09:31:21.000Z" title="发表于 2026-09-08 17:31:21">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（五）：分布式设计"></a><div class="content"><a class="title" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计">分布式八股文面试题（五）：分布式设计</a><time datetime="2026-09-08T09:30:14.000Z" title="发表于 2026-09-08 17:30:14">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（四）：分布式一致性算法"></a><div class="content"><a class="title" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法">分布式八股文面试题（四）：分布式一致性算法</a><time datetime="2026-09-08T09:28:28.000Z" title="发表于 2026-09-08 17:28:28">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">83</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/blog.github.io/article/categories/'|| '/blog.github.io/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

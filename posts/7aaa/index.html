@@ -1,0 +1,614 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Redis八股文面试题（二）：持久化 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="持久化Redis的持久化方式有哪些？主要有两种，RDB 和 AOF。RDB 通过创建时间点快照来实现持久化，AOF 通过记录每个写操作命令来实现持久化。  这两种方式可以单独使用，也可以同时使用。这样就可以保证 Redis 服务器在重启后不丢失数据，通过 RDB 和 AOF 文件来恢复内存中原有的数据。  详细说一下 RDB？RDB 持久化机制可以在指定的时间间隔内将 Redis 某一时刻的数据保">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis八股文面试题（二）：持久化">
+<meta property="og:url" content="https://jingluo23.github.io/blog.github.io/posts/7aaa/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="持久化Redis的持久化方式有哪些？主要有两种，RDB 和 AOF。RDB 通过创建时间点快照来实现持久化，AOF 通过记录每个写操作命令来实现持久化。  这两种方式可以单独使用，也可以同时使用。这样就可以保证 Redis 服务器在重启后不丢失数据，通过 RDB 和 AOF 文件来恢复内存中原有的数据。  详细说一下 RDB？RDB 持久化机制可以在指定的时间间隔内将 Redis 某一时刻的数据保">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-15T08:14:19.000Z">
+<meta property="article:modified_time" content="2026-08-19T13:46:54.186Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Redis八股文面试题（二）：持久化",
+  "url": "https://jingluo23.github.io/blog.github.io/posts/7aaa/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-15T08:14:19.000Z",
+  "dateModified": "2026-08-19T13:46:54.186Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io/blog.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/blog.github.io/posts/7aaa/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/blog.github.io/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/blog.github.io/',
+  algolia: undefined,
+  localSearch: {"path":"/blog.github.io/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Redis八股文面试题（二）：持久化',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/blog.github.io/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/blog.github.io/"><span class="site-name">Redis八股文面试题（二）：持久化</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/blog.github.io/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/blog.github.io/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/blog.github.io/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/blog.github.io/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/blog.github.io/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/blog.github.io/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Redis八股文面试题（二）：持久化</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-15T08:14:19.000Z" title="发表于 2026-08-15 16:14:19">2026-08-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-08-19T13:46:54.186Z" title="更新于 2026-08-19 21:46:54">2026-08-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/blog.github.io/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.3k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>10分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-08-19 21:46:54&quot;}" hidden></div><h1 id="持久化"><a href="#持久化" class="headerlink" title="持久化"></a>持久化</h1><h2 id="Redis的持久化方式有哪些？"><a href="#Redis的持久化方式有哪些？" class="headerlink" title="Redis的持久化方式有哪些？"></a>Redis的持久化方式有哪些？</h2><p>主要有两种，RDB 和 AOF。RDB 通过创建时间点快照来实现持久化，AOF 通过记录每个写操作命令来实现持久化。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780017588095-2484f688-f1a7-41f8-9428-8249e0e05a7c.png" width="609" title crop="0,0,1,1" id="u7c0b1090" class="ne-image"></p>
+<p>这两种方式可以单独使用，也可以同时使用。这样就可以保证 Redis 服务器在重启后不丢失数据，通过 RDB 和 AOF 文件来恢复内存中原有的数据。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014042564-b4a68be1-3f11-4ab0-8d2c-2d54dcf68ab2.png" width="923" title crop="0,0,1,1" id="axEhr" class="ne-image"></p>
+<h3 id="详细说一下-RDB？"><a href="#详细说一下-RDB？" class="headerlink" title="详细说一下 RDB？"></a>详细说一下 RDB？</h3><p>RDB 持久化机制可以在指定的时间间隔内将 Redis 某一时刻的数据保存到磁盘上的 RDB 文件中，当 Redis 重启时，可以通过加载这个 RDB 文件来恢复数据。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014042557-1a566c01-6e98-4296-aad8-3416ba211867.png" width="1456" title crop="0,0,1,1" id="DiMVg" class="ne-image"></p>
+<p>RDB 持久化可以通过 save 和 bgsave 命令手动触发，也可以通过配置文件中的 save 指令自动触发。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780017663457-efa3479c-569d-43e5-afaf-bea7dc3d2c4b.png" width="517" title crop="0,0,1,1" id="uc3cf6abf" class="ne-image"></p>
+<p>save 命令会阻塞 Redis 进程，直到 RDB 文件创建完成。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014042551-c59e28ef-5034-4b42-adad-ed7fbf451d0a.png" width="602" title crop="0,0,1,1" id="AwSzU" class="ne-image"></p>
+<p>bgsave 命令会在后台 fork 一个子进程来执行 RDB 持久化操作，主进程不会被阻塞。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014042580-cccc80ef-5d13-44b1-a109-c49fe7928ca8.png" width="687" title crop="0,0,1,1" id="fEevN" class="ne-image"></p>
+<h3 id="什么情况下会自动触发-RDB-持久化？"><a href="#什么情况下会自动触发-RDB-持久化？" class="headerlink" title="什么情况下会自动触发 RDB 持久化？"></a>什么情况下会自动触发 RDB 持久化？</h3><p>第一种，在 Redis 配置文件中设置 RDB 持久化参数 <code>save &lt;seconds&gt; &lt;changes&gt;</code>，表示在指定时间间隔内，如果有指定数量的键发生变化，就会自动触发 RDB 持久化。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">save 900 1      # 900 秒（15 分钟）内有 1 个 key 发生变化，触发快照</span><br><span class="line">save 300 10     # 300 秒（5 分钟）内有 10 个 key 发生变化，触发快照</span><br><span class="line">save 60 10000   # 60 秒内有 10000 个 key 发生变化，触发快照</span><br></pre></td></tr></table></figure>
+<p>第二种，主从复制时，当从节点第一次连接到主节点时，主节点会自动执行 bgsave 生成 RDB 文件，并将其发送给从节点。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014043832-ab637e5f-4264-4bf0-b427-49724d38bd82.png" width="828" title crop="0,0,1,1" id="AOuFW" class="ne-image"></p>
+<p>第三种，如果没有开启 AOF，执行 shutdown 命令时，Redis 会自动保存一次 RDB 文件，以确保数据不会丢失。</p>
+<h3 id="详细说一下-AOF？"><a href="#详细说一下-AOF？" class="headerlink" title="详细说一下 AOF？"></a>详细说一下 AOF？</h3><p>AOF 通过记录每个写操作命令，并将其追加到 AOF 文件来实现持久化，Redis 服务器宕机后可以通过重新执行这些命令来恢复数据。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014044080-ccabf5df-c4a6-4c7d-a7cc-c6980d61c3a7.png" width="1456" title crop="0,0,1,1" id="EfNHH" class="ne-image"></p>
+<p>当 Redis 执行写操作时，会将写命令追加到 AOF 缓冲区；Redis 会根据同步策略将缓冲区的数据写入到 AOF 文件。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780017762492-1e5140b4-d8a8-4347-816a-2d10eab9cb5a.png" width="763" title crop="0,0,1,1" id="u0a49e0e5" class="ne-image"></p>
+<p>当 AOF 文件过大时，Redis 会自动进行 AOF 重写，剔除多余的命令，比如说多次对同一个 key 的 set 和 del，生成一个新的 AOF 文件；当 Redis 重启时，读取 AOF 文件中的命令并重新执行，以恢复数据。</p>
+<h3 id="AOF-的刷盘策略了解吗？"><a href="#AOF-的刷盘策略了解吗？" class="headerlink" title="AOF 的刷盘策略了解吗？"></a>AOF 的刷盘策略了解吗？</h3><p>Redis 将 AOF 缓冲区的数据写入到 AOF 文件时，涉及两个系统调用：write 将数据写入到操作系统的缓冲区，fsync 将 OS 缓冲区的数据刷新到磁盘。</p>
+<p>这里的刷盘涉及到三种策略：always、everysec 和 no。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014045261-905ee873-9c11-4d62-bad0-bf44c7413cc0.png" width="1200" title crop="0,0,1,1" id="OlbXR" class="ne-image"></p>
+<pre><code>- always：每次写命令执行完，立即调用 fsync 同步到磁盘，这样可以保证数据不丢失，但性能较差。
+- everysec：每秒调用一次 fsync，将多条命令一次性同步到磁盘，性能较好，数据丢失的时间窗口为 1 秒。
+- no：不主动调用 fsync，由操作系统决定，性能最好，但数据丢失的时间窗口不确定，依赖于操作系统的缓存策略，可能会丢失大量数据。
+</code></pre><p>可以通过配置文件中的 appendfsync 参数进行设置。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">appendfsync everysec  # 每秒 fsync 一次</span><br></pre></td></tr></table></figure>
+<h3 id="说说AOF的重写机制？"><a href="#说说AOF的重写机制？" class="headerlink" title="说说AOF的重写机制？"></a>说说AOF的重写机制？</h3><p>由于 AOF 文件会随着写操作的增加而不断增长，为了解决这个问题， Redis 提供了重写机制来对 AOF 文件进行压缩和优化。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014045941-ebff08b3-e810-423a-aab4-47f83f24effc.png" width="3970" title crop="0,0,1,1" id="kp6lQ" class="ne-image"></p>
+<p>AOF 重写可以通过两种方式触发，第一种是手动执行 <code>BGREWRITEAOF</code> 命令，适用于需要立即减小AOF文件大小的场景。</p>
+<p>第二种是在 Redis 配置文件中设置自动重写参数，比如说 <code>auto-aof-rewrite-percentage</code> 和 <code>auto-aof-rewrite-min-size</code>，表示当 AOF 文件大小超过指定值时，自动触发重写。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">auto-aof-rewrite-percentage 100  # 默认值100，表示当前AOF文件大小相比上次重写后大小增长了多少百分比时触发重写</span><br><span class="line">auto-aof-rewrite-min-size 64mb  # 默认值64MB，表示AOF文件至少要达到这个大小才会考虑重写</span><br></pre></td></tr></table></figure>
+<h3 id="AOF-重写的具体过程是怎样的？"><a href="#AOF-重写的具体过程是怎样的？" class="headerlink" title="AOF 重写的具体过程是怎样的？"></a>AOF 重写的具体过程是怎样的？</h3><p>Redis 在收到重写指令后，会创建一个子进程，并 fork 一份与父进程完全相同的数据副本，然后遍历内存中的所有键值对，生成重建它们所需的最少命令。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014044552-380b05be-ddb2-4e38-a742-a2fe515d528a.png" width="1158" title crop="0,0,1,1" id="WKYIb" class="ne-image"></p>
+<p>比如说多个 RPUSH 命令可以合并为一个带有多个参数的 RPUSH；</p>
+<p>比如说一个键被设置后又被删除，这个键的所有操作都不会被写入新 AOF。</p>
+<p>比如说使用 <code>SADD key member1 member2 member3</code> 代替多个单独的 <code>SADD key memberX</code>。</p>
+<p>子进程在执行 AOF 重写的同时，主进程可以继续处理来自客户端的命令。</p>
+<p>为了保证数据一致性，Redis 使用了 AOF 重写缓冲区机制，主进程在执行写操作时，会将命令同时写入旧的 AOF 文件和重写缓冲区。</p>
+<p>等子进程完成重写后，会向主进程发送一个信号，主进程收到后将重写缓冲区中的命令追加到新的 AOF 文件中，然后调用操作系统的 rename，将旧的 AOF 文件替换为新的 AOF 文件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">主进程（fork）  </span><br><span class="line">   │  </span><br><span class="line">   ├─→ 子进程（生成新的 AOF 文件）  </span><br><span class="line">   │       │  </span><br><span class="line">   │       ├─→ 内存快照  </span><br><span class="line">   │       ├─→ 写入临时 AOF 文件  </span><br><span class="line">   │       ├─→ 通知主进程完成  </span><br><span class="line">   │  </span><br><span class="line">   ├─→ 主进程（追加缓冲区到新 AOF 文件）  </span><br><span class="line">   ├─→ 替换旧 AOF 文件  </span><br><span class="line">   ├─→ 重写完成</span><br></pre></td></tr></table></figure>
+<p>AOF 重写期间，Redis 服务器会处于特殊状态：</p>
+<pre><code>- aof_child_pid 不为 0，表示有子进程在执行 AOF 重写
+- aof_rewrite_buf_blocks 链表不为空，存储 AOF 重写缓冲区内容
+</code></pre><p>如果在配置文件中设置 no-appendfsync-on-rewrite 为 yes，那么重写期间可能会暂停 AOF 文件的 fsync 操作。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">appendonly yes                # 开启AOF</span><br><span class="line">appendfilename &quot;appendonly.aof&quot;  # AOF文件名</span><br><span class="line">appendfsync everysec          # 写入磁盘策略</span><br><span class="line">no-appendfsync-on-rewrite no  # 重写期间是否临时关闭fsync</span><br><span class="line">auto-aof-rewrite-percentage 100   # AOF文件增长到原来多少百分比时触发重写</span><br><span class="line">auto-aof-rewrite-min-size 64mb    # AOF文件最小多大时才允许重写</span><br></pre></td></tr></table></figure>
+<h3 id="AOF-文件存储的是什么类型的数据？"><a href="#AOF-文件存储的是什么类型的数据？" class="headerlink" title="AOF 文件存储的是什么类型的数据？"></a>AOF 文件存储的是什么类型的数据？</h3><p>AOF 文件存储的是 Redis 服务器接收到的写命令数据，以 Redis 协议格式保存。</p>
+<p>这种格式的特点是，每个命令以*开头，后跟参数的数量，每个参数前用<code>$</code>符号，后跟参数字节长度，然后是参数的实际内容。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1786544898204-09ac03b3-5756-41f5-af6e-3a1778f5b636.png" width="1224" title crop="0,0,1,1" id="ueb8db24f" class="ne-image"></p>
+<h3 id="AOF重写期间命令可能会写入两次，会造成什么影响？"><a href="#AOF重写期间命令可能会写入两次，会造成什么影响？" class="headerlink" title="AOF重写期间命令可能会写入两次，会造成什么影响？"></a>AOF重写期间命令可能会写入两次，会造成什么影响？</h3><p>AOF 重写期间命令会同时写入现有AOF文件和重写缓冲区，这种机制是有意设计的，并不会导致数据重复或不一致问题。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014044844-e5a32e01-c6e3-466a-a15d-effbbb5b7aa4.png" width="900" title crop="0,0,1,1" id="cFzZX" class="ne-image"></p>
+<p>因为新旧文件是分离的，现有命令写入当前 AOF 文件，重写缓冲区的命令最终写入新的 AOF 文件，完成后，新文件通过原子性的 rename 操作替换旧文件。两个文件是完全分离的，不会导致同一个 AOF 文件中出现重复命令。</p>
+<h2 id="RDB-和-AOF-各自有什么优缺点？"><a href="#RDB-和-AOF-各自有什么优缺点？" class="headerlink" title="RDB 和 AOF 各自有什么优缺点？"></a>RDB 和 AOF 各自有什么优缺点？</h2><p>RDB 通过 fork 子进程在特定时间点对内存数据进行全量备份，生成二进制格式的快照文件。其最大优势在于备份恢复效率高，文件紧凑，恢复速度快，适合大规模数据的备份和迁移场景。</p>
+<p>缺点是可能丢失两次快照期间的所有数据变更。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014045473-caa20d13-c46f-432e-bbd6-0dd6f8edad2b.png" width="1600" title crop="0,0,1,1" id="we74D" class="ne-image"></p>
+<p>AOF 会记录每一条修改数据的写命令。这种日志追加的方式让 AOF 能够提供接近实时的数据备份，数据丢失风险可以控制在 1 秒内甚至完全避免。</p>
+<p>缺点是文件体积较大，恢复速度慢。</p>
+<p>来个表格对比一下：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>RDB（快照）</th>
+<th>AOF（命令日志）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据完整性</td>
+<td>❌ 可能丢失几分钟数据</td>
+<td>✅ 最多丢 1 秒数据</td>
+</tr>
+<tr>
+<td>恢复速度</td>
+<td>✅ 快（直接加载二进制快照）</td>
+<td>❌ 慢（逐条 replay）</td>
+</tr>
+<tr>
+<td>文件大小</td>
+<td>✅ 小（压缩后）</td>
+<td>❌ 大（命令追加）</td>
+</tr>
+<tr>
+<td>性能影响</td>
+<td>✅ 低（fork 后保存）</td>
+<td>❌ 较高（每次写都记录）</td>
+</tr>
+<tr>
+<td>写入方式</td>
+<td>定期全量写</td>
+<td>每次写命令就记录</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>冷备份，灾难恢复</td>
+<td>实时持久化，数据安全</td>
+</tr>
+<tr>
+<td>默认状态</td>
+<td>默认启用</td>
+<td>Redis 7 默认也启用</td>
+</tr>
+<tr>
+<td>重写机制</td>
+<td>无</td>
+<td>有（BGREWRITEAOF）</td>
+</tr>
+<tr>
+<td>混合支持</td>
+<td>Redis 4.0 后支持结合使用（aof-use-rdb-preamble）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="RDB-和-AOF-如何选择？"><a href="#RDB-和-AOF-如何选择？" class="headerlink" title="RDB 和 AOF 如何选择？"></a>RDB 和 AOF 如何选择？</h2><p>在选择 Redis 持久化方案时，我会从业务需求和技术特性两个维度来考虑。</p>
+<p>如果是缓存场景，可以接受一定程度的数据丢失，我会倾向于选择 RDB 或者完全不使用持久化。RDB 的快照方式对性能影响小，而且恢复速度快，非常适合这类场景。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014045932-383ca41b-d13d-4ded-b895-bb542358588c.png" width="2750" title crop="0,0,1,1" id="f4HRJ" class="ne-image"></p>
+<p>但如果是处理订单或者支付这样的核心业务，数据丢失将造成严重后果，那么 AOF 就成为必然选择。通过配置每秒同步一次，可以将潜在的数据丢失风险限制在可接受范围内。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014046802-4853b399-b078-4834-9a06-5690e142bdbd.png" width="2176" title crop="0,0,1,1" id="u5nUs" class="ne-image"></p>
+<p>在实际的项目当中，我更偏向于使用 RDB + AOF 的混合模式。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">appendonly yes # 开启 AOF</span><br><span class="line">appendfsync everysec # 每秒刷盘一次</span><br><span class="line">aof-use-rdb-preamble yes # 开启混合持久化，重启时优先加载 RDB，RDB 作为冷备，AOF 作为实时同步</span><br></pre></td></tr></table></figure>
+<h2 id="Redis如何恢复数据？"><a href="#Redis如何恢复数据？" class="headerlink" title="Redis如何恢复数据？"></a>Redis如何恢复数据？</h2><p>当 Redis 服务重启时，它会优先查找 AOF 文件，如果存在就通过重放其中的命令来恢复数据；如果不存在或未启用 AOF，则会尝试加载 RDB 文件，直接将二进制数据载入内存来恢复。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780021996651-309a6650-aace-4408-bec0-b8bd69d7001c.png" width="772" title crop="0,0,1,1" id="u2a0ee6ed" class="ne-image"></p>
+<p>如果 AOF 文件损坏的话，Redis 会尝试通过 <code>redis-check-aof</code> 工具来修复 AOF 文件，或者直接使用 <code>--repair</code> 参数来修复。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-check-aof --repair appendonly.aof</span><br></pre></td></tr></table></figure>
+<p>虽然 Redis 还提供了 <code>redis-check-rdb</code> 工具来检查 RDB 文件的完整性，但它并不支持修复 RDB 文件，只能用来验证文件的完整性。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">redis-check-rdb dump.rdb</span><br></pre></td></tr></table></figure>
+<h2 id="Redis-4-0-的混合持久化了解吗？"><a href="#Redis-4-0-的混合持久化了解吗？" class="headerlink" title="Redis 4.0 的混合持久化了解吗？"></a>Redis 4.0 的混合持久化了解吗？</h2><p>是的。</p>
+<p>混合持久化结合了 RDB 和 AOF 两种方式的优点，解决了它们各自的不足。在 Redis 4.0 之前，我们要么面临 RDB 可能丢失数据的风险，要么承受 AOF 恢复慢的问题，很难两全其美。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014047124-d0ed82d5-6cb6-470c-9c31-72de2169b94a.png" width="1456" title crop="0,0,1,1" id="vUzu8" class="ne-image"></p>
+<p>混合持久化的工作原理非常巧妙：在 AOF 重写期间，先以 RDB 格式将内存中的数据快照保存到 AOF 文件的开头，再将重写期间的命令以 AOF 格式追加到文件末尾。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780014046449-0602919a-cb62-43f7-9ccb-c6823bfb4719.png" width="664" title crop="0,0,1,1" id="abIxD" class="ne-image"></p>
+<p>这样，当需要恢复数据时，Redis 先加载 RDB 格式的数据来快速恢复大部分的数据，然后通过重放命令恢复最近的数据，这样就能在保证数据完整性的同时，提升恢复速度。</p>
+<h3 id="如何设置持久化模式？"><a href="#如何设置持久化模式？" class="headerlink" title="如何设置持久化模式？"></a>如何设置持久化模式？</h3><p>启用混合持久化的方式非常简单，只需要在配置文件中设置 <code>aof-use-rdb-preamble yes</code> 就可以了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">aof-use-rdb-preamble yes</span><br></pre></td></tr></table></figure>
+<h3 id="你在开发中是怎么配置-RDB-和-AOF-的？"><a href="#你在开发中是怎么配置-RDB-和-AOF-的？" class="headerlink" title="你在开发中是怎么配置 RDB 和 AOF 的？"></a>你在开发中是怎么配置 RDB 和 AOF 的？</h3><p>对于大多数生产环境，我倾向于使用混合持久化方式，结合 RDB 和 AOF 的优点。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">启用AOF</span></span><br><span class="line">appendonly yes</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">使用混合持久化</span></span><br><span class="line">aof-use-rdb-preamble yes</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">每秒同步一次AOF，平衡性能和安全性</span></span><br><span class="line">appendfsync everysec</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">AOF重写触发条件：文件增长100%且至少达到64MB</span></span><br><span class="line">auto-aof-rewrite-percentage 100</span><br><span class="line">auto-aof-rewrite-min-size 64mb</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">RDB备份策略</span></span><br><span class="line">save 900 1    # 15分钟内有1个修改</span><br><span class="line">save 300 10   # 5分钟内有10个修改</span><br><span class="line">save 60 10000 # 1分钟内有10000个修改</span><br></pre></td></tr></table></figure>
+<p>对于单纯的缓存场景，或者本地开发，我会只启用 RDB，关闭 AOF：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">禁用AOF</span></span><br><span class="line">appendonly no</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">较宽松的RDB策略</span></span><br><span class="line">save 3600 1    # 1小时内有1个修改</span><br><span class="line">save 300 100   # 5分钟内有100个修改</span><br></pre></td></tr></table></figure>
+<p>而对于金融类等高一致性的系统，我通常会在关键时间窗口动态将 <code>appendfsync</code> 设置为 <code>always</code>：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">启用AOF</span></span><br><span class="line">appendonly yes</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">使用混合持久化</span></span><br><span class="line">aof-use-rdb-preamble yes</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">每个命令都同步（谨慎使用，性能影响大）</span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">通常我会在关键时间窗口动态修改为always</span></span><br><span class="line">appendfsync always</span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">更频繁的RDB快照</span></span><br><span class="line">save 300 1     # 5分钟内有1个修改</span><br><span class="line">save 60 100    # 1分钟内有100个修改</span><br></pre></td></tr></table></figure>
+<p>另外，对于高并发场景，应该设置<code>no-appendfsync-on-rewrite yes</code>，避免 AOF 重写影响主进程性能；对于大型实例，也应该设置 <code>rdb-save-incremental-fsync yes</code> 来减少大型 RDB 保存对性能的影响。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">AOF重写期间不fsync，AOF 重写期间，主进程不会对新写入的 AOF 缓冲区执行 fsync 操作（即不强制刷盘），而是等重写结束后再统一刷盘。</span></span><br><span class="line">no-appendfsync-on-rewrite yes</span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">RDB 快照保存时采用增量 fsync，即每写入一定量的数据就执行一次 fsync，将数据分批同步到磁盘。</span></span><br><span class="line">rdb-save-incremental-fsync yes</span><br></pre></td></tr></table></figure>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/blog.github.io/posts/7aaa/">https://jingluo23.github.io/blog.github.io/posts/7aaa/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io/blog.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/blog.github.io/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/blog.github.io/article/tags/Redis/">Redis</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/blog.github.io/posts/72fa/" title="Redis八股文面试题（一）：基础"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Redis八股文面试题（一）：基础</div></div></div></a><a class="pagination-related  no-desc" href="/blog.github.io/posts/5ba9/" title="Redis八股文面试题（三）：高可用"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Redis八股文面试题（三）：高可用</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/blog.github.io/posts/b2ce/" title="Redis八股文面试题（五）：Redis运维"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（五）：Redis运维</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/938f/" title="Redis八股文面试题（七）：底层结构"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（七）：底层结构</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/37e6/" title="Redis八股文面试题（六）：Redis应用"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（六）：Redis应用</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/19d3/" title="Redis八股文面试题（八）：Redis题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（八）：Redis题</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/72fa/" title="Redis八股文面试题（一）：基础"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（一）：基础</div></div></div></a><a class="pagination-related no-desc" href="/blog.github.io/posts/5ba9/" title="Redis八股文面试题（三）：高可用"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Redis八股文面试题（三）：高可用</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/blog.github.io/archives/"><div class="headline">文章</div><div class="length-num">83</div></a><a href="/blog.github.io/article/tags/"><div class="headline">标签</div><div class="length-num">13</div></a><a href="/blog.github.io/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8C%81%E4%B9%85%E5%8C%96"><span class="toc-number">1.</span> <span class="toc-text">持久化</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis%E7%9A%84%E6%8C%81%E4%B9%85%E5%8C%96%E6%96%B9%E5%BC%8F%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">Redis的持久化方式有哪些？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%A6%E7%BB%86%E8%AF%B4%E4%B8%80%E4%B8%8B-RDB%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">详细说一下 RDB？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%83%85%E5%86%B5%E4%B8%8B%E4%BC%9A%E8%87%AA%E5%8A%A8%E8%A7%A6%E5%8F%91-RDB-%E6%8C%81%E4%B9%85%E5%8C%96%EF%BC%9F"><span class="toc-number">1.1.2.</span> <span class="toc-text">什么情况下会自动触发 RDB 持久化？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%A6%E7%BB%86%E8%AF%B4%E4%B8%80%E4%B8%8B-AOF%EF%BC%9F"><span class="toc-number">1.1.3.</span> <span class="toc-text">详细说一下 AOF？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#AOF-%E7%9A%84%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.1.4.</span> <span class="toc-text">AOF 的刷盘策略了解吗？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4AOF%E7%9A%84%E9%87%8D%E5%86%99%E6%9C%BA%E5%88%B6%EF%BC%9F"><span class="toc-number">1.1.5.</span> <span class="toc-text">说说AOF的重写机制？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#AOF-%E9%87%8D%E5%86%99%E7%9A%84%E5%85%B7%E4%BD%93%E8%BF%87%E7%A8%8B%E6%98%AF%E6%80%8E%E6%A0%B7%E7%9A%84%EF%BC%9F"><span class="toc-number">1.1.6.</span> <span class="toc-text">AOF 重写的具体过程是怎样的？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#AOF-%E6%96%87%E4%BB%B6%E5%AD%98%E5%82%A8%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88%E7%B1%BB%E5%9E%8B%E7%9A%84%E6%95%B0%E6%8D%AE%EF%BC%9F"><span class="toc-number">1.1.7.</span> <span class="toc-text">AOF 文件存储的是什么类型的数据？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#AOF%E9%87%8D%E5%86%99%E6%9C%9F%E9%97%B4%E5%91%BD%E4%BB%A4%E5%8F%AF%E8%83%BD%E4%BC%9A%E5%86%99%E5%85%A5%E4%B8%A4%E6%AC%A1%EF%BC%8C%E4%BC%9A%E9%80%A0%E6%88%90%E4%BB%80%E4%B9%88%E5%BD%B1%E5%93%8D%EF%BC%9F"><span class="toc-number">1.1.8.</span> <span class="toc-text">AOF重写期间命令可能会写入两次，会造成什么影响？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RDB-%E5%92%8C-AOF-%E5%90%84%E8%87%AA%E6%9C%89%E4%BB%80%E4%B9%88%E4%BC%98%E7%BC%BA%E7%82%B9%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">RDB 和 AOF 各自有什么优缺点？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RDB-%E5%92%8C-AOF-%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">RDB 和 AOF 如何选择？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis%E5%A6%82%E4%BD%95%E6%81%A2%E5%A4%8D%E6%95%B0%E6%8D%AE%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">Redis如何恢复数据？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis-4-0-%E7%9A%84%E6%B7%B7%E5%90%88%E6%8C%81%E4%B9%85%E5%8C%96%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">Redis 4.0 的混合持久化了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E8%AE%BE%E7%BD%AE%E6%8C%81%E4%B9%85%E5%8C%96%E6%A8%A1%E5%BC%8F%EF%BC%9F"><span class="toc-number">1.5.1.</span> <span class="toc-text">如何设置持久化模式？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%A0%E5%9C%A8%E5%BC%80%E5%8F%91%E4%B8%AD%E6%98%AF%E6%80%8E%E4%B9%88%E9%85%8D%E7%BD%AE-RDB-%E5%92%8C-AOF-%E7%9A%84%EF%BC%9F"><span class="toc-number">1.5.2.</span> <span class="toc-text">你在开发中是怎么配置 RDB 和 AOF 的？</span></a></li></ol></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（六）：分布式限流"></a><div class="content"><a class="title" href="/blog.github.io/posts/c91b/" title="分布式八股文面试题（六）：分布式限流">分布式八股文面试题（六）：分布式限流</a><time datetime="2026-09-08T09:31:21.000Z" title="发表于 2026-09-08 17:31:21">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（五）：分布式设计"></a><div class="content"><a class="title" href="/blog.github.io/posts/52ed/" title="分布式八股文面试题（五）：分布式设计">分布式八股文面试题（五）：分布式设计</a><time datetime="2026-09-08T09:30:14.000Z" title="发表于 2026-09-08 17:30:14">2026-09-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="分布式八股文面试题（四）：分布式一致性算法"></a><div class="content"><a class="title" href="/blog.github.io/posts/7378/" title="分布式八股文面试题（四）：分布式一致性算法">分布式八股文面试题（四）：分布式一致性算法</a><time datetime="2026-09-08T09:28:28.000Z" title="发表于 2026-09-08 17:28:28">2026-09-08</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/blog.github.io/js/utils.js?v=5.7.0"></script><script src="/blog.github.io/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/blog.github.io/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">83</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/blog.github.io/article/categories/'|| '/blog.github.io/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
