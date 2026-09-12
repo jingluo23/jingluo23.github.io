@@ -1,0 +1,658 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？ | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="OpenClaw 的核心组件是什么？说说 OpenClaw 的核心组件吧。  LLM：这是 Agent 的大脑，负责理解指令、规划任务、生成回复。OpenClaw 支持多种模型，Claude、GPT、GLM 都可以接。 任务规划：把用户的自然语言需求，拆解成可执行的任务步骤。比如“帮我查天气”，会拆解成：调用天气 API → 解析返回数据 → 生成回复。 工具执行器：负责调用外部工具，比如搜索、文">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？">
+<meta property="og:url" content="https://jingluo23.github.io/posts/b180/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="OpenClaw 的核心组件是什么？说说 OpenClaw 的核心组件吧。  LLM：这是 Agent 的大脑，负责理解指令、规划任务、生成回复。OpenClaw 支持多种模型，Claude、GPT、GLM 都可以接。 任务规划：把用户的自然语言需求，拆解成可执行的任务步骤。比如“帮我查天气”，会拆解成：调用天气 API → 解析返回数据 → 生成回复。 工具执行器：负责调用外部工具，比如搜索、文">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-12T08:10:01.000Z">
+<meta property="article:modified_time" content="2026-09-12T08:13:21.985Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？",
+  "url": "https://jingluo23.github.io/posts/b180/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-12T08:10:01.000Z",
+  "dateModified": "2026-09-12T08:13:21.985Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/b180/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">110</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li><li><a class="site-page child" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/%E9%9D%A2%E8%AF%95/"><i class="fa-fw fas fa-user-graduate"></i><span> 面试</span></a></div><div class="menus_item"><a class="site-page" href="/article/categories/%E9%A1%B9%E7%9B%AE%E5%AE%9E%E6%88%98/"><i class="fa-fw fas fa-laptop-code"></i><span> 项目实战</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-12T08:10:01.000Z" title="发表于 2026-09-12 16:10:01">2026-09-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-09-12T08:13:21.985Z" title="更新于 2026-09-12 16:13:21">2026-09-12</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>6分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-09-12 16:13:21&quot;}" hidden></div><h1 id="OpenClaw-的核心组件是什么？"><a href="#OpenClaw-的核心组件是什么？" class="headerlink" title="OpenClaw 的核心组件是什么？"></a>OpenClaw 的核心组件是什么？</h1><p>说说 OpenClaw 的核心组件吧。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302345562-208a4d94-3614-4c36-8079-e19e554362e0.png" width="3208" title crop="0,0,1,1" id="hbe8h" class="ne-image"></p>
+<p><strong>LLM</strong>：这是 Agent 的大脑，负责理解指令、规划任务、生成回复。OpenClaw 支持多种模型，Claude、GPT、GLM 都可以接。</p>
+<p><strong>任务规划</strong>：把用户的自然语言需求，拆解成可执行的任务步骤。比如“帮我查天气”，会拆解成：调用天气 API → 解析返回数据 → 生成回复。</p>
+<p><strong>工具执行器</strong>：负责调用外部工具，比如搜索、文件操作、数据库查询等。每个工具都有明确的输入输出定义。</p>
+<p><strong>记忆管理器</strong>：管理 Agent 的短期记忆（Session）和长期记忆（Memory）。这是 Agent 能持续对话的关键。</p>
+<p><strong>技能加载器</strong>：动态加载 Skills，扩展 Agent 的能力。Skills 本质上是封装好的 Prompt 和工具组合。</p>
+<p>这些组件之间怎么通信？</p>
+<h2 id="组件之间如何通信？"><a href="#组件之间如何通信？" class="headerlink" title="组件之间如何通信？"></a>组件之间如何通信？</h2><p>OpenClaw 采用了基于消息总线的轻量级通信机制。</p>
+<p>每个组件都是独立的，通过消息总线交换数据。这种设计的优点是：</p>
+<ul>
+<li><strong>解耦</strong>：组件之间不直接依赖，方便替换和扩展</li>
+<li><strong>异步</strong>：消息可以异步处理，不会阻塞主流程</li>
+<li><strong>可观测</strong>：所有消息都经过总线，便于调试和监控</li>
+</ul>
+<p>消息总线具体是怎么实现的？</p>
+<h3 id="消息总线具体怎么实现？"><a href="#消息总线具体怎么实现？" class="headerlink" title="消息总线具体怎么实现？"></a>消息总线具体怎么实现？</h3><p>消息总线本质上是一个事件队列。</p>
+<p>当组件 A 需要调用组件 B 时，不是直接调用，而是发送一个消息到总线。消息包含：</p>
+<ul>
+<li><strong>目标组件 ID</strong>：消息要发给谁</li>
+<li><strong>消息类型</strong>：是什么类型的消息（请求、响应、事件）</li>
+<li><strong>消息内容</strong>：具体的数据</li>
+<li><strong>回调地址</strong>：响应应该发给谁</li>
+</ul>
+<p>组件 B 从总线中读取消息，处理完成后，发送响应消息到总线。组件 A 从总线中读取响应，继续执行。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302343274-a421b6d7-6f46-440d-8116-e83ff03bc8a5.png" width="2948" title crop="0,0,1,1" id="vq9Ym" class="ne-image"></p>
+<p>这种设计的好处是：</p>
+<p><strong>第一，组件之间完全解耦</strong>。组件 A 不需要知道组件 B 的存在，只需要知道消息格式。你可以随时替换组件 B，只要消息格式不变，组件 A 就感知不到变化。</p>
+<p><strong>第二，支持异步处理</strong>。组件 A 发送消息后，不需要等待响应，可以继续做其他事情。等响应到达时，再处理。</p>
+<p><strong>第三，便于扩展</strong>。新增一个组件 C，只需要让它监听总线上的消息，不需要修改其他组件。</p>
+<p>那 Agent 本身是怎么运行的？是常驻进程吗？</p>
+<h2 id="Agent-是常驻进程吗？"><a href="#Agent-是常驻进程吗？" class="headerlink" title="Agent 是常驻进程吗？"></a>Agent 是常驻进程吗？</h2><p>不是，Agent 是 per-session 的瞬态实例。</p>
+<p>每个对话都是一次完整的加载-执行-销毁循环。</p>
+<p>当用户发起一个对话时：</p>
+<ol>
+<li><strong>加载阶段</strong>：读取 AGENTS.md、SOUL.md 等配置文件，初始化 Agent 的人格和能力</li>
+<li><strong>执行阶段</strong>：接收用户输入，调用 LLM 生成回复，执行工具，返回结果</li>
+<li><strong>销毁阶段</strong>：对话结束，保存 Session 到磁盘，释放资源</li>
+</ol>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302345266-319cb557-3784-4de1-bb10-e08a93df4948.png" width="2700" title crop="0,0,1,1" id="tyK2A" class="ne-image"></p>
+<p>这种设计有两个好处：</p>
+<p><strong>第一，资源节省</strong>。Agent 不用一直占用内存，只有对话时才加载。</p>
+<p><strong>第二，配置实时生效</strong>。每次 run 都会重新读取 workspace 文件，改配置不用重启服务。</p>
+<p>那 Session 是怎么管理的？</p>
+<h2 id="Session-是怎么实现按需加载的？"><a href="#Session-是怎么实现按需加载的？" class="headerlink" title="Session 是怎么实现按需加载的？"></a>Session 是怎么实现按需加载的？</h2><p>Session 的加载是懒加载机制。</p>
+<p>当消息到达，路由到 SessionKey 之后，OpenClaw 会查找 sessions.json 获取当前 SessionId，然后把 SessionId 对应的.jsonl 文件加载到 Agent 中。</p>
+<p>Session 太长，会不会挤爆 LLM 的 Context？</p>
+<h2 id="Session-优化机制了解吗？"><a href="#Session-优化机制了解吗？" class="headerlink" title="Session 优化机制了解吗？"></a>Session 优化机制了解吗？</h2><p>OpenClaw 在 Session 加载到 LLM 感知阶段，会做两件事：</p>
+<h3 id="压缩持久化"><a href="#压缩持久化" class="headerlink" title="压缩持久化"></a>压缩持久化</h3><p>当 Session 接近 context 上限时，OpenClaw 会自动提示 Agent 写入 Memory，然后压缩 Session。压缩后的内容会保存到磁盘，不会丢失。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302345110-a024b57f-dba3-4efc-b0ad-6c4821cc4c0c.png" width="3104" title crop="0,0,1,1" id="UQZQK" class="ne-image"></p>
+<p>具体来说，Compaction 会：</p>
+<ol>
+<li>分析 Session 中的所有消息</li>
+<li>识别重要信息（用户明确陈述的事实、对话结论等）</li>
+<li>把这些信息写入 Memory</li>
+<li>把原始消息压缩成摘要，减少 token 占用</li>
+</ol>
+<h3 id="修剪"><a href="#修剪" class="headerlink" title="修剪"></a>修剪</h3><p>在发送给 LLM 之前，临时裁剪旧的 tool 结果。比如一个搜索工具返回了 100 条结果，但 LLM 只需要前 10 条，后面的就会被裁剪掉。</p>
+<p>修剪的策略包括：</p>
+<ul>
+<li>只保留最近的 N 条消息</li>
+<li>只保留工具调用的结果摘要，不保留完整输出</li>
+<li>合并相似的消息</li>
+</ul>
+<p>Compaction 和 Pruning 有什么区别？</p>
+<p>Compaction 是持久化的，会把重要信息写入 Memory，长期保存。Pruning 是临时的，只是临时裁剪发送给 LLM 的内容，不会修改 Session 文件。</p>
+<p>打个比方：Compaction 是把重要笔记抄到笔记本上，永久保存。Pruning 是临时把草稿纸上的无关内容划掉，方便阅读。</p>
+<p>Agent 是怎么决策使用 Memory 的？</p>
+<h2 id="Memory-机制了解吗？"><a href="#Memory-机制了解吗？" class="headerlink" title="Memory 机制了解吗？"></a>Memory 机制了解吗？</h2><p>Memory 是 OpenClaw 最核心的机制之一，它让 Agent 有了‘记忆’的能力。</p>
+<p><strong>短期记忆（Session）</strong>：当前对话的上下文，存储在内存中。包括用户输入、Agent 回复、工具调用结果等。</p>
+<p><strong>长期记忆（Memory）</strong>：跨对话的持久化记忆，存储在磁盘上。包括用户偏好、历史事实、重要结论等。</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302345536-376fe26c-73d0-4dda-84fa-18014ca804a1.png" width="3160" title crop="0,0,1,1" id="edB06" class="ne-image"></p>
+<p>这两种记忆是怎么协作的？</p>
+<h3 id="两种记忆是怎么协作？"><a href="#两种记忆是怎么协作？" class="headerlink" title="两种记忆是怎么协作？"></a>两种记忆是怎么协作？</h3><p>Memory 的工作分为三个阶段：</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302345200-ca44cf3c-0637-4177-9c7f-394d7512223d.png" width="3100" title crop="0,0,1,1" id="IBME4" class="ne-image"></p>
+<p><strong>阶段一：写入 Memory</strong></p>
+<p>当 Session 接近 context 上限时，OpenClaw 会触发 Compaction 机制。Agent 会分析当前 Session 的内容，提取重要信息，写入 Memory。</p>
+<p>写入的内容包括：</p>
+<ul>
+<li>用户明确陈述的事实（“我喜欢王二”）</li>
+<li>对话中的重要结论（“项目采用微服务架构”）</li>
+<li>Agent 生成的有价值信息（“搜索结果显示…”）</li>
+</ul>
+<p><strong>阶段二：存储 Memory</strong></p>
+<p>写入的 Memory 会存储在 memory.sqlite 文件中.</p>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302345620-04452510-84c6-42ba-9b44-205418fca824.png" width="1436" title crop="0,0,1,1" id="PYO1Z" class="ne-image"></p>
+<p>每条 Memory 包含：content：记忆内容、timestamp：写入时间、importance：重要程度（1-10）、tags：标签，用于检索。</p>
+<p><strong>阶段三：读取 Memory</strong></p>
+<p>当新的对话开始时，OpenClaw 会根据当前对话内容，检索相关的 Memory，加载到 Agent 的上下文中。</p>
+<p>检索策略包括：</p>
+<ul>
+<li>关键词匹配：根据用户输入的关键词检索</li>
+<li>语义相似度：使用向量检索，找到语义相关的 Memory</li>
+<li>时间衰减：越新的 Memory 优先级越高</li>
+</ul>
+<p>怎么避免 Memory 爆炸？</p>
+<h2 id="Memory-优化策略了解吗？"><a href="#Memory-优化策略了解吗？" class="headerlink" title="Memory 优化策略了解吗？"></a>Memory 优化策略了解吗？</h2><p>Memory 管理不好，确实会导致检索效率下降。OpenClaw 有几个优化策略：</p>
+<p><strong>1. 重要性评分</strong>。写入 Memory 时，Agent 会给每条 Memory 打分。只有重要程度超过阈值的 Memory 才会被保留。</p>
+<p><strong>2. 定期清理</strong>。OpenClaw 会定期清理过期的 Memory。默认保留 30 天，可以通过配置调整。</p>
+<p><strong>3. 合并相似 Memory</strong>。如果多条 Memory 内容相似，OpenClaw 会自动合并，避免重复。</p>
+<p><strong>4. 分层存储</strong>。高频访问的 Memory 放在内存，低频访问的 Memory 放在磁盘，平衡性能和容量。</p>
+<p>Agent 使用 Memory 有两种方式，你说说看？</p>
+<h2 id="说说sessions-send-和-sessions-spawn-的区别？"><a href="#说说sessions-send-和-sessions-spawn-的区别？" class="headerlink" title="说说sessions_send 和 sessions_spawn 的区别？"></a>说说sessions_send 和 sessions_spawn 的区别？</h2><p>Agent 使用 Memory 有两种方式：sessions_send 和 sessions_spawn。</p>
+<p><strong>sessions_send：</strong>发送消息给另一个 Agent，等待回复。类似于函数调用，同步阻塞。</p>
+<p><strong>sessions_spawn：</strong>派生一个新的 Agent 实例，独立运行。类似于多线程，异步非阻塞。</p>
+<p>这两种方式分别适合什么场景？</p>
+<ul>
+<li><strong>sessions_send</strong>适合需要协作完成的任务。比如一个 Agent 负责搜索，另一个 Agent 负责总结，搜索 Agent 把结果 send 给总结 Agent。</li>
+<li><strong>sessions_spawn</strong>适合需要并行处理的任务。比如同时监控多个数据源，每个数据源用一个 Agent 处理，互不干扰。</li>
+</ul>
+<p><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1780302346376-b1e1e13f-0228-4ed6-a76d-4d8a01df5681.png" width="3184" title crop="0,0,1,1" id="x5BMo" class="ne-image"></p>
+<p>sessions_send 通话的内容有过期机制吗？</p>
+<p>有。OpenClaw 会定期清理过期的 Session 数据，默认保留 7 天。可以通过配置调整保留时间。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/b180/">https://jingluo23.github.io/posts/b180/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" target="_blank" rel="external nofollow noopener noreferrer"><img class="post-qr-code-img" src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/posts/bba2/" title="OpenClaw八股文面试题（六）：Gateway 网关架构说说吧？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">OpenClaw八股文面试题（六）：Gateway 网关架构说说吧？</div></div></div></a><a class="pagination-related  no-desc" href="/posts/fe1e/" title="OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related no-desc" href="/posts/bba2/" title="OpenClaw八股文面试题（六）：Gateway 网关架构说说吧？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">OpenClaw八股文面试题（六）：Gateway 网关架构说说吧？</div></div></div></a><a class="pagination-related no-desc" href="/posts/fbaf/" title="OpenClaw八股文面试题（一）：卸载龙虾的命令是什么？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">OpenClaw八股文面试题（一）：卸载龙虾的命令是什么？</div></div></div></a><a class="pagination-related no-desc" href="/posts/fe1e/" title="OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？</div></div></div></a><a class="pagination-related no-desc" href="/posts/c87/" title="OpenClaw八股文面试题（四）：使用龙虾过程中遇到过哪些问题？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">OpenClaw八股文面试题（四）：使用龙虾过程中遇到过哪些问题？</div></div></div></a><a class="pagination-related no-desc" href="/posts/64ea/" title="OpenClaw八股文面试题（二）：龙虾的架构了解吗？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">OpenClaw八股文面试题（二）：龙虾的架构了解吗？</div></div></div></a><a class="pagination-related no-desc" href="/posts/eb1a/" title="OpenClaw八股文面试题（五）：多 Agent 路由机制了解吗？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">OpenClaw八股文面试题（五）：多 Agent 路由机制了解吗？</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">110</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">1</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> JAVA 面试</span></li>
+            <li><span class="keyword">> JAVA 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#OpenClaw-%E7%9A%84%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">OpenClaw 的核心组件是什么？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%84%E4%BB%B6%E4%B9%8B%E9%97%B4%E5%A6%82%E4%BD%95%E9%80%9A%E4%BF%A1%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">组件之间如何通信？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B6%88%E6%81%AF%E6%80%BB%E7%BA%BF%E5%85%B7%E4%BD%93%E6%80%8E%E4%B9%88%E5%AE%9E%E7%8E%B0%EF%BC%9F"><span class="toc-number">1.1.1.</span> <span class="toc-text">消息总线具体怎么实现？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E6%98%AF%E5%B8%B8%E9%A9%BB%E8%BF%9B%E7%A8%8B%E5%90%97%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">Agent 是常驻进程吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Session-%E6%98%AF%E6%80%8E%E4%B9%88%E5%AE%9E%E7%8E%B0%E6%8C%89%E9%9C%80%E5%8A%A0%E8%BD%BD%E7%9A%84%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">Session 是怎么实现按需加载的？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Session-%E4%BC%98%E5%8C%96%E6%9C%BA%E5%88%B6%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.4.</span> <span class="toc-text">Session 优化机制了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8E%8B%E7%BC%A9%E6%8C%81%E4%B9%85%E5%8C%96"><span class="toc-number">1.4.1.</span> <span class="toc-text">压缩持久化</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BF%AE%E5%89%AA"><span class="toc-number">1.4.2.</span> <span class="toc-text">修剪</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E6%9C%BA%E5%88%B6%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">Memory 机制了解吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%A4%E7%A7%8D%E8%AE%B0%E5%BF%86%E6%98%AF%E6%80%8E%E4%B9%88%E5%8D%8F%E4%BD%9C%EF%BC%9F"><span class="toc-number">1.5.1.</span> <span class="toc-text">两种记忆是怎么协作？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E4%BC%98%E5%8C%96%E7%AD%96%E7%95%A5%E4%BA%86%E8%A7%A3%E5%90%97%EF%BC%9F"><span class="toc-number">1.6.</span> <span class="toc-text">Memory 优化策略了解吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E8%AF%B4sessions-send-%E5%92%8C-sessions-spawn-%E7%9A%84%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">1.7.</span> <span class="toc-text">说说sessions_send 和 sessions_spawn 的区别？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/db92/" title="OpenClaw八股文面试题（九）：Memory 和 Session 的区别？"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="OpenClaw八股文面试题（九）：Memory 和 Session 的区别？"></a><div class="content"><a class="title" href="/posts/db92/" title="OpenClaw八股文面试题（九）：Memory 和 Session 的区别？">OpenClaw八股文面试题（九）：Memory 和 Session 的区别？</a><time datetime="2026-09-12T08:18:14.000Z" title="发表于 2026-09-12 16:18:14">2026-09-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/fe1e/" title="OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？"></a><div class="content"><a class="title" href="/posts/fe1e/" title="OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？">OpenClaw八股文面试题（八）：说说龙虾的 8 个配置文件？</a><time datetime="2026-09-12T08:13:46.000Z" title="发表于 2026-09-12 16:13:46">2026-09-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/b180/" title="OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？"></a><div class="content"><a class="title" href="/posts/b180/" title="OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？">OpenClaw八股文面试题（七）：OpenClaw 的核心组件是什么？</a><time datetime="2026-09-12T08:10:01.000Z" title="发表于 2026-09-12 16:10:01">2026-09-12</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">110</span><span class="categoryBar-list-descr">面试</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>
