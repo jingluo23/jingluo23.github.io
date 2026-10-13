@@ -1,0 +1,871 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解Docker Compose的depends_on与healthcheck配置，通过实战示例解决数据库未就绪导致的应用启动失败问题，包含PostgreSQL和MySQL完整配置模板">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题">
+<meta property="og:url" content="https://jingluo23.github.io/posts/c04c/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解Docker Compose的depends_on与healthcheck配置，通过实战示例解决数据库未就绪导致的应用启动失败问题，包含PostgreSQL和MySQL完整配置模板">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-14T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-13T12:21:44.197Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题",
+  "url": "https://jingluo23.github.io/posts/c04c/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-14T07:06:23.000Z",
+  "dateModified": "2026-10-13T12:21:44.197Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/c04c/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">165</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-14T07:06:23.000Z" title="发表于 2026-09-14 15:06:23">2026-09-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-13T12:21:44.197Z" title="更新于 2026-10-13 20:21:44">2026-10-13</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>21分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-13 20:21:44&quot;}" hidden></div><p>周五晚上十点，终端里滚动的错误日志已经重复了十几遍。</p>
+<p>应用容器疯狂重启，数据库倒是启动了，但总是慢一拍。检查<code>docker-compose.yml</code>——<code>depends_on</code>配了啊，为什么还不行？</p>
+<p>其实这个问题困扰过很多开发者。本地开发环境<code>docker-compose up</code>，前两次启动必定失败，要等个十几秒重启几次才能正常跑起来。</p>
+<p>问题的根源很简单：<strong>Docker的</strong> <code>depends_on</code> <strong>只管容器启动顺序，不管服务是否真的准备好了</strong>。</p>
+<p>这篇文章我会手把手教你：</p>
+<ul>
+<li>depends_on的三种condition配置（90%的人只知道默认的）</li>
+<li>PostgreSQL和MySQL的正确healthcheck写法（带完整配置）</li>
+<li>告别wait-for-it脚本的现代化方案</li>
+<li>一套故障排查清单，让你的容器启动稳如老狗</li>
+</ul>
+<h1 id="为什么depends-on不够用：启动≠就绪"><a href="#为什么depends-on不够用：启动≠就绪" class="headerlink" title="为什么depends_on不够用：启动≠就绪"></a>为什么depends_on不够用：启动≠就绪</h1><p>Docker官方文档里有一句话特别重要，但很容易被忽略：</p>
+<blockquote>
+<p>Compose does not wait until a container is “ready”, only until it’s running.</p>
+</blockquote>
+<p>翻译过来就是：Compose只等容器跑起来，不管服务是不是真的能用。</p>
+<h2 id="容器启动和服务就绪的时间差"><a href="#容器启动和服务就绪的时间差" class="headerlink" title="容器启动和服务就绪的时间差"></a>容器启动和服务就绪的时间差</h2><p>想象一下PostgreSQL容器的启动过程：</p>
+<ul>
+<li><strong>0秒</strong>：Docker拉起容器，postgres进程启动 ← depends_on在这里就放行了</li>
+<li><strong>2秒</strong>：初始化数据目录</li>
+<li><strong>5秒</strong>：加载配置文件</li>
+<li><strong>8秒</strong>：执行init脚本（如果有的话）</li>
+<li><strong>12秒</strong>：终于ready，可以接受连接了</li>
+</ul>
+<p>这中间有12秒的gap。如果你的Web应用在第1秒就尝试连接数据库，结果必然是”Connection refused”。</p>
+<p>真实案例更夸张。我之前维护一个遗留项目，数据库初始化脚本要导入500MB的测试数据，光这个过程就要跑40秒。用默认的depends_on配置，应用容器至少要crash重启5次才能连上。</p>
+<h2 id="depends-on的三种condition"><a href="#depends-on的三种condition" class="headerlink" title="depends_on的三种condition"></a>depends_on的三种condition</h2><p>很多人不知道，depends_on其实支持三种condition：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    depends_on:</span><br><span class="line">      db:</span><br><span class="line">        condition: service_started  # 默认，容器启动就OK</span><br><span class="line">        # condition: service_healthy  # 等待健康检查通过</span><br><span class="line">        # condition: service_completed_successfully  # 等待容器成功退出（适合init容器）</span><br></pre></td></tr></table></figure>
+<ul>
+<li><strong>service_started</strong>（默认）：只要容器在running状态就继续。这就是为什么配了depends_on还是会出问题。</li>
+<li><strong>service_healthy</strong>：必须等healthcheck通过，容器状态变成”healthy”才继续。这才是我们真正需要的。</li>
+<li><strong>service_completed_successfully</strong>：等待容器成功退出（exit code 0）。适合数据迁移这种一次性任务。</li>
+</ul>
+<h2 id="为什么默认不是service-healthy？"><a href="#为什么默认不是service-healthy？" class="headerlink" title="为什么默认不是service_healthy？"></a>为什么默认不是service_healthy？</h2><p>你可能会问，既然service_healthy这么好用，为什么不设为默认？</p>
+<p>两个原因：</p>
+<ol>
+<li>不是所有服务都需要健康检查（比如纯stateless的worker）</li>
+<li>健康检查需要你自己配置，Docker不知道你的服务怎么算”准备好了”</li>
+</ol>
+<p>这就引出了下一个话题：如何配置健康检查。</p>
+<h1 id="健康检查（healthcheck）完全配置指南"><a href="#健康检查（healthcheck）完全配置指南" class="headerlink" title="健康检查（healthcheck）完全配置指南"></a>健康检查（healthcheck）完全配置指南</h1><p>healthcheck的原理很直白：Docker定期跑一个命令，如果返回0就算健康，返回1就算不健康。</p>
+<h2 id="完整的healthcheck配置"><a href="#完整的healthcheck配置" class="headerlink" title="完整的healthcheck配置"></a>完整的healthcheck配置</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  db:</span><br><span class="line">    image: postgres:16</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres&quot;]  # 检查命令</span><br><span class="line">      interval: 10s       # 每10秒检查一次</span><br><span class="line">      timeout: 5s         # 单次检查5秒超时</span><br><span class="line">      retries: 3          # 失败3次才标记为unhealthy</span><br><span class="line">      start_period: 30s   # 启动后30秒内的失败不计入retries</span><br></pre></td></tr></table></figure>
+<p>这五个参数都很重要，咱们一个个说。</p>
+<h2 id="test：检查命令"><a href="#test：检查命令" class="headerlink" title="test：检查命令"></a>test：检查命令</h2><p>格式有两种：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 方式1：使用shell（推荐）</span><br><span class="line">test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres&quot;]</span><br><span class="line"></span><br><span class="line"># 方式2：直接执行命令（不经过shell）</span><br><span class="line">test: [&quot;CMD&quot;, &quot;pg_isready&quot;, &quot;-U&quot;, &quot;postgres&quot;]</span><br></pre></td></tr></table></figure>
+<p>大部分情况用CMD-SHELL就行，因为可以用管道、重定向这些shell特性。</p>
+<p><strong>常见坑</strong>：检查命令里的工具必须存在于镜像中。比如用curl检查HTTP接口，但镜像里没装curl，那healthcheck永远失败。我之前就踩过这个坑，花了半小时才发现要在Dockerfile里加一行<code>RUN apk add curl</code>。</p>
+<h2 id="interval：检查间隔"><a href="#interval：检查间隔" class="headerlink" title="interval：检查间隔"></a>interval：检查间隔</h2><p>多久检查一次。太频繁浪费资源，太慢响应迟钝。</p>
+<ul>
+<li><strong>10秒</strong>是个不错的默认值，适合大多数场景</li>
+<li>数据库这种关键服务可以设5秒</li>
+<li>轻量级服务15-30秒也行</li>
+</ul>
+<h2 id="timeout：单次超时"><a href="#timeout：单次超时" class="headerlink" title="timeout：单次超时"></a>timeout：单次超时</h2><p>单次检查的超时时间。如果命令卡住了，Docker会等timeout这么久再放弃。</p>
+<p>设太短容易误报，设太长影响故障检测速度。<strong>5-10秒</strong>是个安全范围。</p>
+<h2 id="retries：失败重试次数"><a href="#retries：失败重试次数" class="headerlink" title="retries：失败重试次数"></a>retries：失败重试次数</h2><p>连续失败多少次才标记为unhealthy。=</p>
+<p>这个是防抖机制。网络偶尔抖动、数据库短暂重载都可能导致单次检查失败，retries让系统更健壮。</p>
+<p><strong>3-5次</strong>比较合理。retries=1太敏感，retries=10又太迟钝。</p>
+<h2 id="start-period：启动宽限期（最容易忽略的）"><a href="#start-period：启动宽限期（最容易忽略的）" class="headerlink" title="start_period：启动宽限期（最容易忽略的）"></a>start_period：启动宽限期（最容易忽略的）</h2><p>这是最容易被忽略、也最容易踩坑的参数。</p>
+<p>start_period内的失败不会计入retries。换句话说，给服务一个”启动缓冲期”。</p>
+<p>为什么重要？数据库启动需要时间。PostgreSQL要初始化数据目录、MySQL要加载表索引。如果没有start_period，健康检查在第2秒就开始失败计数，可能retries还没用完服务就被标记为unhealthy了。=</p>
+<p><strong>推荐值</strong>：</p>
+<ul>
+<li>PostgreSQL/MySQL：<strong>30-60秒</strong></li>
+<li>轻量级服务（Redis）：15-30秒</li>
+<li>有大量初始化脚本的：可以设到120秒</li>
+</ul>
+<p>我一般设60秒，宁可多等一会儿，也不要误报。</p>
+<h2 id="常见错误和避坑指南"><a href="#常见错误和避坑指南" class="headerlink" title="常见错误和避坑指南"></a>常见错误和避坑指南</h2><p><strong>错误1：环境变量引用不正确</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># ❌ 错误：Compose会在启动前插值，容器里拿到的是宿主机的变量值</span><br><span class="line">test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-p$MYSQL_ROOT_PASSWORD&quot;]</span><br><span class="line"></span><br><span class="line"># ✅ 正确：用$$转义，让容器内的shell解析</span><br><span class="line">test: [&quot;CMD-SHELL&quot;, &quot;mysqladmin ping -p$$MYSQL_ROOT_PASSWORD&quot;]</span><br></pre></td></tr></table></figure>
+<p><strong>错误2：start_period设太短</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># ❌ 数据库还没初始化完就开始计数，很快被标记为unhealthy</span><br><span class="line">healthcheck:</span><br><span class="line">  test: [&quot;CMD&quot;, &quot;pg_isready&quot;]</span><br><span class="line">  interval: 5s</span><br><span class="line">  retries: 3</span><br><span class="line">  start_period: 10s  # 太短了！</span><br><span class="line"></span><br><span class="line"># ✅ 给足够的启动时间</span><br><span class="line">healthcheck:</span><br><span class="line">  start_period: 60s  # 安心多了</span><br></pre></td></tr></table></figure>
+<p><strong>错误3：检查工具不存在</strong></p>
+<p>这个错误特别隐蔽，因为Docker只会静默失败。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># ❌ 如果镜像里没有curl，healthcheck永远失败</span><br><span class="line">test: [&quot;CMD&quot;, &quot;curl&quot;, &quot;-f&quot;, &quot;http://localhost/health&quot;]</span><br><span class="line"></span><br><span class="line"># ✅ 确保工具存在，或者用镜像自带的工具</span><br><span class="line">test: [&quot;CMD&quot;, &quot;wget&quot;, &quot;--spider&quot;, &quot;http://localhost/health&quot;]  # Alpine镜像自带wget</span><br></pre></td></tr></table></figure>
+<p>健康检查配好了，接下来看具体数据库怎么配。</p>
+<h1 id="PostgreSQL健康检查实战配置"><a href="#PostgreSQL健康检查实战配置" class="headerlink" title="PostgreSQL健康检查实战配置"></a>PostgreSQL健康检查实战配置</h1><p>PostgreSQL官方镜像自带一个神器：<strong>pg_isready</strong>。</p>
+<p>这个工具专门用来检查PostgreSQL是否ready，比自己写SQL查询靠谱多了。</p>
+<h2 id="基础配置（推荐）"><a href="#基础配置（推荐）" class="headerlink" title="基础配置（推荐）"></a>基础配置（推荐）</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    image: node:20-alpine</span><br><span class="line">    depends_on:</span><br><span class="line">      db:</span><br><span class="line">        condition: service_healthy  # 关键：等待健康检查通过</span><br><span class="line">        restart: true  # 数据库重启时，应用也跟着重启</span><br><span class="line">    environment:</span><br><span class="line">      DATABASE_URL: postgresql://postgres:password@db:5432/myapp</span><br><span class="line">    command: npm start</span><br><span class="line"></span><br><span class="line">  db:</span><br><span class="line">    image: postgres:16</span><br><span class="line">    environment:</span><br><span class="line">      POSTGRES_USER: postgres</span><br><span class="line">      POSTGRES_PASSWORD: password</span><br><span class="line">      POSTGRES_DB: myapp</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres -d myapp&quot;]</span><br><span class="line">      interval: 10s</span><br><span class="line">      timeout: 5s</span><br><span class="line">      retries: 3</span><br><span class="line">      start_period: 60s</span><br><span class="line">    volumes:</span><br><span class="line">      - postgres_data:/var/lib/postgresql/data</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  postgres_data:</span><br></pre></td></tr></table></figure>
+<h2 id="pg-isready命令详解"><a href="#pg-isready命令详解" class="headerlink" title="pg_isready命令详解"></a>pg_isready命令详解</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pg_isready -U postgres -d myapp</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>-U</code>：指定用户名，必须是实际存在的用户</li>
+<li><code>-d</code>：指定数据库名（可选，但建议加上）</li>
+</ul>
+<p>为什么要加<code>-U</code>？如果不指定，pg_isready会尝试用当前系统用户连接，日志里会有一堆warning。虽然不影响功能，但看着烦。</p>
+<h2 id="进阶配置：加实际查询"><a href="#进阶配置：加实际查询" class="headerlink" title="进阶配置：加实际查询"></a>进阶配置：加实际查询</h2><p>pg_isready只检查端口是否可达，不保证数据库真的能执行查询。如果你需要更严格的检查：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres &amp;&amp; psql -U postgres -d myapp -c &#x27;SELECT 1&#x27;&quot;]</span><br><span class="line">  interval: 10s</span><br><span class="line">  timeout: 10s  # 注意timeout要加大，因为有额外的查询</span><br><span class="line">  retries: 3</span><br><span class="line">  start_period: 60s</span><br></pre></td></tr></table></figure>
+<p><code>SELECT 1</code>是最简单的查询，如果执行成功说明数据库不仅启动了，而且能正常处理SQL。</p>
+<p>不过大部分场景下，基础的pg_isready就够了。</p>
+<h2 id="实际运行效果"><a href="#实际运行效果" class="headerlink" title="实际运行效果"></a>实际运行效果</h2><p>配置好后，启动看看：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ docker-compose up</span><br><span class="line"></span><br><span class="line">Creating network &quot;myapp_default&quot; ... done</span><br><span class="line">Creating myapp_db_1 ... done</span><br><span class="line">Waiting for myapp_db_1 to be healthy...  ← 注意这行</span><br><span class="line">Creating myapp_web_1 ... done</span><br><span class="line"></span><br><span class="line">db_1   | PostgreSQL init process complete; ready for start up.</span><br><span class="line">db_1   | database system is ready to accept connections</span><br><span class="line">web_1  | Server listening on port 3000  ← 应用在数据库ready后才启动</span><br></pre></td></tr></table></figure>
+<p>你会看到一个明显的停顿——Docker在等db容器变成healthy。这个过程可能要30-60秒，但换来的是零失败启动。</p>
+<h2 id="故障排查：容器一直是unhealthy"><a href="#故障排查：容器一直是unhealthy" class="headerlink" title="故障排查：容器一直是unhealthy"></a>故障排查：容器一直是unhealthy</h2><p>如果数据库容器一直显示unhealthy，查看健康检查日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"># 查看容器健康状态</span><br><span class="line">$ docker inspect --format=&#x27;&#123;&#123;json .State.Health&#125;&#125;&#x27; myapp_db_1 | jq</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">  &quot;Status&quot;: &quot;unhealthy&quot;,</span><br><span class="line">  &quot;FailingStreak&quot;: 5,</span><br><span class="line">  &quot;Log&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;Start&quot;: &quot;2026-10-17T03:15:30Z&quot;,</span><br><span class="line">      &quot;End&quot;: &quot;2026-10-17T03:15:30Z&quot;,</span><br><span class="line">      &quot;ExitCode&quot;: 1,</span><br><span class="line">      &quot;Output&quot;: &quot;pg_isready: could not connect to server: Connection refused&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>常见原因：</p>
+<ol>
+<li><strong>start_period太短</strong>：数据库还在初始化就开始计数失败</li>
+<li><strong>用户名或数据库名错误</strong>：pg_isready连不上</li>
+<li><strong>PostgreSQL启动失败</strong>：看容器日志<code>docker logs myapp_db_1</code></li>
+</ol>
+<h1 id="MySQL健康检查实战配置"><a href="#MySQL健康检查实战配置" class="headerlink" title="MySQL健康检查实战配置"></a>MySQL健康检查实战配置</h1><p>MySQL的健康检查用<code>mysqladmin ping</code>，这是MySQL自带的管理工具。</p>
+<h2 id="基础配置（推荐）-1"><a href="#基础配置（推荐）-1" class="headerlink" title="基础配置（推荐）"></a>基础配置（推荐）</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    image: node:20-alpine</span><br><span class="line">    depends_on:</span><br><span class="line">      db:</span><br><span class="line">        condition: service_healthy</span><br><span class="line">        restart: true</span><br><span class="line">    environment:</span><br><span class="line">      DATABASE_URL: mysql://root:password@db:3306/myapp</span><br><span class="line">    command: npm start</span><br><span class="line"></span><br><span class="line">  db:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    environment:</span><br><span class="line">      MYSQL_ROOT_PASSWORD: password</span><br><span class="line">      MYSQL_DATABASE: myapp</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;, &quot;-u&quot;, &quot;root&quot;, &quot;-ppassword&quot;]</span><br><span class="line">      interval: 10s</span><br><span class="line">      timeout: 5s</span><br><span class="line">      retries: 3</span><br><span class="line">      start_period: 60s</span><br><span class="line">    volumes:</span><br><span class="line">      - mysql_data:/var/lib/mysql</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  mysql_data:</span><br></pre></td></tr></table></figure>
+<h2 id="mysqladmin-ping命令详解"><a href="#mysqladmin-ping命令详解" class="headerlink" title="mysqladmin ping命令详解"></a>mysqladmin ping命令详解</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqladmin ping -h localhost -u root -ppassword</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>-h</code>：主机地址（容器内用localhost）</li>
+<li><code>-u</code>：用户名</li>
+<li><code>-p</code>：密码（注意<code>-p</code>和密码之间没有空格）</li>
+</ul>
+<p>如果MySQL正常，这个命令会返回：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysqld is alive</span><br></pre></td></tr></table></figure>
+<p>退出码是0，健康检查通过。</p>
+<h2 id="密码的正确处理方式"><a href="#密码的正确处理方式" class="headerlink" title="密码的正确处理方式"></a>密码的正确处理方式</h2><p><strong>方式1：直接写密码（适合开发环境）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;, &quot;-u&quot;, &quot;root&quot;, &quot;-ppassword&quot;]</span><br></pre></td></tr></table></figure>
+<p>简单粗暴，但密码硬编码在配置里。</p>
+<p><strong>方式2：用环境变量（推荐）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">db:</span><br><span class="line">  environment:</span><br><span class="line">    MYSQL_ROOT_PASSWORD: password</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD-SHELL&quot;, &quot;mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD&quot;]</span><br><span class="line">    # 注意：用$$ 而不是 $</span><br></pre></td></tr></table></figure>
+<p>这里有个坑：必须用$$$$而不是<code>$</code>。</p>
+<p>为什么？因为Docker Compose会在启动前解析环境变量。如果用$$MYSQL_ROOT_PASSWORD<code>，Compose会在你的宿主机上查找这个变量，而不是容器里的。用</code>$$$告诉Compose”别管它，让容器内的shell去解析”。</p>
+<p><strong>方式3：无密码检查（最简单，但有争议）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;]</span><br></pre></td></tr></table></figure>
+<p>有些MySQL配置允许本地无密码连接，这种情况下最简单。不过生产环境不推荐。</p>
+<h2 id="MySQL-8-0的特殊注意事项"><a href="#MySQL-8-0的特殊注意事项" class="headerlink" title="MySQL 8.0的特殊注意事项"></a>MySQL 8.0的特殊注意事项</h2><p>MySQL 8.0默认使用<code>caching_sha2_password</code>认证插件，可能导致一些老客户端连不上。如果你的应用报认证错误，可以强制使用旧的认证方式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">db:</span><br><span class="line">  image: mysql:8.0</span><br><span class="line">  command: --default-authentication-plugin=mysql_native_password</span><br><span class="line">  environment:</span><br><span class="line">    MYSQL_ROOT_PASSWORD: password</span><br><span class="line">    MYSQL_DATABASE: myapp</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;, &quot;-u&quot;, &quot;root&quot;, &quot;-ppassword&quot;]</span><br><span class="line">    interval: 10s</span><br><span class="line">    timeout: 5s</span><br><span class="line">    retries: 3</span><br><span class="line">    start_period: 60s</span><br></pre></td></tr></table></figure>
+<h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><h3 id="问题1：Access-denied-for-user-‘root’-‘localhost’"><a href="#问题1：Access-denied-for-user-‘root’-‘localhost’" class="headerlink" title="问题1：Access denied for user ‘root’@‘localhost’"></a>问题1：Access denied for user ‘root’@‘localhost’</h3><p>密码不对，或者环境变量没生效。检查：</p>
+<ol>
+<li>MYSQL_ROOT_PASSWORD拼写是否正确</li>
+<li>healthcheck里的密码是否匹配</li>
+<li>是否用了$$$$转义</li>
+</ol>
+<h3 id="问题2：容器启动很慢，一直是starting状态"><a href="#问题2：容器启动很慢，一直是starting状态" class="headerlink" title="问题2：容器启动很慢，一直是starting状态"></a>问题2：容器启动很慢，一直是starting状态</h3><p>MySQL初始化数据目录需要时间，特别是第一次启动。确保start_period设够大，60秒通常够用。如果有init脚本要导入大量数据，可能要120秒甚至更多。</p>
+<h3 id="问题3：健康检查通过了，但应用连不上数据库"><a href="#问题3：健康检查通过了，但应用连不上数据库" class="headerlink" title="问题3：健康检查通过了，但应用连不上数据库"></a>问题3：健康检查通过了，但应用连不上数据库</h3><p>可能是网络问题或应用配置问题。检查：</p>
+<ol>
+<li>应用的连接字符串是否正确（主机名用<code>db</code>而不是<code>localhost</code>）</li>
+<li>Docker网络配置是否正常</li>
+<li>用<code>docker network inspect</code>查看容器是否在同一网络</li>
+</ol>
+<h1 id="其他数据库和服务的健康检查"><a href="#其他数据库和服务的健康检查" class="headerlink" title="其他数据库和服务的健康检查"></a>其他数据库和服务的健康检查</h1><p>掌握了PostgreSQL和MySQL，其他服务就触类旁通了。这里给个快速参考表。</p>
+<h2 id="4-1-Redis"><a href="#4-1-Redis" class="headerlink" title="4.1 Redis"></a><strong>4.1 Redis</strong></h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">redis:</span><br><span class="line">  image: redis:7-alpine</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD&quot;, &quot;redis-cli&quot;, &quot;ping&quot;]</span><br><span class="line">    interval: 10s</span><br><span class="line">    timeout: 3s</span><br><span class="line">    retries: 3</span><br><span class="line">    start_period: 15s</span><br></pre></td></tr></table></figure>
+<p><code>redis-cli ping</code>会返回<code>PONG</code>，退出码0。Redis启动很快，start_period可以设短一点。</p>
+<h2 id="MongoDB"><a href="#MongoDB" class="headerlink" title="MongoDB"></a>MongoDB</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">mongo:</span><br><span class="line">  image: mongo:7</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD&quot;, &quot;mongosh&quot;, &quot;--eval&quot;, &quot;db.adminCommand(&#x27;ping&#x27;)&quot;]</span><br><span class="line">    interval: 10s</span><br><span class="line">    timeout: 5s</span><br><span class="line">    retries: 3</span><br><span class="line">    start_period: 30s</span><br></pre></td></tr></table></figure>
+<p>注意：MongoDB 6.0之后用<code>mongosh</code>替代了老的<code>mongo</code>命令。如果用旧版本：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">test: [&quot;CMD&quot;, &quot;mongo&quot;, &quot;--eval&quot;, &quot;db.adminCommand(&#x27;ping&#x27;)&quot;]</span><br></pre></td></tr></table></figure>
+<h2 id="RabbitMQ"><a href="#RabbitMQ" class="headerlink" title="RabbitMQ"></a>RabbitMQ</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">rabbitmq:</span><br><span class="line">  image: rabbitmq:3-management-alpine</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD&quot;, &quot;rabbitmq-diagnostics&quot;, &quot;ping&quot;]</span><br><span class="line">    interval: 10s</span><br><span class="line">    timeout: 5s</span><br><span class="line">    retries: 3</span><br><span class="line">    start_period: 40s</span><br></pre></td></tr></table></figure>
+<p>RabbitMQ启动比较慢，start_period建议40秒以上。</p>
+<h2 id="通用HTTP服务"><a href="#通用HTTP服务" class="headerlink" title="通用HTTP服务"></a>通用HTTP服务</h2><p>如果服务提供HTTP健康检查接口（如<code>/health</code>或<code>/ping</code>），可以用wget或curl：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">api:</span><br><span class="line">  image: myapp:latest</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD&quot;, &quot;wget&quot;, &quot;--spider&quot;, &quot;--quiet&quot;, &quot;http://localhost:8080/health&quot;]</span><br><span class="line">    # 或者用curl（如果镜像里有）</span><br><span class="line">    # test: [&quot;CMD&quot;, &quot;curl&quot;, &quot;-f&quot;, &quot;http://localhost:8080/health&quot;]</span><br><span class="line">    interval: 10s</span><br><span class="line">    timeout: 3s</span><br><span class="line">    retries: 3</span><br><span class="line">    start_period: 20s</span><br></pre></td></tr></table></figure>
+<p><code>--spider</code>让wget只检查不下载，<code>--quiet</code>不输出日志。</p>
+<p><strong>注意</strong>：确保镜像里有wget或curl。Alpine镜像默认有wget，Debian/Ubuntu镜像有curl。</p>
+<h2 id="没有专用工具的服务"><a href="#没有专用工具的服务" class="headerlink" title="没有专用工具的服务"></a>没有专用工具的服务</h2><p>如果服务没有健康检查工具，可以用netcat (nc)检查端口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">service:</span><br><span class="line">  image: some-service:latest</span><br><span class="line">  healthcheck:</span><br><span class="line">    test: [&quot;CMD-SHELL&quot;, &quot;nc -z localhost 9000 || exit 1&quot;]</span><br><span class="line">    interval: 10s</span><br><span class="line">    timeout: 3s</span><br><span class="line">    retries: 3</span><br><span class="line">    start_period: 30s</span><br></pre></td></tr></table></figure>
+<p><code>nc -z</code>只检查端口是否打开，不建立实际连接。不过这只能检查端口，不能确认服务真的ready，比前面的方法粗糙一些。</p>
+<h1 id="wait-for-it脚本：现在还需要吗？"><a href="#wait-for-it脚本：现在还需要吗？" class="headerlink" title="wait-for-it脚本：现在还需要吗？"></a>wait-for-it脚本：现在还需要吗？</h1><p>如果你搜Docker启动顺序，可能会看到很多文章推荐wait-for-it或wait-for脚本。</p>
+<p>这些脚本的思路是：在应用容器的entrypoint里加一段等待逻辑，检查依赖服务的TCP端口是否可达。</p>
+<h2 id="传统wait-for-it方案"><a href="#传统wait-for-it方案" class="headerlink" title="传统wait-for-it方案"></a>传统wait-for-it方案</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">web:</span><br><span class="line">  image: node:20-alpine</span><br><span class="line">  depends_on:</span><br><span class="line">    - db  # 只是普通depends_on，不检查健康状态</span><br><span class="line">  volumes:</span><br><span class="line">    - ./wait-for-it.sh:/wait-for-it.sh  # 挂载脚本</span><br><span class="line">  command: [&quot;/wait-for-it.sh&quot;, &quot;db:5432&quot;, &quot;--&quot;, &quot;npm&quot;, &quot;start&quot;]</span><br></pre></td></tr></table></figure>
+<p>wait-for-it.sh会循环检查db:5432端口，直到可连接才执行<code>npm start</code>。</p>
+<h2 id="为什么不推荐了？"><a href="#为什么不推荐了？" class="headerlink" title="为什么不推荐了？"></a>为什么不推荐了？</h2><p>2026年的最佳实践是：<strong>能用原生healthcheck就别用脚本</strong>。</p>
+<p>原因：</p>
+<ol>
+<li><strong>配置更清晰</strong>：健康检查逻辑在数据库服务里，一眼就看出依赖关系</li>
+<li><strong>无需额外文件</strong>：不用维护脚本、不用挂载volume</li>
+<li><strong>功能更强</strong>：healthcheck能检查实际服务就绪度，TCP端口检查太粗糙</li>
+<li><strong>复用性更好</strong>：healthcheck配一次，所有依赖它的服务自动受益</li>
+</ol>
+<p>社区里有篇很火的文章就叫”Forget wait-for-it, use docker-compose healthcheck and depends_on instead”。</p>
+<h2 id="什么时候还需要wait-for-it？"><a href="#什么时候还需要wait-for-it？" class="headerlink" title="什么时候还需要wait-for-it？"></a>什么时候还需要wait-for-it？</h2><p>有两种特殊情况：</p>
+<p><strong>情况1：无法修改镜像或compose配置</strong></p>
+<p>比如用第三方镜像，镜像本身没有healthcheck，你又没权限加。这时候在应用侧加wait-for-it是唯一选择。</p>
+<p><strong>情况2：需要等待多个服务</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./wait-for-it.sh db:5432 redis:6379 rabbitmq:5672 -- npm start</span><br></pre></td></tr></table></figure>
+<p>虽然depends_on也能配多个，但wait-for-it写起来更简洁。不过这种场景不多见。</p>
+<h2 id="其他替代工具"><a href="#其他替代工具" class="headerlink" title="其他替代工具"></a>其他替代工具</h2><p>除了wait-for-it，还有几个类似工具：</p>
+<ul>
+<li><strong>dockerize</strong>：Go写的，功能更丰富，支持环境变量模板</li>
+<li><strong>wait-for</strong>：wait-for-it的简化版，纯shell实现</li>
+<li><strong>docker-compose-wait</strong>：Python写的，支持HTTP检查</li>
+</ul>
+<p>但说实话，2026年了，能用healthcheck就别折腾这些了。</p>
+<h1 id="故障排查清单和最佳实践"><a href="#故障排查清单和最佳实践" class="headerlink" title="故障排查清单和最佳实践"></a>故障排查清单和最佳实践</h1><p>配置好了还是不行？按这个清单排查，90%的问题都能解决。</p>
+<h2 id="快速诊断命令"><a href="#快速诊断命令" class="headerlink" title="快速诊断命令"></a>快速诊断命令</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># 1. 查看所有容器状态</span><br><span class="line">$ docker-compose ps</span><br><span class="line"></span><br><span class="line">NAME       COMMAND    SERVICE   STATUS              PORTS</span><br><span class="line">myapp_db   postgres   db        healthy             5432/tcp</span><br><span class="line">myapp_web  npm start  web       running             0.0.0.0:3000-超过3000/tcp</span><br><span class="line"></span><br><span class="line"># 2. 查看健康检查详情</span><br><span class="line">$ docker inspect --format=&#x27;&#123;&#123;json .State.Health&#125;&#125;&#x27; myapp_db_1 | jq</span><br><span class="line"></span><br><span class="line"># 3. 查看容器日志</span><br><span class="line">$ docker-compose logs db</span><br><span class="line">$ docker-compose logs web</span><br><span class="line"></span><br><span class="line"># 4. 实时跟踪日志</span><br><span class="line">$ docker-compose logs -f --tail=100</span><br></pre></td></tr></table></figure>
+<h2 id="常见问题决策树"><a href="#常见问题决策树" class="headerlink" title="常见问题决策树"></a>常见问题决策树</h2><p><strong>问题：容器一直显示starting，从不变成healthy</strong></p>
+<ul>
+<li>检查start_period是否太短 → 改成60s试试</li>
+<li>查看健康检查命令是否正确 → <code>docker inspect</code>看实际执行的命令</li>
+<li>进入容器手动执行健康检查命令 → <code>docker exec -it myapp_db_1 pg_isready -U postgres</code></li>
+</ul>
+<p><strong>问题：容器变成unhealthy后又恢复healthy，反复横跳</strong></p>
+<ul>
+<li>interval设太短，资源不足 → 改成10s或15s</li>
+<li>retries太少，偶发故障就触发 → 改成5</li>
+<li>数据库确实有性能问题 → 查看数据库日志</li>
+</ul>
+<p><strong>问题：健康检查通过，但应用还是连不上数据库</strong></p>
+<ul>
+<li>应用的连接串是否正确 → 主机名用service名（如<code>db</code>），不是<code>localhost</code></li>
+<li>端口映射是否正确 → 容器间通信用内部端口（5432），不是映射后的端口</li>
+<li>网络配置是否正确 → 确认所有服务在同一network</li>
+</ul>
+<h2 id="生产环境最佳实践"><a href="#生产环境最佳实践" class="headerlink" title="生产环境最佳实践"></a>生产环境最佳实践</h2><ol>
+<li><p><strong>参数推荐值（保守配置）</strong></p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  interval: 10s          # 平衡响应速度和资源消耗</span><br><span class="line">  timeout: 5s            # 给命令足够时间执行</span><br><span class="line">  retries: 5             # 容忍偶发故障</span><br><span class="line">  start_period: 60s      # 给数据库充足启动时间</span><br></pre></td></tr></table></figure>
+<p> 这套参数在大部分场景下都很稳定。如果你的数据库有大量初始化脚本，start_period可以设到120s。</p>
+</li>
+<li><p><strong>使用restart策略</strong></p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">web:</span><br><span class="line">  depends_on:</span><br><span class="line">    db:</span><br><span class="line">      condition: service_healthy</span><br><span class="line">      restart: true  # 数据库重启时，应用也重启</span><br><span class="line">  restart: unless-stopped  # 容器退出后自动重启</span><br></pre></td></tr></table></figure>
+<p> <code>restart: true</code>确保数据库升级或重启后，依赖它的服务也会重启重新连接。</p>
+</li>
+<li><p><strong>资源限制</strong></p>
+<p> 健康检查也消耗资源，虽然很少。如果你的系统资源紧张：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  interval: 30s  # 拉长检查间隔</span><br><span class="line">  timeout: 3s    # 缩短超时</span><br></pre></td></tr></table></figure>
+<p> 不过说实话，healthcheck的开销通常可以忽略，除非你跑了几百个容器。</p>
+</li>
+<li><p><strong>监控健康状态</strong></p>
+<p> 生产环境建议用监控工具跟踪健康检查状态。Docker的健康检查事件可以被Prometheus、Grafana等工具采集。</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.yml</span><br><span class="line">services:</span><br><span class="line">  db:</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres&quot;]</span><br><span class="line">      interval: 10s</span><br><span class="line">      timeout: 5s</span><br><span class="line">      retries: 3</span><br><span class="line">      start_period: 60s</span><br><span class="line">    labels:</span><br><span class="line">      - &quot;prometheus.io/scrape=true&quot;  # 让Prometheus采集健康状态</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>多环境配置</strong></p>
+<p> 开发环境和生产环境的配置可以不一样：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.yml（开发）</span><br><span class="line">db:</span><br><span class="line">  healthcheck:</span><br><span class="line">    start_period: 30s  # 开发环境数据少，启动快</span><br><span class="line"></span><br><span class="line"># docker-compose.prod.yml（生产）</span><br><span class="line">db:</span><br><span class="line">  healthcheck:</span><br><span class="line">    start_period: 120s  # 生产环境数据多，启动慢</span><br><span class="line">    interval: 5s        # 更频繁的检查</span><br></pre></td></tr></table></figure>
+<p> 使用时指定配置文件：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose -f docker-compose.yml -f docker-compose.prod.yml up</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h2 id="调试技巧"><a href="#调试技巧" class="headerlink" title="调试技巧"></a>调试技巧</h2><p><strong>技巧1：手动测试健康检查命令</strong></p>
+<p>进入容器，手动跑健康检查命令，看看到底哪里出错：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ docker exec -it myapp_db_1 sh</span><br><span class="line">/# pg_isready -U postgres -d myapp</span><br><span class="line">/var/run/postgresql:5432 - accepting connections</span><br><span class="line">/# echo $?</span><br><span class="line">0  ← 返回0说明成功</span><br></pre></td></tr></table></figure>
+<p><strong>技巧2：临时禁用健康检查</strong></p>
+<p>调试时可以先把healthcheck注释掉，用普通的depends_on，排除健康检查本身的问题：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">web:</span><br><span class="line">  depends_on:</span><br><span class="line">    - db  # 临时用简单模式</span><br><span class="line">    # db:</span><br><span class="line">    #   condition: service_healthy</span><br></pre></td></tr></table></figure>
+<p>确认应用能正常连数据库后，再加回healthcheck。</p>
+<p><strong>技巧3：查看Docker事件日志</strong></p>
+<p>Docker会记录所有容器事件，包括健康检查状态变化：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ docker events --filter &#x27;event=health_status&#x27;</span><br><span class="line"></span><br><span class="line">2026-10-17T03:15:30.123456789Z container health_status: healthy (name=myapp_db_1)</span><br><span class="line">2026-10-17T03:16:45.987654321Z container health_status: unhealthy (name=myapp_db_1)</span><br></pre></td></tr></table></figure>
+<p>这能帮你找到容器什么时候变unhealthy的，结合日志时间戳定位问题。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>回到文章开头的问题：为什么配了depends_on还是不行？</p>
+<p>答案就三个字：<strong>不够用</strong>。</p>
+<p>depends_on默认只管容器启动，不管服务就绪。数据库容器running了不代表能接受连接，这中间的gap是我们踩坑的根源。</p>
+<p>解决方案也很直接：</p>
+<ol>
+<li><strong>给数据库配上healthcheck</strong>，用pg_isready或mysqladmin ping检查实际就绪状态</li>
+<li><strong>用service_healthy condition</strong>，让应用等待健康检查通过</li>
+<li><strong>设置合理的start_period</strong>（60秒起步），给数据库足够的初始化时间</li>
+</ol>
+<p>这三板斧下来，容器启动失败的问题基本就消失了。</p>
+<p>最后给几个快速行动建议：</p>
+<ul>
+<li><strong>立即可做</strong>：复制文章里的PostgreSQL或MySQL配置到你的项目，改改环境变量就能用</li>
+<li><strong>今晚回家</strong>：把团队项目里的depends_on都升级成service_healthy，一劳永逸</li>
+<li><strong>下周团队会</strong>：分享给同事，统一团队的配置标准</li>
+</ul>
+<p>如果你遇到了文章没覆盖到的问题，欢迎在评论区留言。Docker Compose的坑还有很多，咱们一起填。</p>
+<p>最后，如果这篇文章帮你解决了困扰已久的启动问题，点个赞让我知道。这种”终于搞定了”的瞬间，是我写这篇文章的动力。</p>
+<h1 id="常见问题-1"><a href="#常见问题-1" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么depends-on不够用？容器启动和服务就绪有什么区别？"><a href="#为什么depends-on不够用？容器启动和服务就绪有什么区别？" class="headerlink" title="为什么depends_on不够用？容器启动和服务就绪有什么区别？"></a>为什么depends_on不够用？容器启动和服务就绪有什么区别？</h2><p>问题根源：Docker的depends_on只管容器启动顺序，不管服务是否真的准备好了，Compose只等容器跑起来，不管服务是不是真的能用。</p>
+<p>Docker官方文档里有一句话特别重要，但很容易被忽略：Compose does not wait until a container is “ready”, only until it’s running。翻译过来就是：Compose只等容器跑起来，不管服务是不是真的能用。</p>
+<p>容器启动和服务就绪的时间差：想象一下PostgreSQL容器的启动过程：</p>
+<ul>
+<li>0秒：Docker拉起容器postgres进程启动（depends_on在这里就放行了）</li>
+<li>2秒：初始化数据目录</li>
+<li>5秒：加载配置文件</li>
+<li>8秒：执行init脚本（如果有的话）</li>
+<li>12秒：终于ready可以接受连接了</li>
+</ul>
+<p>这中间有12秒的gap，如果你的Web应用在第1秒就尝试连接数据库，结果必然是Connection refused。</p>
+<h2 id="depends-on有哪三种condition配置？"><a href="#depends-on有哪三种condition配置？" class="headerlink" title="depends_on有哪三种condition配置？"></a>depends_on有哪三种condition配置？</h2><p>depends_on的三种condition配置：</p>
+<ul>
+<li>ervice_started（默认）：<ul>
+<li>只等容器启动，不管服务是否就绪</li>
+<li>不推荐使用</li>
+</ul>
+</li>
+<li>service_healthy（推荐）：<ul>
+<li>等容器启动且健康检查通过</li>
+<li>确保服务真正就绪</li>
+<li>在docker-compose.yml中配置：depends_on: db: condition: service_healthy</li>
+</ul>
+</li>
+<li>service_completed_successfully：<ul>
+<li>等容器执行完成并成功退出</li>
+<li>适合一次性任务</li>
+</ul>
+</li>
+</ul>
+<p>推荐使用service_healthy：确保数据库真正就绪后才启动应用。</p>
+<h2 id="如何配置PostgreSQL和MySQL的健康检查？"><a href="#如何配置PostgreSQL和MySQL的健康检查？" class="headerlink" title="如何配置PostgreSQL和MySQL的健康检查？"></a>如何配置PostgreSQL和MySQL的健康检查？</h2><p>PostgreSQL健康检查：使用pg_isready命令检查数据库是否就绪</p>
+<p>配置示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres&quot;]</span><br><span class="line">  interval: 5s</span><br><span class="line">  timeout: 5s</span><br><span class="line">  retries: 5</span><br><span class="line">  start_period: 60s（给数据库足够的初始化时间）</span><br></pre></td></tr></table></figure>
+<p>MySQL健康检查：使用mysqladmin ping命令检查数据库是否就绪</p>
+<p>配置示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">healthcheck:</span><br><span class="line">  test: [&quot;CMD-SHELL&quot;, &quot;mysqladmin ping -h localhost -u root -p$MYSQL_ROOT_PASSWORD&quot;]</span><br><span class="line">  interval: 5s</span><br><span class="line">  timeout: 5s</span><br><span class="line">  retries: 5</span><br><span class="line">  start_period: 60s</span><br></pre></td></tr></table></figure>
+<p>完整配置示例：在docker-compose.yml中配置healthcheck（定义健康检查命令、间隔、超时、重试次数），在depends_on中使用service_healthy条件，确保数据库真正就绪后才启动应用。</p>
+<h2 id="如何排查健康检查问题？"><a href="#如何排查健康检查问题？" class="headerlink" title="如何排查健康检查问题？"></a>如何排查健康检查问题？</h2><p>故障排查清单：</p>
+<ul>
+<li>检查健康检查命令是否正确：<ul>
+<li>手动在容器内执行健康检查命令，确认返回0</li>
+<li>例如：docker exec -it db_container pg_isready -U postgres</li>
+<li>返回0说明成功</li>
+</ul>
+</li>
+<li>临时禁用健康检查：<ul>
+<li>调试时可以先把healthcheck注释掉</li>
+<li>用普通的depends_on，排除健康检查本身的问题</li>
+<li>确认应用能正常连数据库后，再加回healthcheck</li>
+</ul>
+</li>
+<li>查看Docker事件日志：<ul>
+<li>使用docker events查看容器启动和健康检查事件</li>
+</ul>
+</li>
+</ul>
+<h2 id="健康检查配置的最佳实践是什么？"><a href="#健康检查配置的最佳实践是什么？" class="headerlink" title="健康检查配置的最佳实践是什么？"></a>健康检查配置的最佳实践是什么？</h2><p>最佳实践：</p>
+<ol>
+<li>给数据库配上healthcheck，用pg_isready或mysqladmin ping检查实际就绪状态</li>
+<li>用service_healthy condition，让应用等待健康检查通过</li>
+<li>设置合理的start_period（60秒起步），给数据库足够的初始化时间</li>
+</ol>
+<p>这三板斧下来，容器启动失败的问题基本就消失了。</p>
+<p>告别wait-for-it脚本的现代化方案：</p>
+<ul>
+<li>使用depends_on + healthcheck组合</li>
+<li>不需要额外的脚本，配置简单，可靠性高</li>
+<li>适合所有Docker Compose项目</li>
+</ul>
+<p>快速行动建议：</p>
+<ul>
+<li>立即可做：复制文章里的PostgreSQL或MySQL配置到你的项目，改改环境变量就能用</li>
+<li>今晚回家：把团队项目里的depends_on都升级成service_healthy，一劳永逸</li>
+<li>下周团队会：分享给同事，统一团队的配置标准</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/c04c/">https://jingluo23.github.io/posts/c04c/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/d4c3/" title="Docker Compose 多服务编排：本地开发环境一键启动"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker Compose 多服务编排：本地开发环境一键启动</div></div><div class="info-2"><div class="info-item-1">用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。</div></div></div></a><a class="pagination-related" href="/posts/286/" title="Docker Compose报错排查手册：5大常见错误快速解决方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker Compose报错排查手册：5大常见错误快速解决方案</div></div><div class="info-2"><div class="info-item-1">Docker Compose执行报错怎么办?本文总结端口冲突、网络问题、构建失败、容器退出、权限错误5大类常见问题,提供系统化排查流程和多种解决方案,帮你5分钟定位问题。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/1433/" title="Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-06</div><div class="info-item-2">Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践</div></div><div class="info-2"><div class="info-item-1">别再把数据库密码写在Dockerfile里了!本文详解Docker Secrets安全管理敏感信息的方法,对比Docker/K8s/Vault等工具选择,附生产环境完整checklist。</div></div></div></a><a class="pagination-related" href="/posts/64d8/" title="Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）</div></div><div class="info-2"><div class="info-item-1">手把手教你写Dockerfile，详解FROM、RUN、COPY等核心指令，避开初学者常踩的坑，附Node.js实战案例。看完就能给自己项目写Dockerfile！</div></div></div></a><a class="pagination-related" href="/posts/2b73/" title="Docker Compose 生产部署三要素：健康检查、重启策略与资源限制"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-17</div><div class="info-item-2">Docker Compose 生产部署三要素：健康检查、重启策略与资源限制</div></div><div class="info-2"><div class="info-item-1">详解 Docker Compose 生产部署三要素：健康检查判断服务就绪、重启策略实现自愈、资源限制防止失控。附完整 YAML 配置模板，助你构建稳定可靠的容器化应用。</div></div></div></a><a class="pagination-related" href="/posts/30d7/" title="Docker 镜像源测速实战：3 种方法 + 自动切换脚本"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-29</div><div class="info-item-2">Docker 镜像源测速实战：3 种方法 + 自动切换脚本</div></div><div class="info-2"><div class="info-item-1">Docker 镜像拉取慢？本文详解 3 种测速方法，提供 Shell/Python 双版自动切换脚本，一键配置最优国内镜像源，告别 docker pull 超时。</div></div></div></a><a class="pagination-related" href="/posts/9993/" title="Docker资源限制完全指南：防止容器内存泄漏拖垮服务器"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-07</div><div class="info-item-2">Docker资源限制完全指南：防止容器内存泄漏拖垮服务器</div></div><div class="info-2"><div class="info-item-1">容器内存泄漏如何拖垮整个服务器？本文从cgroups原理到--memory、--cpus参数实战，再到docker stats、cAdvisor、Prometheus监控方案，教你用资源限制保护生产环境。</div></div></div></a><a class="pagination-related" href="/posts/5b53/" title="Docker挂载目录权限问题完全解决指南：从诊断到实战的5大方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-22</div><div class="info-item-2">Docker挂载目录权限问题完全解决指南：从诊断到实战的5大方案</div></div><div class="info-2"><div class="info-item-1">容器生成的文件删不了？Permission Denied频繁出现？深入讲解Docker权限问题的根本原因，提供5种解决方案，涵盖Linux/Mac/Windows差异和5个真实案例。掌握3个诊断命令，彻底搞定权限问题。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">165</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88depends-on%E4%B8%8D%E5%A4%9F%E7%94%A8%EF%BC%9A%E5%90%AF%E5%8A%A8%E2%89%A0%E5%B0%B1%E7%BB%AA"><span class="toc-number">1.</span> <span class="toc-text">为什么depends_on不够用：启动≠就绪</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%92%8C%E6%9C%8D%E5%8A%A1%E5%B0%B1%E7%BB%AA%E7%9A%84%E6%97%B6%E9%97%B4%E5%B7%AE"><span class="toc-number">1.1.</span> <span class="toc-text">容器启动和服务就绪的时间差</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#depends-on%E7%9A%84%E4%B8%89%E7%A7%8Dcondition"><span class="toc-number">1.2.</span> <span class="toc-text">depends_on的三种condition</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%BB%98%E8%AE%A4%E4%B8%8D%E6%98%AFservice-healthy%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">为什么默认不是service_healthy？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%EF%BC%88healthcheck%EF%BC%89%E5%AE%8C%E5%85%A8%E9%85%8D%E7%BD%AE%E6%8C%87%E5%8D%97"><span class="toc-number">2.</span> <span class="toc-text">健康检查（healthcheck）完全配置指南</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E7%9A%84healthcheck%E9%85%8D%E7%BD%AE"><span class="toc-number">2.1.</span> <span class="toc-text">完整的healthcheck配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#test%EF%BC%9A%E6%A3%80%E6%9F%A5%E5%91%BD%E4%BB%A4"><span class="toc-number">2.2.</span> <span class="toc-text">test：检查命令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#interval%EF%BC%9A%E6%A3%80%E6%9F%A5%E9%97%B4%E9%9A%94"><span class="toc-number">2.3.</span> <span class="toc-text">interval：检查间隔</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#timeout%EF%BC%9A%E5%8D%95%E6%AC%A1%E8%B6%85%E6%97%B6"><span class="toc-number">2.4.</span> <span class="toc-text">timeout：单次超时</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#retries%EF%BC%9A%E5%A4%B1%E8%B4%A5%E9%87%8D%E8%AF%95%E6%AC%A1%E6%95%B0"><span class="toc-number">2.5.</span> <span class="toc-text">retries：失败重试次数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#start-period%EF%BC%9A%E5%90%AF%E5%8A%A8%E5%AE%BD%E9%99%90%E6%9C%9F%EF%BC%88%E6%9C%80%E5%AE%B9%E6%98%93%E5%BF%BD%E7%95%A5%E7%9A%84%EF%BC%89"><span class="toc-number">2.6.</span> <span class="toc-text">start_period：启动宽限期（最容易忽略的）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%94%99%E8%AF%AF%E5%92%8C%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97"><span class="toc-number">2.7.</span> <span class="toc-text">常见错误和避坑指南</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#PostgreSQL%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%E5%AE%9E%E6%88%98%E9%85%8D%E7%BD%AE"><span class="toc-number">3.</span> <span class="toc-text">PostgreSQL健康检查实战配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E9%85%8D%E7%BD%AE%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89"><span class="toc-number">3.1.</span> <span class="toc-text">基础配置（推荐）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#pg-isready%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3"><span class="toc-number">3.2.</span> <span class="toc-text">pg_isready命令详解</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E9%85%8D%E7%BD%AE%EF%BC%9A%E5%8A%A0%E5%AE%9E%E9%99%85%E6%9F%A5%E8%AF%A2"><span class="toc-number">3.3.</span> <span class="toc-text">进阶配置：加实际查询</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E9%99%85%E8%BF%90%E8%A1%8C%E6%95%88%E6%9E%9C"><span class="toc-number">3.4.</span> <span class="toc-text">实际运行效果</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5%EF%BC%9A%E5%AE%B9%E5%99%A8%E4%B8%80%E7%9B%B4%E6%98%AFunhealthy"><span class="toc-number">3.5.</span> <span class="toc-text">故障排查：容器一直是unhealthy</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#MySQL%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%E5%AE%9E%E6%88%98%E9%85%8D%E7%BD%AE"><span class="toc-number">4.</span> <span class="toc-text">MySQL健康检查实战配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E9%85%8D%E7%BD%AE%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89-1"><span class="toc-number">4.1.</span> <span class="toc-text">基础配置（推荐）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#mysqladmin-ping%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3"><span class="toc-number">4.2.</span> <span class="toc-text">mysqladmin ping命令详解</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AF%86%E7%A0%81%E7%9A%84%E6%AD%A3%E7%A1%AE%E5%A4%84%E7%90%86%E6%96%B9%E5%BC%8F"><span class="toc-number">4.3.</span> <span class="toc-text">密码的正确处理方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL-8-0%E7%9A%84%E7%89%B9%E6%AE%8A%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">4.4.</span> <span class="toc-text">MySQL 8.0的特殊注意事项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">4.5.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%981%EF%BC%9AAccess-denied-for-user-%E2%80%98root%E2%80%99-%E2%80%98localhost%E2%80%99"><span class="toc-number">4.5.1.</span> <span class="toc-text">问题1：Access denied for user ‘root’@‘localhost’</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%982%EF%BC%9A%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%BE%88%E6%85%A2%EF%BC%8C%E4%B8%80%E7%9B%B4%E6%98%AFstarting%E7%8A%B6%E6%80%81"><span class="toc-number">4.5.2.</span> <span class="toc-text">问题2：容器启动很慢，一直是starting状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%97%AE%E9%A2%983%EF%BC%9A%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%E9%80%9A%E8%BF%87%E4%BA%86%EF%BC%8C%E4%BD%86%E5%BA%94%E7%94%A8%E8%BF%9E%E4%B8%8D%E4%B8%8A%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="toc-number">4.5.3.</span> <span class="toc-text">问题3：健康检查通过了，但应用连不上数据库</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E6%95%B0%E6%8D%AE%E5%BA%93%E5%92%8C%E6%9C%8D%E5%8A%A1%E7%9A%84%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5"><span class="toc-number">5.</span> <span class="toc-text">其他数据库和服务的健康检查</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#4-1-Redis"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 Redis</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MongoDB"><span class="toc-number">5.2.</span> <span class="toc-text">MongoDB</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RabbitMQ"><span class="toc-number">5.3.</span> <span class="toc-text">RabbitMQ</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%9A%E7%94%A8HTTP%E6%9C%8D%E5%8A%A1"><span class="toc-number">5.4.</span> <span class="toc-text">通用HTTP服务</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B2%A1%E6%9C%89%E4%B8%93%E7%94%A8%E5%B7%A5%E5%85%B7%E7%9A%84%E6%9C%8D%E5%8A%A1"><span class="toc-number">5.5.</span> <span class="toc-text">没有专用工具的服务</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#wait-for-it%E8%84%9A%E6%9C%AC%EF%BC%9A%E7%8E%B0%E5%9C%A8%E8%BF%98%E9%9C%80%E8%A6%81%E5%90%97%EF%BC%9F"><span class="toc-number">6.</span> <span class="toc-text">wait-for-it脚本：现在还需要吗？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%A0%E7%BB%9Fwait-for-it%E6%96%B9%E6%A1%88"><span class="toc-number">6.1.</span> <span class="toc-text">传统wait-for-it方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E6%8E%A8%E8%8D%90%E4%BA%86%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">为什么不推荐了？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%BF%98%E9%9C%80%E8%A6%81wait-for-it%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">什么时候还需要wait-for-it？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E6%9B%BF%E4%BB%A3%E5%B7%A5%E5%85%B7"><span class="toc-number">6.4.</span> <span class="toc-text">其他替代工具</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5%E6%B8%85%E5%8D%95%E5%92%8C%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">7.</span> <span class="toc-text">故障排查清单和最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BF%AB%E9%80%9F%E8%AF%8A%E6%96%AD%E5%91%BD%E4%BB%A4"><span class="toc-number">7.1.</span> <span class="toc-text">快速诊断命令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%86%B3%E7%AD%96%E6%A0%91"><span class="toc-number">7.2.</span> <span class="toc-text">常见问题决策树</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">7.3.</span> <span class="toc-text">生产环境最佳实践</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B0%83%E8%AF%95%E6%8A%80%E5%B7%A7"><span class="toc-number">7.4.</span> <span class="toc-text">调试技巧</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">8.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98-1"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88depends-on%E4%B8%8D%E5%A4%9F%E7%94%A8%EF%BC%9F%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%92%8C%E6%9C%8D%E5%8A%A1%E5%B0%B1%E7%BB%AA%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">为什么depends_on不够用？容器启动和服务就绪有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#depends-on%E6%9C%89%E5%93%AA%E4%B8%89%E7%A7%8Dcondition%E9%85%8D%E7%BD%AE%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">depends_on有哪三种condition配置？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AEPostgreSQL%E5%92%8CMySQL%E7%9A%84%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">如何配置PostgreSQL和MySQL的健康检查？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E6%8E%92%E6%9F%A5%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">如何排查健康检查问题？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5%E9%85%8D%E7%BD%AE%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">健康检查配置的最佳实践是什么？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"></a><div class="content"><a class="title" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</a><time datetime="2026-10-13T07:06:23.000Z" title="发表于 2026-10-13 15:06:23">2026-10-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"></a><div class="content"><a class="title" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)">Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)</a><time datetime="2026-10-12T07:19:19.000Z" title="发表于 2026-10-12 15:19:19">2026-10-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"></a><div class="content"><a class="title" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势">Docker容器调试指南：exec命令进入容器排查问题的正确姿势</a><time datetime="2026-10-11T07:06:23.000Z" title="发表于 2026-10-11 15:06:23">2026-10-11</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr">Java面渣手册</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">126</span><span class="categoryBar-list-descr">Docker 专题：安装、网络、报错与生产实践</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Java面渣手册/">Java面渣手册</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

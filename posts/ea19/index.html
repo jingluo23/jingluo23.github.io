@@ -1,0 +1,849 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="完整教程：Docker部署Nginx的配置文件挂载、HTTPS证书配置与反向代理。解决配置不生效、容器互联等常见问题，包含Let&#39;s Encrypt自动续期和生产环境最佳实践。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战">
+<meta property="og:url" content="https://jingluo23.github.io/posts/ea19/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="完整教程：Docker部署Nginx的配置文件挂载、HTTPS证书配置与反向代理。解决配置不生效、容器互联等常见问题，包含Let&#39;s Encrypt自动续期和生产环境最佳实践。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-03T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-13T12:21:44.208Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战",
+  "url": "https://jingluo23.github.io/posts/ea19/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-03T07:06:23.000Z",
+  "dateModified": "2026-10-13T12:21:44.208Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/ea19/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">165</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-03T07:06:23.000Z" title="发表于 2026-10-03 15:06:23">2026-10-03</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-13T12:21:44.208Z" title="更新于 2026-10-13 20:21:44">2026-10-13</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.5k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>20分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-13 20:21:44&quot;}" hidden></div><p>第七次按下 <code>docker restart nginx</code>，刷新浏览器——还是 502 错误页面。明明改了 nginx.conf，容器里的配置就是不生效。</p>
+<p>Docker 部署 Nginx 的配置问题，几乎每个做容器化的人都踩过。配置文件挂载、HTTPS 证书、容器间通信——这些看起来简单的操作，实际暗藏各种细节陷阱。这篇文章从配置文件正确的挂载方式，到 HTTPS 证书自动续期，再到反向代理的网络配置，给出一个完整可用的 Docker Nginx 部署方案。</p>
+<p>你将学到：</p>
+<ul>
+<li>配置文件为什么改了不生效，以及5种正确的挂载姿势</li>
+<li>HTTPS证书从自签名到Let’s Encrypt的完整配置路径</li>
+<li>反向代理其他Docker容器时的网络配置技巧</li>
+<li>生产环境的安全加固和性能调优实战</li>
+</ul>
+<h1 id="Docker-Nginx基础配置与文件挂载"><a href="#Docker-Nginx基础配置与文件挂载" class="headerlink" title="Docker Nginx基础配置与文件挂载"></a>Docker Nginx基础配置与文件挂载</h1><h2 id="为什么一定要挂载配置文件？"><a href="#为什么一定要挂载配置文件？" class="headerlink" title="为什么一定要挂载配置文件？"></a>为什么一定要挂载配置文件？</h2><p>你可能会问：直接把Nginx配置打包进镜像不行吗？行是行，但那酸爽…</p>
+<p>每次改个配置就要重新构建镜像、推送到仓库、再拉下来重启容器——整个流程走下来十几分钟过去了。更别提配置版本管理、多环境切换这些需求了。凌晨两点线上出了问题，你想快速回滚配置，结果还得等镜像构建？那画面，不敢想。</p>
+<p>挂载配置文件就是为了解决这个痛点：修改宿主机的文件，容器内立即生效。测试、回滚、团队协作都方便多了。</p>
+<h2 id="Nginx容器的关键目录结构"><a href="#Nginx容器的关键目录结构" class="headerlink" title="Nginx容器的关键目录结构"></a>Nginx容器的关键目录结构</h2><p>先搞清楚Nginx在容器里的家当都放在哪儿：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">/etc/nginx/</span><br><span class="line">├── nginx.conf              # 主配置文件，老大哥</span><br><span class="line">├── conf.d/                 # 子配置文件目录，各个站点配置放这</span><br><span class="line">│   └── default.conf        # 默认站点配置</span><br><span class="line">/usr/share/nginx/html       # 静态文件根目录</span><br><span class="line">/var/log/nginx/             # 日志目录</span><br><span class="line">    ├── access.log</span><br><span class="line">    └── error.log</span><br></pre></td></tr></table></figure>
+<p>关键点来了：nginx.conf里有一行 <code>include /etc/nginx/conf.d/*.conf;</code>。这意味着主配置会自动加载conf.d目录下的所有.conf文件。如果你只挂载了nginx.conf，忘了挂载conf.d——恭喜你发现了第一个坑。</p>
+<h2 id="正确的挂载方式：step-by-step"><a href="#正确的挂载方式：step-by-step" class="headerlink" title="正确的挂载方式：step by step"></a>正确的挂载方式：step by step</h2><p>别急着启动容器。先做个准备工作，能省你后面一堆麻烦。</p>
+<p><strong>步骤1：复制容器默认配置作为模板</strong></p>
+<p>为啥要这么做？官方的默认配置是经过测试的，直接拿来改比自己从零写靠谱。</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># 先启动一个临时容器</span><br><span class="line">docker run --name nginx-temp -d nginx</span><br><span class="line"></span><br><span class="line"># 把默认配置复制出来</span><br><span class="line">docker cp nginx-temp:/etc/nginx/nginx.conf ./nginx/nginx.conf</span><br><span class="line">docker cp nginx-temp:/etc/nginx/conf.d ./nginx/conf.d</span><br><span class="line"></span><br><span class="line"># 用完删掉</span><br><span class="line">docker stop nginx-temp &amp;&amp; docker rm nginx-temp</span><br></pre></td></tr></table></figure>
+<p><strong>步骤2：在宿主机创建标准目录结构</strong></p>
+<p>我的习惯是所有Docker相关文件都放在 <code>/opt</code> 下，你可以根据自己的喜好调整：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /opt/nginx/&#123;conf,conf.d,html,logs,ssl&#125;</span><br></pre></td></tr></table></figure>
+<p>这个目录结构覆盖了配置、静态文件、日志、SSL证书的所有需求。一步到位。</p>
+<p><strong>步骤3：启动容器并挂载所有目录</strong></p>
+<p>重头戏来了。注意看每个 <code>-v</code> 参数后面的路径映射：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">docker run -d --name my-nginx \</span><br><span class="line">  -p 80:80 -p 443:443 \</span><br><span class="line">  -v /opt/nginx/conf/nginx.conf:/etc/nginx/nginx.conf:ro \</span><br><span class="line">  -v /opt/nginx/conf.d:/etc/nginx/conf.d \</span><br><span class="line">  -v /opt/nginx/html:/usr/share/nginx/html \</span><br><span class="line">  -v /opt/nginx/logs:/var/log/nginx \</span><br><span class="line">  -v /opt/nginx/ssl:/etc/nginx/ssl \</span><br><span class="line">  nginx</span><br></pre></td></tr></table></figure>
+<p>几个要点：</p>
+<ul>
+<li><code>-p 80:80 -p 443:443</code>：同时暴露HTTP和HTTPS端口（后面配HTTPS要用）</li>
+<li><code>nginx.conf</code> 后面加了 <code>:ro</code>（只读挂载），防止容器内进程误改配置</li>
+<li><code>conf.d</code> 挂载整个目录，而非单个文件（这个很关键，下面会说为啥）</li>
+</ul>
+<h2 id="四个你可能踩的坑"><a href="#四个你可能踩的坑" class="headerlink" title="四个你可能踩的坑"></a>四个你可能踩的坑</h2><p><strong>坑1：用vim编辑配置后容器内不同步</strong></p>
+<p>这是我遇到的第一个坑。改了宿主机的nginx.conf，重启容器，没效果。</p>
+<p>原因：vim编辑文件时会改变文件的inode值。Docker挂载是通过inode关联的，inode变了，容器内的文件自然还是老的。</p>
+<p>解决办法有两个：</p>
+<ul>
+<li>方案A：用nano编辑器（不改inode）</li>
+<li>方案B：挂载整个目录而不是单个文件</li>
+</ul>
+<p>我现在都用方案B。挂载目录的话，文件inode怎么变都不影响，还能灵活添加删除配置文件。</p>
+<p><strong>坑2：include路径配置错误</strong></p>
+<p>进容器看看你的nginx.conf：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it my-nginx bash</span><br><span class="line">cat /etc/nginx/nginx.conf | grep include</span><br></pre></td></tr></table></figure>
+<p>确保这一行存在：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">include /etc/nginx/conf.d/*.conf;</span><br></pre></td></tr></table></figure>
+<p>如果你把它改成了 <code>/opt/nginx/conf.d/*.conf</code>（宿主机路径），那就错了。容器内只认容器内的路径。</p>
+<p><strong>坑3：忘记挂载conf.d目录</strong></p>
+<p>单独挂载nginx.conf是不够的。你在宿主机的conf.d下加了新站点配置，容器里压根看不到。</p>
+<p>验证方法：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-nginx ls /etc/nginx/conf.d</span><br></pre></td></tr></table></figure>
+<p>应该能看到你宿主机 <code>/opt/nginx/conf.d</code> 下的所有文件。</p>
+<p><strong>坑4：文件权限导致Nginx读不了配置</strong></p>
+<p>这个在Linux系统上容易遇到。配置文件权限太严格，Nginx进程（通常是nginx用户）没权限读取。</p>
+<p>解决：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chmod 644 /opt/nginx/conf/nginx.conf</span><br><span class="line">chmod 644 /opt/nginx/conf.d/*.conf</span><br></pre></td></tr></table></figure>
+<p>改完配置后，养成习惯测试一下语法：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-nginx nginx -t</span><br></pre></td></tr></table></figure>
+<p>看到 <code>syntax is ok</code> 就放心了。</p>
+<h2 id="单文件挂载-vs-目录挂载：该选哪个？"><a href="#单文件挂载-vs-目录挂载：该选哪个？" class="headerlink" title="单文件挂载 vs 目录挂载：该选哪个？"></a>单文件挂载 vs 目录挂载：该选哪个？</h2><p>这是个经常被问到的问题。我的建议：</p>
+<p><strong>主配置nginx.conf</strong>：可以单文件挂载+只读（:ro），因为它基本不会频繁改动</p>
+<p><strong>conf.d目录</strong>：必须目录挂载，方便灵活添加新站点配置</p>
+<p><strong>html、logs</strong>：目录挂载，没啥好说的</p>
+<p>记住一个原则：需要灵活管理多个文件的，就挂载目录；核心配置文件想要版本控制的，可以单文件挂载但加上只读保护。</p>
+<h1 id="HTTPS配置与Let’s-Encrypt自动续期"><a href="#HTTPS配置与Let’s-Encrypt自动续期" class="headerlink" title="HTTPS配置与Let’s Encrypt自动续期"></a>HTTPS配置与Let’s Encrypt自动续期</h1><h2 id="自签名证书：开发环境快速验证"><a href="#自签名证书：开发环境快速验证" class="headerlink" title="自签名证书：开发环境快速验证"></a>自签名证书：开发环境快速验证</h2><p>生产环境肯定要用正规证书，但开发测试阶段，自签名证书够用了。几条命令搞定：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">openssl req -x509 -nodes -days 365 -newkey rsa:2048 \</span><br><span class="line">  -keyout /opt/nginx/ssl/nginx.key \</span><br><span class="line">  -out /opt/nginx/ssl/nginx.crt \</span><br><span class="line">  -subj &quot;/C=CN/ST=Beijing/L=Beijing/O=Dev/CN=localhost&quot;</span><br></pre></td></tr></table></figure>
+<p>这个命令会生成两个文件：</p>
+<ul>
+<li><code>nginx.key</code>：私钥，千万别泄露</li>
+<li><code>nginx.crt</code>：证书文件</li>
+</ul>
+<p>然后在 <code>/opt/nginx/conf.d/</code> 下创建一个 <code>ssl.conf</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 443 ssl;</span><br><span class="line">    server_name localhost;</span><br><span class="line"></span><br><span class="line">    ssl_certificate /etc/nginx/ssl/nginx.crt;</span><br><span class="line">    ssl_certificate_key /etc/nginx/ssl/nginx.key;</span><br><span class="line"></span><br><span class="line">    ssl_protocols TLSv1.2 TLSv1.3;</span><br><span class="line">    ssl_ciphers HIGH:!aNULL:!MD5;</span><br><span class="line"></span><br><span class="line">    location / &#123;</span><br><span class="line">        root /usr/share/nginx/html;</span><br><span class="line">        index index.html;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>重点：</p>
+<ul>
+<li><code>ssl_certificate</code> 路径是容器内路径（<code>/etc/nginx/ssl</code>），不是宿主机的 <code>/opt/nginx/ssl</code></li>
+<li><code>ssl_protocols</code> 只开TLS 1.2和1.3，老版本协议有安全漏洞</li>
+<li>启动容器时别忘了 <code>-p 443:443</code>，不然HTTPS端口没暴露</li>
+</ul>
+<p>热重载配置：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-nginx nginx -s reload</span><br></pre></td></tr></table></figure>
+<p>访问 <code>https://localhost</code>，浏览器会警告证书不受信任——别慌，这是正常的。自签名证书就是这样，点”继续访问”就行。</p>
+<h2 id="Let’s-Encrypt：生产环境免费证书"><a href="#Let’s-Encrypt：生产环境免费证书" class="headerlink" title="Let’s Encrypt：生产环境免费证书"></a>Let’s Encrypt：生产环境免费证书</h2><p>Let’s Encrypt是真香。免费、自动化、全球信任。唯一的”缺点”是证书90天过期，但配置好自动续期就没事了。</p>
+<p>这里我推荐用 <code>docker-compose</code> + <code>certbot</code> 容器的方案，比手动折腾靠谱多了。</p>
+<p>先看完整的 <code>docker-compose.yml</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">version</span><span class="punctuation">: </span>&#x27;3&#x27;</span><br><span class="line"></span><br><span class="line"><span class="attribute">services</span>:</span><br><span class="line">  nginx:</span><br><span class="line">    image: nginx:latest</span><br><span class="line">    container_name: my-nginx</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;80:80&quot;</span><br><span class="line">      - &quot;443:443&quot;</span><br><span class="line">    volumes:</span><br><span class="line">      - ./nginx/conf.d:/etc/nginx/conf.d</span><br><span class="line">      - ./nginx/html:/usr/share/nginx/html</span><br><span class="line">      - ./certbot/conf:/etc/letsencrypt</span><br><span class="line">      - ./certbot/www:/var/www/certbot</span><br><span class="line">    command: &quot;/bin/sh -c &#x27;while :; do sleep 6h &amp; wait $$&#123;!&#125;; nginx -s reload; done &amp; nginx -g \&quot;daemon off;\&quot;&#x27;&quot;</span><br><span class="line">    networks:</span><br><span class="line">      - web</span><br><span class="line"></span><br><span class="line">  certbot:</span><br><span class="line">    image: certbot/certbot</span><br><span class="line">    container_name: certbot</span><br><span class="line">    volumes:</span><br><span class="line">      - ./certbot/conf:/etc/letsencrypt</span><br><span class="line">      - ./certbot/www:/var/www/certbot</span><br><span class="line">    entrypoint: &quot;/bin/sh -c &#x27;trap exit TERM; while :; do certbot renew; sleep 12h &amp; wait $$&#123;!&#125;; done;&#x27;&quot;</span><br><span class="line">    networks:</span><br><span class="line">      - web</span><br><span class="line"></span><br><span class="line"><span class="attribute">networks</span>:</span><br><span class="line">  web:</span><br><span class="line">    driver: bridge</span><br></pre></td></tr></table></figure>
+<p>几个关键点：</p>
+<ol>
+<li><strong>证书和验证文件的共享挂载</strong><ul>
+<li><code>./certbot/conf</code> 挂载到两个容器，certbot生成证书，nginx读取证书</li>
+<li><code>./certbot/www</code> 用于Let’s Encrypt的HTTP验证（webroot方式）</li>
+</ul>
+</li>
+<li><p><strong>Nginx每6小时自动reload</strong></p>
+<p> 这行命令看着复杂，实际就是后台启动一个循环，每6小时reload一次配置，这样证书续期后能立即生效。</p>
+</li>
+<li><p><strong>Certbot每12小时检查续期</strong></p>
+<p> Let’s Encrypt建议每天检查一次，这里设成12小时更保险。</p>
+</li>
+</ol>
+<h2 id="首次申请证书的步骤"><a href="#首次申请证书的步骤" class="headerlink" title="首次申请证书的步骤"></a>首次申请证书的步骤</h2><p>在 <code>/opt/nginx/conf.d/</code> 下先创建一个临时配置 <code>temp.conf</code>，用于HTTP验证：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line">    server_name your-domain.com;  # 改成你的域名</span><br><span class="line"></span><br><span class="line">    location /.well-known/acme-challenge/ &#123;</span><br><span class="line">        root /var/www/certbot;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    location / &#123;</span><br><span class="line">        return 301 https://$host$request_uri;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>启动服务：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p>申请证书（把your-domain.com和[<strong>email protected</strong>]换成你的）：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">docker-compose run --rm certbot certonly --webroot \</span><br><span class="line">  -w /var/www/certbot \</span><br><span class="line">  -d your-domain.com \</span><br><span class="line">  --email [email protected] \</span><br><span class="line">  --agree-tos \</span><br><span class="line">  --no-eff-email</span><br></pre></td></tr></table></figure>
+<p>如果一切顺利，你会看到”Congratulations!”字样。证书文件在 <code>./certbot/conf/live/your-domain.com/</code>目录下。</p>
+<p>现在可以创建正式的HTTPS配置了。修改 <code>temp.conf</code> 为：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line">    server_name your-domain.com;</span><br><span class="line"></span><br><span class="line">    location /.well-known/acme-challenge/ &#123;</span><br><span class="line">        root /var/www/certbot;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    location / &#123;</span><br><span class="line">        return 301 https://$host$request_uri;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">server &#123;</span><br><span class="line">    listen 443 ssl http2;</span><br><span class="line">    server_name your-domain.com;</span><br><span class="line"></span><br><span class="line">    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;</span><br><span class="line">    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;</span><br><span class="line"></span><br><span class="line">    # SSL优化配置</span><br><span class="line">    ssl_session_cache shared:SSL:10m;</span><br><span class="line">    ssl_session_timeout 10m;</span><br><span class="line">    ssl_protocols TLSv1.2 TLSv1.3;</span><br><span class="line">    ssl_ciphers &#x27;ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256&#x27;;</span><br><span class="line">    ssl_prefer_server_ciphers on;</span><br><span class="line"></span><br><span class="line">    # HSTS（强制HTTPS）</span><br><span class="line">    add_header Strict-Transport-Security &quot;max-age=31536000; includeSubDomains&quot; always;</span><br><span class="line"></span><br><span class="line">    location / &#123;</span><br><span class="line">        root /usr/share/nginx/html;</span><br><span class="line">        index index.html;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>reload配置：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose exec nginx nginx -s reload</span><br></pre></td></tr></table></figure>
+<h2 id="自动续期的验证"><a href="#自动续期的验证" class="headerlink" title="自动续期的验证"></a>自动续期的验证</h2><p>Let’s Encrypt证书90天有效，但certbot会在剩余30天时自动续期。你可以手动测试一下：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose run --rm certbot renew --dry-run</span><br></pre></td></tr></table></figure>
+<p>看到”The dry run was successful”就OK了。</p>
+<p>还可以检查cron日志，看续期任务是否正常运行：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose logs certbot</span><br></pre></td></tr></table></figure>
+<h2 id="HTTPS配置的安全加分项"><a href="#HTTPS配置的安全加分项" class="headerlink" title="HTTPS配置的安全加分项"></a>HTTPS配置的安全加分项</h2><p>如果你想让SSL配置更安全，可以加上这些：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># OCSP Stapling（在线证书状态检查）</span><br><span class="line">ssl_stapling on;</span><br><span class="line">ssl_stapling_verify on;</span><br><span class="line">ssl_trusted_certificate /etc/letsencrypt/live/your-domain.com/chain.pem;</span><br><span class="line">resolver 8.8.8.8 8.8.4.4 valid=300s;</span><br><span class="line">resolver_timeout 5s;</span><br><span class="line"></span><br><span class="line"># 禁止iframe嵌入（防点击劫持）</span><br><span class="line">add_header X-Frame-Options DENY;</span><br><span class="line"></span><br><span class="line"># 防XSS</span><br><span class="line">add_header X-Content-Type-Options nosniff;</span><br><span class="line">add_header X-XSS-Protection &quot;1; mode=block&quot;;</span><br></pre></td></tr></table></figure>
+<p>配置完后，可以去 <code>SSL Labs</code> 测试一下你的SSL配置评分。做到A+不难。</p>
+<h1 id="反向代理与Docker容器间通信"><a href="#反向代理与Docker容器间通信" class="headerlink" title="反向代理与Docker容器间通信"></a>反向代理与Docker容器间通信</h1><h2 id="容器网络的那些事儿"><a href="#容器网络的那些事儿" class="headerlink" title="容器网络的那些事儿"></a>容器网络的那些事儿</h2><p>说到用Nginx代理其他Docker容器，最让人头疼的就是网络配置。你可能试过直接用容器IP，结果重启一次IP就变了——配置又得改。</p>
+<p>Docker有几种网络模式，常用的是这两种：</p>
+<ul>
+<li><strong>bridge（桥接）</strong>：默认模式，容器之间通过虚拟网桥通信</li>
+<li><strong>host</strong>：容器直接用宿主机的网络栈，性能好但隔离性差</li>
+</ul>
+<p>对于Nginx反向代理场景，我强烈推荐<strong>自定义bridge网络</strong>。为啥？</p>
+<ol>
+<li>容器间可以直接用服务名通信，不用关心IP变化</li>
+<li>网络隔离，一个项目的容器组成独立的网络环境</li>
+<li>自动DNS解析，Docker内置的服务发现机制</li>
+</ol>
+<h2 id="创建自定义网络并运行容器"><a href="#创建自定义网络并运行容器" class="headerlink" title="创建自定义网络并运行容器"></a>创建自定义网络并运行容器</h2><p>先创建一个自定义网络：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker network create my-app-network</span><br></pre></td></tr></table></figure>
+<p>启动你的后端服务（假设是个Node.js API）：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">  --name backend-api \</span><br><span class="line">  --network my-app-network \</span><br><span class="line">  -e NODE_ENV=production \</span><br><span class="line">  my-backend:latest</span><br></pre></td></tr></table></figure>
+<p>启动Nginx，同样连接到这个网络：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">  --name my-nginx \</span><br><span class="line">  --network my-app-network \</span><br><span class="line">  -p 80:80 -p 443:443 \</span><br><span class="line">  -v /opt/nginx/conf.d:/etc/nginx/conf.d \</span><br><span class="line">  nginx</span><br></pre></td></tr></table></figure>
+<p>关键点：两个容器在同一个网络里，Nginx配置中就可以直接用 <code>backend-api</code> 这个名字访问后端服务了。</p>
+<h2 id="Nginx反向代理配置实战"><a href="#Nginx反向代理配置实战" class="headerlink" title="Nginx反向代理配置实战"></a>Nginx反向代理配置实战</h2><p>在 <code>/opt/nginx/conf.d/</code> 下创建 <code>api-proxy.conf</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">upstream backend &#123;</span><br><span class="line">    server backend-api:3000;  # 容器名:端口</span><br><span class="line">    keepalive 32;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line">    server_name api.example.com;</span><br><span class="line"></span><br><span class="line">    # API接口代理</span><br><span class="line">    location /api/ &#123;</span><br><span class="line">        proxy_pass http://backend/;</span><br><span class="line"></span><br><span class="line">        # 传递真实客户端信息</span><br><span class="line">        proxy_set_header Host $host;</span><br><span class="line">        proxy_set_header X-Real-IP $remote_addr;</span><br><span class="line">        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;</span><br><span class="line">        proxy_set_header X-Forwarded-Proto $scheme;</span><br><span class="line"></span><br><span class="line">        # WebSocket支持（如果需要）</span><br><span class="line">        proxy_http_version 1.1;</span><br><span class="line">        proxy_set_header Upgrade $http_upgrade;</span><br><span class="line">        proxy_set_header Connection &quot;upgrade&quot;;</span><br><span class="line"></span><br><span class="line">        # 超时设置</span><br><span class="line">        proxy_connect_timeout 60s;</span><br><span class="line">        proxy_send_timeout 60s;</span><br><span class="line">        proxy_read_timeout 60s;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    # 静态文件直接由Nginx处理</span><br><span class="line">    location / &#123;</span><br><span class="line">        root /usr/share/nginx/html;</span><br><span class="line">        index index.html;</span><br><span class="line">        try_files $uri $uri/ /index.html;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>几个容易忽略的细节：</p>
+<ol>
+<li><p><strong>upstream和proxy_pass的路径处理</strong></p>
+<p> 注意 <code>proxy_pass http://backend/;</code>最后有个斜杠。这意味着请求 <code>/api/users</code> 会被转发为 <code>http://backend/users</code>（去掉/api前缀）。</p>
+<p> 如果写成 <code>proxy_pass http://backend;</code>（没斜杠），则转发为 <code>http://backend/api/users</code>（保留完整路径）。</p>
+</li>
+<li><p><strong>X-Forwarded-For头部的重要性</strong></p>
+<p> 后端服务如果需要获取真实客户端IP，就得靠这个头部。不然后端看到的都是Nginx容器的IP。</p>
+</li>
+<li><p><strong>keepalive连接池</strong></p>
+<p> <code>upstream</code> 里的 <code>keepalive 32</code> 能复用TCP连接，减少握手开销。对高并发场景很有用。</p>
+</li>
+</ol>
+<h2 id="用docker-compose简化多容器管理"><a href="#用docker-compose简化多容器管理" class="headerlink" title="用docker-compose简化多容器管理"></a>用docker-compose简化多容器管理</h2><p>手动创建网络、一个个启动容器太麻烦了。用docker-compose一键搞定：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">version</span><span class="punctuation">: </span>&#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line"><span class="attribute">services</span>:</span><br><span class="line">  backend:</span><br><span class="line">    image: my-backend:latest</span><br><span class="line">    container_name: backend-api</span><br><span class="line">    environment:</span><br><span class="line">      - NODE_ENV=production</span><br><span class="line">      - DATABASE_URL=postgres://db:5432/mydb</span><br><span class="line">    networks:</span><br><span class="line">      - app-network</span><br><span class="line">    depends_on:</span><br><span class="line">      - db</span><br><span class="line"></span><br><span class="line">  nginx:</span><br><span class="line">    image: nginx:latest</span><br><span class="line">    container_name: my-nginx</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;80:80&quot;</span><br><span class="line">      - &quot;443:443&quot;</span><br><span class="line">    volumes:</span><br><span class="line">      - ./nginx/conf.d:/etc/nginx/conf.d</span><br><span class="line">      - ./nginx/html:/usr/share/nginx/html</span><br><span class="line">      - ./nginx/logs:/var/log/nginx</span><br><span class="line">    networks:</span><br><span class="line">      - app-network</span><br><span class="line">    depends_on:</span><br><span class="line">      - backend</span><br><span class="line"></span><br><span class="line">  db:</span><br><span class="line">    image: postgres:14</span><br><span class="line">    container_name: postgres-db</span><br><span class="line">    environment:</span><br><span class="line">      - POSTGRES_PASSWORD=secret</span><br><span class="line">      - POSTGRES_DB=mydb</span><br><span class="line">    volumes:</span><br><span class="line">      - db-data:/var/lib/postgresql/data</span><br><span class="line">    networks:</span><br><span class="line">      - app-network</span><br><span class="line"></span><br><span class="line"><span class="attribute">networks</span>:</span><br><span class="line">  app-network:</span><br><span class="line">    driver: bridge</span><br><span class="line"></span><br><span class="line"><span class="attribute">volumes</span>:</span><br><span class="line">  db-data:</span><br></pre></td></tr></table></figure>
+<p>一行命令启动整个服务栈：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p>Docker会自动：</p>
+<ul>
+<li>创建名为 <code>app-network</code> 的网络</li>
+<li>按照 <code>depends_on</code> 顺序启动容器</li>
+<li>设置容器间的DNS解析</li>
+</ul>
+<p>你的Nginx配置里直接用 <code>backend</code> 和 <code>db</code> 作为主机名就能访问对应服务。爽歪歪。</p>
+<h2 id="常见代理问题的排查套路"><a href="#常见代理问题的排查套路" class="headerlink" title="常见代理问题的排查套路"></a>常见代理问题的排查套路</h2><p><strong>问题1：502 Bad Gateway</strong></p>
+<p>最常见的错误，原因通常是：</p>
+<ul>
+<li>后端服务没启动或挂了</li>
+<li>Nginx和后端不在同一个网络</li>
+<li>后端监听的端口不对</li>
+</ul>
+<p>排查步骤：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># 检查后端服务是否运行</span><br><span class="line">docker ps | grep backend</span><br><span class="line"></span><br><span class="line"># 检查网络连接</span><br><span class="line">docker network inspect my-app-network</span><br><span class="line"></span><br><span class="line"># 进入Nginx容器测试连通性</span><br><span class="line">docker exec -it my-nginx sh</span><br><span class="line">ping backend-api</span><br><span class="line">curl http://backend-api:3000/health</span><br></pre></td></tr></table></figure>
+<p>如果ping不通，说明网络配置有问题。如果curl返回超时，说明后端服务监听有问题。</p>
+<p><strong>问题2：请求超时</strong></p>
+<p>默认的proxy超时是60秒。如果你的API处理时间长（比如大文件上传、复杂计算），需要加大超时：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">location /api/long-running/ &#123;</span><br><span class="line">    proxy_pass http://backend/;</span><br><span class="line">    proxy_connect_timeout 300s;</span><br><span class="line">    proxy_send_timeout 300s;</span><br><span class="line">    proxy_read_timeout 300s;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>问题3：POST请求体丢失</strong></p>
+<p>有时候POST请求到后端变成GET了，或者请求体为空。检查这个配置：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">location /api/ &#123;</span><br><span class="line">    proxy_pass http://backend/;</span><br><span class="line">    proxy_request_buffering off;  # 禁用请求缓冲</span><br><span class="line">    client_max_body_size 100M;     # 允许大文件上传</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="多个后端服务的负载均衡"><a href="#多个后端服务的负载均衡" class="headerlink" title="多个后端服务的负载均衡"></a>多个后端服务的负载均衡</h2><p>如果你的后端服务有多个实例，Nginx可以做负载均衡：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">upstream backend_cluster &#123;</span><br><span class="line">    least_conn;  # 最少连接算法</span><br><span class="line"></span><br><span class="line">    server backend-1:3000 weight=3;  # 权重3</span><br><span class="line">    server backend-2:3000 weight=1;  # 权重1</span><br><span class="line">    server backend-3:3000 backup;     # 备用服务器</span><br><span class="line"></span><br><span class="line">    keepalive 32;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line"></span><br><span class="line">    location /api/ &#123;</span><br><span class="line">        proxy_pass http://backend_cluster/;</span><br><span class="line">        # ... 其他proxy设置</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>负载均衡算法有几种：</p>
+<ul>
+<li><code>round-robin</code>（默认）：轮询</li>
+<li><code>least_conn</code>：最少连接数优先</li>
+<li><code>ip_hash</code>：同一客户端IP始终分配到同一台服务器</li>
+</ul>
+<p>如果某个后端挂了，Nginx会自动把流量切到其他健康的节点。</p>
+<h1 id="生产环境最佳实践与性能优化"><a href="#生产环境最佳实践与性能优化" class="headerlink" title="生产环境最佳实践与性能优化"></a>生产环境最佳实践与性能优化</h1><h2 id="配置文件管理：不要裸奔上线"><a href="#配置文件管理：不要裸奔上线" class="headerlink" title="配置文件管理：不要裸奔上线"></a>配置文件管理：不要裸奔上线</h2><p>把配置文件直接扔在服务器上？那是开发环境的玩法。生产环境得有点讲究。</p>
+<h2 id="用Git管理配置"><a href="#用Git管理配置" class="headerlink" title="用Git管理配置"></a>用Git管理配置</h2><p>我的做法是单独建一个仓库存所有Nginx配置，不同环境分目录管理。好处显而易见：</p>
+<ul>
+<li>版本历史一目了然，回滚就是 <code>git checkout</code></li>
+<li>团队协作方便，PR review配置变更</li>
+<li>CI/CD集成，自动化部署</li>
+</ul>
+<h2 id="配置模板化"><a href="#配置模板化" class="headerlink" title="配置模板化"></a>配置模板化</h2><p>不同环境的配置大同小异，用模板+变量替换能省很多事。部署时用 <code>envsubst</code> 替换变量即可。</p>
+<h2 id="日志管理：别等硬盘满了才想起来"><a href="#日志管理：别等硬盘满了才想起来" class="headerlink" title="日志管理：别等硬盘满了才想起来"></a>日志管理：别等硬盘满了才想起来</h2><p>Nginx日志写得挺快的，高流量站点一天几个G不稀奇。不管好，哪天硬盘满了容器直接挂。</p>
+<p><strong>日志轮转配置</strong></p>
+<p>在宿主机上配置 logrotate，每天轮转日志，保留14天，自动压缩旧日志。关键是轮转后要让Nginx重新打开日志文件（<code>nginx -s reopen</code>），不然它还在写旧文件。</p>
+<p><strong>集中式日志方案</strong></p>
+<p>如果你有多台服务器，可以考虑把日志发到集中式平台（ELK、Loki、云服务）。用Docker日志驱动或Promtail都很简单。</p>
+<h2 id="优雅重载：别让用户感知到"><a href="#优雅重载：别让用户感知到" class="headerlink" title="优雅重载：别让用户感知到"></a>优雅重载：别让用户感知到</h2><p>改完配置后，千万别直接 <code>docker restart</code>。重启会断开所有连接，正在处理的请求全丢了。</p>
+<p>正确姿势：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 先测试配置语法</span><br><span class="line">docker exec my-nginx nginx -t</span><br><span class="line"></span><br><span class="line"># 语法没问题再reload</span><br><span class="line">docker exec my-nginx nginx -s reload</span><br></pre></td></tr></table></figure>
+<p><code>reload</code> 是优雅重载：新worker进程启动加载新配置，老worker处理完现有请求后退出，全程无缝切换，用户无感知。</p>
+<h2 id="安全加固清单"><a href="#安全加固清单" class="headerlink" title="安全加固清单"></a>安全加固清单</h2><p>生产环境上线前，这些安全点记得检查：</p>
+<ol>
+<li><p><strong>隐藏Nginx版本号</strong></p>
+<p> 默认情况下，错误页面会暴露Nginx版本。黑客能据此针对性攻击已知漏洞。在http块加 <code>server_tokens off;</code>隐藏版本号。</p>
+</li>
+<li><p><strong>限流防DDoS</strong></p>
+<p> 简单有效的防护：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">http &#123;</span><br><span class="line">    # 限制每个IP的请求频率</span><br><span class="line">    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;</span><br><span class="line"></span><br><span class="line">    # 限制并发连接数</span><br><span class="line">    limit_conn_zone $binary_remote_addr zone=conn_limit:10m;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">server &#123;</span><br><span class="line">    location /api/ &#123;</span><br><span class="line">        limit_req zone=api_limit burst=20 nodelay;</span><br><span class="line">        limit_conn conn_limit 10;</span><br><span class="line">        proxy_pass http://backend/;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>配置文件只读挂载</strong></p>
+<p> 主配置加<code>:ro</code> 防止容器内进程误改。</p>
+</li>
+<li><p><strong>最小权限原则</strong></p>
+<p> 确保nginx.conf里有 <code>user nginx;</code>，不要改成root，安全风险极大。</p>
+</li>
+</ol>
+<h2 id="性能调优：榨干Nginx的性能"><a href="#性能调优：榨干Nginx的性能" class="headerlink" title="性能调优：榨干Nginx的性能"></a>性能调优：榨干Nginx的性能</h2><p><strong>worker进程数优化</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">worker_processes auto;  # 自动匹配CPU核心数</span><br><span class="line">worker_cpu_affinity auto;  # 绑定CPU亲和性</span><br></pre></td></tr></table></figure>
+<p><code>auto</code> 是懒人福音，Nginx会自动检测CPU核心数。</p>
+<p><strong>连接数优化</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">events &#123;</span><br><span class="line">    worker_connections 2048;  # 每个worker最大连接数</span><br><span class="line">    use epoll;                # Linux下用epoll性能最好</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>理论最大并发：<code>worker_processes * worker_connections</code>。但实际还要考虑文件句柄限制（<code>ulimit -n</code>）。</p>
+<p><strong>gzip压缩</strong></p>
+<p>文本内容压缩后能减少60-80%的传输量：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">http &#123;</span><br><span class="line">    gzip on;</span><br><span class="line">    gzip_vary on;</span><br><span class="line">    gzip_proxied any;</span><br><span class="line">    gzip_comp_level 6;  # 压缩级别1-9，6是性能和压缩率的平衡点</span><br><span class="line">    gzip_types</span><br><span class="line">        text/plain</span><br><span class="line">        text/css</span><br><span class="line">        text/xml</span><br><span class="line">        application/json</span><br><span class="line">        application/javascript</span><br><span class="line">        application/xml+rss</span><br><span class="line">        application/atom+xml</span><br><span class="line">        image/svg+xml;</span><br><span class="line">    gzip_min_length 1000;  # 小于1KB的文件不压缩，反而浪费CPU</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>静态资源缓存</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff2)$ &#123;</span><br><span class="line">    expires 30d;  # 浏览器缓存30天</span><br><span class="line">    add_header Cache-Control &quot;public, immutable&quot;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>HTTP/2支持</strong></p>
+<p>HTTP/2能显著提升性能，开启很简单：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 443 ssl http2;  # 加个http2就行</span><br><span class="line">    # ... 其他配置</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>前提是你得有HTTPS，HTTP/2必须基于TLS。</p>
+<h2 id="监控和健康检查"><a href="#监控和健康检查" class="headerlink" title="监控和健康检查"></a>监控和健康检查</h2><p>最后别忘了监控。推荐用Prometheus + Grafana，配合nginx-prometheus-exporter导出指标。在Nginx配置中开启stub_status，限制只允许Docker内部网络访问，然后在Prometheus抓取metrics，Grafana展示监控面板。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，核心就是四件事：</p>
+<ul>
+<li><strong>配置文件挂载</strong>：目录挂载优于单文件，主配置加只读保护，别忘了conf.d和ssl目录。vim的inode坑记得避开。</li>
+<li><strong>HTTPS配置</strong>：开发用自签名快速验证，生产用Let’s Encrypt+Certbot自动化。docker-compose能让续期变得无脑简单。</li>
+<li><strong>反向代理</strong>：自定义bridge网络是王道，用容器名通信省心。upstream配置加上keepalive，性能和可靠性都有保障。</li>
+<li><strong>生产实践</strong>：Git管理配置版本，日志轮转别忘记，优雅reload不要restart，该加的安全策略一个别落下。</li>
+</ul>
+<p>Docker Nginx这套东西看着简单，实际上细节很多。但搞明白这些，你就能搭出一个从开发到生产都稳定可靠的Web服务架构了。</p>
+<p>如果这篇文章帮你避开了几个坑，或者解决了困扰你很久的问题，那就值了。动手试试吧，遇到问题欢迎留言交流。</p>
+<p>最后给个建议：把这篇文章里的配置模板都保存下来，下次直接复用。轮子不用重复造，省下的时间多陪陪家人不香吗？</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么Docker-Nginx配置文件改了不生效？"><a href="#为什么Docker-Nginx配置文件改了不生效？" class="headerlink" title="为什么Docker Nginx配置文件改了不生效？"></a>为什么Docker Nginx配置文件改了不生效？</h2><p>常见问题：配置文件改了不生效，明明改了nginx.conf，为啥容器里的配置就是不生效？需要正确挂载配置文件，使用-v参数挂载配置文件目录，确保配置文件格式正确。</p>
+<p>5种正确的挂载姿势：</p>
+<ul>
+<li>挂载配置文件目录：<code>-v ./nginx.conf:/etc/nginx/nginx.conf</code></li>
+<li>挂载配置目录：<code>-v ./conf.d:/etc/nginx/conf.d</code></li>
+<li>使用Volume挂载</li>
+<li>使用docker-compose配置</li>
+<li>使用ConfigMap（K8s环境）</li>
+</ul>
+<p>最佳实践：</p>
+<ul>
+<li>目录挂载优于单文件</li>
+<li>主配置加只读保护</li>
+<li>别忘了conf.d和ssl目录</li>
+<li>vim的inode坑记得避开</li>
+</ul>
+<h2 id="如何配置Docker-Nginx的HTTPS？"><a href="#如何配置Docker-Nginx的HTTPS？" class="headerlink" title="如何配置Docker Nginx的HTTPS？"></a>如何配置Docker Nginx的HTTPS？</h2><p>HTTPS配置：</p>
+<ul>
+<li>使用Let’s Encrypt免费证书</li>
+<li>配置自动续期：certbot renew</li>
+<li>挂载证书目录：<code>-v ./certs:/etc/nginx/certs</code></li>
+<li>配置SSL证书路径</li>
+<li>支持HTTP/2和TLS 1.3</li>
+</ul>
+<p>Let’s Encrypt配置：</p>
+<ul>
+<li>使用certbot获取证书：<code>certbot certonly --standalone</code></li>
+<li>配置自动续期：<code>certbot renew --dry-run</code></li>
+<li>挂载证书到容器：<code>-v ./letsencrypt:/etc/letsencrypt</code></li>
+<li>配置nginx.conf使用证书</li>
+</ul>
+<h2 id="如何配置Docker-Nginx反向代理？"><a href="#如何配置Docker-Nginx反向代理？" class="headerlink" title="如何配置Docker Nginx反向代理？"></a>如何配置Docker Nginx反向代理？</h2><p>反向代理配置：</p>
+<ul>
+<li>配置upstream指向后端容器</li>
+<li>使用容器名或服务名：<code>proxy_pass http://backend:8080</code></li>
+<li>配置健康检查</li>
+<li>处理CORS问题</li>
+<li>配置负载均衡</li>
+</ul>
+<p>容器互联：</p>
+<ul>
+<li>使用docker-compose创建自定义网络</li>
+<li>确保容器在同一网络中</li>
+<li>使用服务名或容器名访问</li>
+<li>配置upstream指向后端服务</li>
+</ul>
+<h2 id="Docker-Nginx生产环境最佳实践是什么？"><a href="#Docker-Nginx生产环境最佳实践是什么？" class="headerlink" title="Docker Nginx生产环境最佳实践是什么？"></a>Docker Nginx生产环境最佳实践是什么？</h2><p>生产环境最佳实践：</p>
+<ul>
+<li>使用docker-compose管理多容器</li>
+<li>配置健康检查</li>
+<li>设置资源限制</li>
+<li>配置日志轮转</li>
+<li>使用环境变量管理配置</li>
+<li>定期更新镜像</li>
+</ul>
+<p>Docker Nginx这套东西看着简单，实际上细节很多，但搞明白这些，你就能搭出一个从开发到生产都稳定可靠的Web服务架构了。</p>
+<p>建议：把这篇文章里的配置模板都保存下来，下次直接复用，轮子不用重复造。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/ea19/">https://jingluo23.github.io/posts/ea19/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/5186/" title="Docker部署MySQL完全指南：数据持久化到主从复制实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker部署MySQL完全指南：数据持久化到主从复制实战</div></div><div class="info-2"><div class="info-item-1">从Docker MySQL数据持久化到主从复制配置，解决容器重启数据丢失、配置文件挂载、连接失败等常见问题，提供生产级部署完整方案。</div></div></div></a><a class="pagination-related" href="/posts/5ff/" title="Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南</div></div><div class="info-2"><div class="info-item-1">Docker Hub上76%的镜像存在安全漏洞。本文详解Trivy扫描工具实战用法、系统性漏洞修复方法和CI/CD自动化集成，附完整命令示例，助你构建安全的容器应用。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-12</div><div class="info-item-2">Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)</div></div><div class="info-2"><div class="info-item-1">Docker容器启动后立即退出变Exited状态?本文提供系统性排查方法,详解退出码137/1含义,四步排查法和五大常见失败场景解决方案,帮你快速定位并修复容器启动问题</div></div></div></a><a class="pagination-related" href="/posts/64d8/" title="Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）</div></div><div class="info-2"><div class="info-item-1">手把手教你写Dockerfile，详解FROM、RUN、COPY等核心指令，避开初学者常踩的坑，附Node.js实战案例。看完就能给自己项目写Dockerfile！</div></div></div></a><a class="pagination-related" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-13</div><div class="info-item-2">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</div></div><div class="info-2"><div class="info-item-1">想给 AI Agent、内部工具或 SaaS demo 提供自托管 Dev Sandbox？这篇文章用 Docker、Go 和 Traefik 拆解预览 URL、资源限制、安全边界和生产前检查清单。</div></div></div></a><a class="pagination-related" href="/posts/9de5/" title="Docker多阶段构建实战：Go&#x2F;Java&#x2F;Rust镜像从GB到MB的极致瘦身"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-10</div><div class="info-item-2">Docker多阶段构建实战：Go&#x2F;Java&#x2F;Rust镜像从GB到MB的极致瘦身</div></div><div class="info-2"><div class="info-item-1">深度解析Docker多阶段构建技术,通过真实案例展示如何将Go镜像优化98%、Java镜像减少86%、Rust镜像压缩99.4%。包含完整Dockerfile代码和踩坑经验。</div></div></div></a><a class="pagination-related" href="/posts/2b73/" title="Docker Compose 生产部署三要素：健康检查、重启策略与资源限制"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-17</div><div class="info-item-2">Docker Compose 生产部署三要素：健康检查、重启策略与资源限制</div></div><div class="info-2"><div class="info-item-1">详解 Docker Compose 生产部署三要素：健康检查判断服务就绪、重启策略实现自愈、资源限制防止失控。附完整 YAML 配置模板，助你构建稳定可靠的容器化应用。</div></div></div></a><a class="pagination-related" href="/posts/7e11/" title="Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-18</div><div class="info-item-2">Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）</div></div><div class="info-2"><div class="info-item-1">手把手教你用Docker Compose一键部署DNMP（Docker+Nginx+MySQL+PHP）开发环境，10分钟搞定，彻底解决团队环境不一致问题，附完整配置文件和踩坑指南</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">165</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Docker-Nginx%E5%9F%BA%E7%A1%80%E9%85%8D%E7%BD%AE%E4%B8%8E%E6%96%87%E4%BB%B6%E6%8C%82%E8%BD%BD"><span class="toc-number">1.</span> <span class="toc-text">Docker Nginx基础配置与文件挂载</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%80%E5%AE%9A%E8%A6%81%E6%8C%82%E8%BD%BD%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">为什么一定要挂载配置文件？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Nginx%E5%AE%B9%E5%99%A8%E7%9A%84%E5%85%B3%E9%94%AE%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84"><span class="toc-number">1.2.</span> <span class="toc-text">Nginx容器的关键目录结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A3%E7%A1%AE%E7%9A%84%E6%8C%82%E8%BD%BD%E6%96%B9%E5%BC%8F%EF%BC%9Astep-by-step"><span class="toc-number">1.3.</span> <span class="toc-text">正确的挂载方式：step by step</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E4%B8%AA%E4%BD%A0%E5%8F%AF%E8%83%BD%E8%B8%A9%E7%9A%84%E5%9D%91"><span class="toc-number">1.4.</span> <span class="toc-text">四个你可能踩的坑</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%95%E6%96%87%E4%BB%B6%E6%8C%82%E8%BD%BD-vs-%E7%9B%AE%E5%BD%95%E6%8C%82%E8%BD%BD%EF%BC%9A%E8%AF%A5%E9%80%89%E5%93%AA%E4%B8%AA%EF%BC%9F"><span class="toc-number">1.5.</span> <span class="toc-text">单文件挂载 vs 目录挂载：该选哪个？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#HTTPS%E9%85%8D%E7%BD%AE%E4%B8%8ELet%E2%80%99s-Encrypt%E8%87%AA%E5%8A%A8%E7%BB%AD%E6%9C%9F"><span class="toc-number">2.</span> <span class="toc-text">HTTPS配置与Let’s Encrypt自动续期</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E7%AD%BE%E5%90%8D%E8%AF%81%E4%B9%A6%EF%BC%9A%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83%E5%BF%AB%E9%80%9F%E9%AA%8C%E8%AF%81"><span class="toc-number">2.1.</span> <span class="toc-text">自签名证书：开发环境快速验证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Let%E2%80%99s-Encrypt%EF%BC%9A%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E5%85%8D%E8%B4%B9%E8%AF%81%E4%B9%A6"><span class="toc-number">2.2.</span> <span class="toc-text">Let’s Encrypt：生产环境免费证书</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A6%96%E6%AC%A1%E7%94%B3%E8%AF%B7%E8%AF%81%E4%B9%A6%E7%9A%84%E6%AD%A5%E9%AA%A4"><span class="toc-number">2.3.</span> <span class="toc-text">首次申请证书的步骤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E5%8A%A8%E7%BB%AD%E6%9C%9F%E7%9A%84%E9%AA%8C%E8%AF%81"><span class="toc-number">2.4.</span> <span class="toc-text">自动续期的验证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#HTTPS%E9%85%8D%E7%BD%AE%E7%9A%84%E5%AE%89%E5%85%A8%E5%8A%A0%E5%88%86%E9%A1%B9"><span class="toc-number">2.5.</span> <span class="toc-text">HTTPS配置的安全加分项</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E4%B8%8EDocker%E5%AE%B9%E5%99%A8%E9%97%B4%E9%80%9A%E4%BF%A1"><span class="toc-number">3.</span> <span class="toc-text">反向代理与Docker容器间通信</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E7%BD%91%E7%BB%9C%E7%9A%84%E9%82%A3%E4%BA%9B%E4%BA%8B%E5%84%BF"><span class="toc-number">3.1.</span> <span class="toc-text">容器网络的那些事儿</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E8%87%AA%E5%AE%9A%E4%B9%89%E7%BD%91%E7%BB%9C%E5%B9%B6%E8%BF%90%E8%A1%8C%E5%AE%B9%E5%99%A8"><span class="toc-number">3.2.</span> <span class="toc-text">创建自定义网络并运行容器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%E9%85%8D%E7%BD%AE%E5%AE%9E%E6%88%98"><span class="toc-number">3.3.</span> <span class="toc-text">Nginx反向代理配置实战</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8docker-compose%E7%AE%80%E5%8C%96%E5%A4%9A%E5%AE%B9%E5%99%A8%E7%AE%A1%E7%90%86"><span class="toc-number">3.4.</span> <span class="toc-text">用docker-compose简化多容器管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E4%BB%A3%E7%90%86%E9%97%AE%E9%A2%98%E7%9A%84%E6%8E%92%E6%9F%A5%E5%A5%97%E8%B7%AF"><span class="toc-number">3.5.</span> <span class="toc-text">常见代理问题的排查套路</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A%E4%B8%AA%E5%90%8E%E7%AB%AF%E6%9C%8D%E5%8A%A1%E7%9A%84%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1"><span class="toc-number">3.6.</span> <span class="toc-text">多个后端服务的负载均衡</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E4%B8%8E%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96"><span class="toc-number">4.</span> <span class="toc-text">生产环境最佳实践与性能优化</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E7%AE%A1%E7%90%86%EF%BC%9A%E4%B8%8D%E8%A6%81%E8%A3%B8%E5%A5%94%E4%B8%8A%E7%BA%BF"><span class="toc-number">4.1.</span> <span class="toc-text">配置文件管理：不要裸奔上线</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8Git%E7%AE%A1%E7%90%86%E9%85%8D%E7%BD%AE"><span class="toc-number">4.2.</span> <span class="toc-text">用Git管理配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E6%A8%A1%E6%9D%BF%E5%8C%96"><span class="toc-number">4.3.</span> <span class="toc-text">配置模板化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E7%AE%A1%E7%90%86%EF%BC%9A%E5%88%AB%E7%AD%89%E7%A1%AC%E7%9B%98%E6%BB%A1%E4%BA%86%E6%89%8D%E6%83%B3%E8%B5%B7%E6%9D%A5"><span class="toc-number">4.4.</span> <span class="toc-text">日志管理：别等硬盘满了才想起来</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%98%E9%9B%85%E9%87%8D%E8%BD%BD%EF%BC%9A%E5%88%AB%E8%AE%A9%E7%94%A8%E6%88%B7%E6%84%9F%E7%9F%A5%E5%88%B0"><span class="toc-number">4.5.</span> <span class="toc-text">优雅重载：别让用户感知到</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA%E6%B8%85%E5%8D%95"><span class="toc-number">4.6.</span> <span class="toc-text">安全加固清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98%EF%BC%9A%E6%A6%A8%E5%B9%B2Nginx%E7%9A%84%E6%80%A7%E8%83%BD"><span class="toc-number">4.7.</span> <span class="toc-text">性能调优：榨干Nginx的性能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%91%E6%8E%A7%E5%92%8C%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5"><span class="toc-number">4.8.</span> <span class="toc-text">监控和健康检查</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">5.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88Docker-Nginx%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E6%94%B9%E4%BA%86%E4%B8%8D%E7%94%9F%E6%95%88%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">为什么Docker Nginx配置文件改了不生效？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AEDocker-Nginx%E7%9A%84HTTPS%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">如何配置Docker Nginx的HTTPS？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AEDocker-Nginx%E5%8F%8D%E5%90%91%E4%BB%A3%E7%90%86%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">如何配置Docker Nginx反向代理？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Nginx%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">Docker Nginx生产环境最佳实践是什么？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"></a><div class="content"><a class="title" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</a><time datetime="2026-10-13T07:06:23.000Z" title="发表于 2026-10-13 15:06:23">2026-10-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"></a><div class="content"><a class="title" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)">Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)</a><time datetime="2026-10-12T07:19:19.000Z" title="发表于 2026-10-12 15:19:19">2026-10-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"></a><div class="content"><a class="title" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势">Docker容器调试指南：exec命令进入容器排查问题的正确姿势</a><time datetime="2026-10-11T07:06:23.000Z" title="发表于 2026-10-11 15:06:23">2026-10-11</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr">Java面渣手册</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">126</span><span class="categoryBar-list-descr">Docker 专题：安装、网络、报错与生产实践</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Java面渣手册/">Java面渣手册</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

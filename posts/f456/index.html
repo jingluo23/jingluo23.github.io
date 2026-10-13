@@ -1,0 +1,735 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker 网络模式选择实战：bridge、host 与 overlay 的决策指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="深入对比 Docker 三种网络模式的性能差异、适用场景和配置方法，附决策流程图和实测数据。单机默认 Bridge，性能敏感用 Host，跨主机必 Overlay。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker 网络模式选择实战：bridge、host 与 overlay 的决策指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/f456/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="深入对比 Docker 三种网络模式的性能差异、适用场景和配置方法，附决策流程图和实测数据。单机默认 Bridge，性能敏感用 Host，跨主机必 Overlay。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-27T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-13T12:21:44.200Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker 网络模式选择实战：bridge、host 与 overlay 的决策指南",
+  "url": "https://jingluo23.github.io/posts/f456/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-27T07:06:23.000Z",
+  "dateModified": "2026-10-13T12:21:44.200Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/f456/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker 网络模式选择实战：bridge、host 与 overlay 的决策指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">165</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker 网络模式选择实战：bridge、host 与 overlay 的决策指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker 网络模式选择实战：bridge、host 与 overlay 的决策指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-27T07:06:23.000Z" title="发表于 2026-09-27 15:06:23">2026-09-27</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-13T12:21:44.200Z" title="更新于 2026-10-13 20:21:44">2026-10-13</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>14分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-13 20:21:44&quot;}" hidden></div><h1 id="从一个真实故障说起"><a href="#从一个真实故障说起" class="headerlink" title="从一个真实故障说起"></a>从一个真实故障说起</h1><p>凌晨两点，生产环境的 API 服务突然超时。</p>
+<p>容器明明启动了，<code>docker ps</code> 显示 running，防火墙也关了，端口映射配得清清楚楚，容器日志没报错。排查半小时，搞到快崩溃。最后发现是 Docker 网络模式用错了——我们用的是默认 bridge，但服务需要跨主机访问另一个节点的数据库，bridge 只能单机通信，跨不了主机。</p>
+<p>这个案例暴露了一个挺普遍的问题：很多开发者知道 Docker 有 bridge、host、overlay 三种网络模式，但不清楚什么时候用哪种。说实话，我刚开始也踩过这个坑。</p>
+<p>读完本文，你将拿到三种网络模式的完整决策流程图和性能基准对比表，下次遇到网络问题，先判断”单机还是跨主机”，就不会像我当初那样瞎折腾。</p>
+<h1 id="Bridge：默认选择，单机通信之王"><a href="#Bridge：默认选择，单机通信之王" class="headerlink" title="Bridge：默认选择，单机通信之王"></a>Bridge：默认选择，单机通信之王</h1><h2 id="Bridge-是-Docker-的默认网络模式。"><a href="#Bridge-是-Docker-的默认网络模式。" class="headerlink" title="Bridge 是 Docker 的默认网络模式。"></a>Bridge 是 Docker 的默认网络模式。</h2><p>你运行 <code>docker run</code> 时，如果不指定 <code>--network</code>，容器就自动挂到这个模式。它的核心原理很简单：Docker 在宿主机上创建一个叫 docker0 的虚拟网桥，每个容器分到独立的 IP（通常是 172.17.x.x），通过 veth pair（虚拟网线）连到网桥上。</p>
+<p>听起来挺抽象？其实就是把容器当作一台独立的虚拟机，给它配个私有 IP，然后通过 NAT（端口映射）让它跟外界通信。</p>
+<h2 id="适用场景"><a href="#适用场景" class="headerlink" title="适用场景"></a>适用场景</h2><p>单主机多容器部署，首选 Bridge。</p>
+<p>开发环境、测试环境，甚至一些不需要跨主机通信的生产场景，都用它就够了。简单、安全、不需要额外配置。</p>
+<h2 id="配置示例"><a href="#配置示例" class="headerlink" title="配置示例"></a>配置示例</h2><p>默认就是 Bridge，所以你根本不用指定：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 默认 bridge，自动分配 IP，需要 -p 映射端口</span><br><span class="line">docker run -d -p 8080:80 nginx</span><br></pre></td></tr></table></figure>
+<p>不过有个问题：默认 bridge 下，容器之间只能用 IP 通信，不能用容器名。你启动两个容器，想让它们互相访问，还得手动查 IP，挺麻烦的。</p>
+<p>怎么查？用 <code>docker inspect</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># 启动两个容器</span><br><span class="line">docker run -d --name web nginx</span><br><span class="line">docker run -d --name db redis</span><br><span class="line"></span><br><span class="line"># 查看 web 容器的 IP</span><br><span class="line">docker inspect web | grep IPAddress</span><br><span class="line"># 输出：172.17.0.2</span><br><span class="line"></span><br><span class="line"># 在 db 容器里 ping web（只能用 IP）</span><br><span class="line">docker exec db ping 172.17.0.2</span><br></pre></td></tr></table></figure>
+<p>你看，每次通信都要先查 IP，多麻烦。如果容器重启，IP 还可能变，更麻烦。</p>
+<p>推荐的做法是创建自定义 bridge：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># 创建自定义网络</span><br><span class="line">docker network create --subnet=192.168.100.0/24 my-net</span><br><span class="line"></span><br><span class="line"># 启动容器，挂到自定义网络</span><br><span class="line">docker run -d --network my-net --name web nginx</span><br><span class="line">docker run -d --network my-net --name db redis</span><br><span class="line"></span><br><span class="line"># web 容器可以直接 ping db（DNS 自动解析）</span><br><span class="line">docker exec web ping db</span><br></pre></td></tr></table></figure>
+<p>这样一来，容器名就能当域名用了，方便不少。说实话，这点我当时也挺惊喜的，本来以为得手动配 DNS，结果 Docker 自带的。</p>
+<h1 id="Host：性能最优，隔离最弱"><a href="#Host：性能最优，隔离最弱" class="headerlink" title="Host：性能最优，隔离最弱"></a>Host：性能最优，隔离最弱</h1><p>Host 模式有点”暴力”——容器直接用宿主机的网络栈。</p>
+<p>没有独立 IP，没有 NAT 转换，没有 veth pair。容器里的网络接口就是宿主机的网络接口，性能接近原生，几乎没有开销。</p>
+<p>你可能会想：这么直接，岂不是性能最好？确实是这样，但代价是隔离没了。</p>
+<h2 id="适用场景-1"><a href="#适用场景-1" class="headerlink" title="适用场景"></a>适用场景</h2><p>对网络性能敏感的场景，Host 是最优选择。</p>
+<p>比如游戏服务器、实时通信（WebSocket、视频流）、高频交易系统，这些应用哪怕几十微秒的延迟都很关键，Host 模式能把这些开销砍掉。</p>
+<p>还有就是网络调试。容器里跑 <code>tcpdump</code>，直接抓宿主机的流量，不用额外配置，方便排查问题。</p>
+<h2 id="配置示例-1"><a href="#配置示例-1" class="headerlink" title="配置示例"></a>配置示例</h2><p>更简单，连 <code>-p</code> 都不用：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># host 模式，容器直接占用宿主机 80 端口</span><br><span class="line">docker run -d --network host nginx</span><br></pre></td></tr></table></figure>
+<p>你启动后，直接访问宿主机的 80 端口，就是容器里的 nginx。</p>
+<h2 id="风险提示"><a href="#风险提示" class="headerlink" title="风险提示"></a>风险提示</h2><p>但有几个坑要注意。</p>
+<p><strong>端口冲突</strong>：如果你在宿主机上已经跑了 nginx（占 80 端口），再启动一个 host 模式的容器也想用 80，直接报错，起不来。</p>
+<p>报错信息类似：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">docker</span><span class="punctuation">: </span>Error response from daemon: driver failed programming external connectivity on endpoint xxx: Bind for 0.0.0.0:80 failed: port is already allocated.</span><br></pre></td></tr></table></figure>
+<p>排查方法很简单：先检查宿主机端口占用：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 查看端口占用</span><br><span class="line">netstat -tuln | grep :80</span><br><span class="line"># 或者</span><br><span class="line">ss -tuln | grep :80</span><br><span class="line"></span><br><span class="line"># 查看进程</span><br><span class="line">lsof -i :80</span><br></pre></td></tr></table></figure>
+<p>如果有进程占用，要么停掉它，要么改容器端口。改容器端口的话，Host 模式没法用 -p，只能在容器里改应用配置（比如 nginx 改成监听 8080）。</p>
+<p><strong>安全性</strong>：容器能看到宿主机的所有网络接口，包括内网、外网、甚至 VPN 连接。如果容器被攻破，攻击者能访问宿主机的所有网络资源。这点在生产环境要慎重。</p>
+<p>说实话，Host 模式用得少，大部分场景 Bridge 就够了。但遇到性能瓶颈，或者真的需要低延迟，Host 是个值得考虑的选项，前提是你能接受隔离的代价。</p>
+<h1 id="Overlay：跨主机通信的正解"><a href="#Overlay：跨主机通信的正解" class="headerlink" title="Overlay：跨主机通信的正解"></a>Overlay：跨主机通信的正解</h1><p>Bridge 只能单机通信，Host 性能好但也跨不了主机，那多台服务器上的容器怎么互相访问？这就得用 Overlay。</p>
+<p>Overlay 网络基于 VXLAN 隧道技术，把分布在不同主机上的容器拉到一个虚拟局域网里，好像它们都在同一台机器上一样。</p>
+<h2 id="核心原理"><a href="#核心原理" class="headerlink" title="核心原理"></a>核心原理</h2><p>VXLAN 是 Overlay 的关键。</p>
+<p>它在容器流量外面包了一层封装，通过”隧道”传到另一台主机，再解封装，交给目标容器。这个封装/解封装的过程由 VTEP（VXLAN Tunnel Endpoint）负责，Docker Swarm 里自动管理。</p>
+<p>打个比方：你在北京寄快递到上海，快递公司把你的包裹装进一个大箱子，通过物流网络运到上海，再拆开箱子，把包裹交给收件人。VXLAN 就是那个”大箱子”，容器流量是你的”包裹”，VTEP 是快递公司的打包/拆包环节。</p>
+<p>VXLAN 的好处是：不管底层物理网络怎么连，容器看到的都是同一虚拟局域网，IP 统一、通信简单。</p>
+<p>有个前提：Overlay 网络需要 Swarm 集群，或者外部 KV store（比如 Consul）。单机 Docker 搞不了，必须多节点协作。</p>
+<p>为什么需要 Swarm？因为 Overlay 网络要管理多台主机的容器 IP、VTEP 连接、路由信息，这些需要一个中心化的协调者，Swarm 就干这个事。如果你不用 Swarm，可以用 Consul、Etcd 做 KV store，但配置更复杂。</p>
+<h2 id="适用场景-2"><a href="#适用场景-2" class="headerlink" title="适用场景"></a>适用场景</h2><p>Docker Swarm 集群，Overlay 是唯一选择。</p>
+<p>跨主机微服务部署，比如 Web 服务在节点 A，数据库在节点 B，它们需要互相访问，Overlay 把它们拉到一个虚拟网络，容器名就能通信，不用配 IP。</p>
+<p>Kubernetes 里也有类似的概念（CNI 网络），不过配置方式不一样。如果你主要用 K8s，这篇文章的 Overlay 概念也能帮你理解 K8s 的网络原理。</p>
+<h2 id="配置示例（完整流程）"><a href="#配置示例（完整流程）" class="headerlink" title="配置示例（完整流程）"></a>配置示例（完整流程）</h2><p>Overlay 的配置比 Bridge、Host 复杂，需要先初始化 Swarm：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"># 1. 在第一台主机上初始化 Swarm</span><br><span class="line">docker swarm init --advertise-addr 192.168.1.10</span><br><span class="line"></span><br><span class="line"># 会输出一个 join token，类似：</span><br><span class="line"># docker swarm join --token SWMTKN-xxx 192.168.1.10:2377</span><br><span class="line"></span><br><span class="line"># 2. 在其他主机上加入 Swarm（复制上面的命令）</span><br><span class="line">docker swarm join --token SWMTKN-xxx 192.168.1.10:2377</span><br><span class="line"></span><br><span class="line"># 3. 创建 Overlay 网络</span><br><span class="line">docker network create --driver overlay --subnet=10.0.1.0/24 my-overlay</span><br><span class="line"></span><br><span class="line"># 4. 在不同主机上启动容器，加入同一 Overlay</span><br><span class="line"># 在节点 A</span><br><span class="line">docker run -d --network my-overlay --name web nginx</span><br><span class="line"></span><br><span class="line"># 在节点 B</span><br><span class="line">docker run -d --network my-overlay --name db redis</span><br><span class="line"></span><br><span class="line"># 5. 测试通信（web 能 ping db，跨主机！）</span><br><span class="line">docker exec web ping db</span><br></pre></td></tr></table></figure>
+<p>我第一次配置 Overlay 时，踩了个坑：忘了 Swarm 初始化，直接想创建 overlay 网络，报错”This node is not a swarm manager”。后来才明白，Overlay 必依赖 Swarm。</p>
+<p>还有一个细节：<code>--subnet=10.0.1.0/24</code>，推荐用 /24 子网块（256 个 IP），避免跟其他网络冲突。规模大的集群可以用 /16，但记得规划好 IP 范围。</p>
+<h1 id="性能基准对比：数据说话"><a href="#性能基准对比：数据说话" class="headerlink" title="性能基准对比：数据说话"></a>性能基准对比：数据说话</h1><p>三种网络模式到底有多大性能差异？我整理了几份实测数据，给你一个直观对比。</p>
+<h2 id="核心数据（72小时压力测试）"><a href="#核心数据（72小时压力测试）" class="headerlink" title="核心数据（72小时压力测试）"></a>核心数据（72小时压力测试）</h2><p>据 CSDN 的生产环境实测报告，三种模式在压力测试下的表现如下：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">32μs<br>Host 平均延迟<br>性能最优</th>
+<th style="text-align:center">128μs<br>Bridge 平均延迟<br>NAT 开销</th>
+<th style="text-align:center">200μs+<br>Overlay 平均延迟<br>VXLAN 封装</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">0.000%<br>Host 丢包率<br>生产实测</td>
+<td style="text-align:center">0.012%<br>Bridge 丢包率<br>可接受</td>
+<td style="text-align:center">14%<br>Host vs Bridge 性能提升<br>吞吐量 +20%</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="关键发现"><a href="#关键发现" class="headerlink" title="关键发现"></a>关键发现</h2><p>几个数字挺有意思：</p>
+<p><strong>Host 比 Bridge 快不少</strong>。平均延迟从 128μs 降到 32μs，差了 96μs，约 14% 的性能提升。吞吐量方面，Host 接近原生，Bridge 大概 80%。如果你的应用每秒处理几千次请求，这个差距会很明显。</p>
+<p><strong>Bridge 的 NAT 开销不小</strong>。CPU 占用从 0.9 核涨到 1.8 核，几乎翻倍。因为每个外部请求都要经过 NAT 转换，多了一层处理。</p>
+<p><strong>Overlay 的 VXLAN 封装更重</strong>。跨主机通信要封装、解封装，延迟比 Bridge 还高，CPU 占用更大。适合分布式场景，不适合高性能单机。</p>
+<h2 id="实际影响"><a href="#实际影响" class="headerlink" title="实际影响"></a>实际影响</h2><p>这些数字看着抽象，但实际场景里差别挺大。</p>
+<p>比如高频交易系统，每微秒都很关键，Host 模式的 32μs vs Bridge 的 128μs，可能意味着订单能不能抢到。而普通 Web 应用，用户请求往返延迟本来就有几百毫秒，几十微秒的差距几乎无感。</p>
+<p>所以别只看数字，要结合你的场景。性能敏感？优先 Host。安全优先？默认 Bridge。跨主机必需？Overlay，接受性能代价。</p>
+<h2 id="如何测试你的环境"><a href="#如何测试你的环境" class="headerlink" title="如何测试你的环境"></a>如何测试你的环境</h2><p>如果你想在自己环境里测性能差异，有几个简单方法：</p>
+<p><strong>延迟测试</strong>：用 <code>ping</code> 或 <code>iperf3</code></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 在容器 A 里 ping 容器 B（bridge 模式）</span><br><span class="line">docker exec container-a ping container-b</span><br><span class="line"></span><br><span class="line"># 用 iperf3 测试吞吐量（先安装 iperf3）</span><br><span class="line">docker exec container-a iperf3 -c container-b</span><br></pre></td></tr></table></figure>
+<p><strong>CPU 占用监控</strong>：用 <code>docker stats</code></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 查看容器 CPU 占用</span><br><span class="line">docker stats --no-stream</span><br></pre></td></tr></table></figure>
+<p><strong>网络流量监控</strong>：用 <code>tcpdump</code> 抓包分析</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 抓宿主机网络流量（host 模式直接抓）</span><br><span class="line">docker exec -it container-host tcpdump -i eth0</span><br><span class="line"></span><br><span class="line"># 抓 bridge 网络流量（需指定网桥）</span><br><span class="line">tcpdump -i docker0</span><br></pre></td></tr></table></figure>
+<p>我建议在生产环境上线前，先跑一轮压力测试，看看你选的网络模式能不能扛住流量。别等上线后才发现问题。</p>
+<h1 id="决策流程图：场景到模式选择"><a href="#决策流程图：场景到模式选择" class="headerlink" title="决策流程图：场景到模式选择"></a>决策流程图：场景到模式选择</h1><p>说了这么多，到底怎么选？给你一个简单的决策逻辑。</p>
+<h2 id="三步决策流程"><a href="#三步决策流程" class="headerlink" title="三步决策流程"></a>三步决策流程</h2><p>遇到网络配置，按这个流程走：</p>
+<p><strong>第一步：是否需要跨主机通信？</strong></p>
+<p>如果多个容器分布在不同服务器上，需要互相访问（比如 Web 在节点 A，数据库在节点 B），那就必须跨主机。</p>
+<ul>
+<li>YES → 第二步</li>
+<li>NO → 第三步</li>
+</ul>
+<p><strong>第二步：是否使用 Swarm？</strong></p>
+<p>跨主机通信有两种路子：Docker Swarm（用 Overlay）或者手动配置路由（用 Host + iptables）。</p>
+<ul>
+<li>YES → Overlay 网络（最简单，Swarm 自动管理）</li>
+<li>NO → 考虑 Macvlan 或 Host + 路由配置（复杂，适合特殊场景）</li>
+</ul>
+<p><strong>第三步：对网络性能是否敏感？</strong></p>
+<p>如果应用对延迟、吞吐量很敏感（高频交易、实时通信、游戏），性能优先。</p>
+<ul>
+<li>YES → Host 模式（但要评估安全风险）</li>
+<li>NO → Bridge 模式（默认安全选择）</li>
+</ul>
+<h2 id="场景推荐表"><a href="#场景推荐表" class="headerlink" title="场景推荐表"></a>场景推荐表</h2><p>更直观一点，常见场景的推荐：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐模式</th>
+<th style="text-align:center">理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">单机 Web 应用</td>
+<td style="text-align:center">Bridge</td>
+<td style="text-align:center">安全、简单，默认够用</td>
+</tr>
+<tr>
+<td style="text-align:center">高频交易服务</td>
+<td style="text-align:center">Host</td>
+<td style="text-align:center">延迟敏感，性能最优</td>
+</tr>
+<tr>
+<td style="text-align:center">Swarm 微服务集群</td>
+<td style="text-align:center">Overlay</td>
+<td style="text-align:center">跨主机通信必需</td>
+</tr>
+<tr>
+<td style="text-align:center">开发调试环境</td>
+<td style="text-align:center">Bridge（自定义）</td>
+<td style="text-align:center">DNS 支持，容器名通信</td>
+</tr>
+<tr>
+<td style="text-align:center">完全隔离测试</td>
+<td style="text-align:center">None</td>
+<td style="text-align:center">无网络，完全隔离</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="一个小建议"><a href="#一个小建议" class="headerlink" title="一个小建议"></a>一个小建议</h2><p>别一开始就纠结”哪个模式最优”。</p>
+<p>大部分场景，Bridge 就够了。遇到问题再调整：</p>
+<ul>
+<li>服务发现麻烦 → 换成自定义 Bridge</li>
+<li>性能真不够 → 考虑 Host，但要评估安全代价</li>
+<li>需要跨主机 → Overlay，接受 VXLAN 的性能开销</li>
+</ul>
+<p>我见过不少团队，一开始就配 Host，结果端口冲突、安全漏洞一堆。其实 Bridge 默认就能解决 90% 的场景，没必要过度优化。</p>
+<h1 id="生产环境最佳实践"><a href="#生产环境最佳实践" class="headerlink" title="生产环境最佳实践"></a>生产环境最佳实践</h1><p>三种模式各有优劣，生产环境怎么用才稳妥？这里总结几个实战经验。</p>
+<h2 id="Bridge：自定义网络-DNS"><a href="#Bridge：自定义网络-DNS" class="headerlink" title="Bridge：自定义网络 + DNS"></a>Bridge：自定义网络 + DNS</h2><p>默认 bridge 有个大问题：容器只能用 IP 通信，不能用名称。</p>
+<p>生产环境推荐创建自定义 bridge：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># 创建自定义网络，指定子网（避免冲突）</span><br><span class="line">docker network create --subnet=192.168.100.0/24 --name my-app-net</span><br><span class="line"></span><br><span class="line"># 启动服务，挂到自定义网络</span><br><span class="line">docker run -d --network my-app-net --name web-server nginx</span><br><span class="line">docker run -d --network my-app-net --name redis-cache redis</span><br><span class="line"></span><br><span class="line"># web-server 可以直接访问 redis-cache（DNS 自动解析）</span><br><span class="line">docker exec web-server ping redis-cache</span><br></pre></td></tr></table></figure>
+<p>这样一来，服务发现不用手动配 IP，容器名就能当域名用，方便多了。</p>
+<p>还有一点：子网规划要合理。别用默认的 172.17.x.x，容易跟公司内网冲突。推荐用 192.168.100.0/24 或 10.10.10.0/24，提前跟运维沟通好 IP 范围。</p>
+<h2 id="Host：安全加固不能少"><a href="#Host：安全加固不能少" class="headerlink" title="Host：安全加固不能少"></a>Host：安全加固不能少</h2><p>Host 模式性能好，但安全性差。容器能看到宿主机的所有网络接口，包括内网、外网、VPN。</p>
+<p>生产环境用 Host，至少做两件事：</p>
+<p><strong>第一：限制容器权限</strong>。用 <code>--cap-drop</code> 删掉不必要的 Linux capabilities，比如 <code>CAP_NET_RAW</code>（防止容器随意抓包）：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker run -d --network host --cap-drop NET_RAW nginx</span><br></pre></td></tr></table></figure>
+<p><strong>第二：监控异常流量</strong>。容器网络行为要监控，比如突然大量外连、访问内网敏感接口，要告警。可以用 Prometheus + Grafana 监控，或者专门的网络安全工具。</p>
+<p>说实话，Host 模式在生产环境用得少，除非性能真的瓶颈。大部分场景 Bridge + 自定义网络就够了。</p>
+<h2 id="Overlay：子网大小-Swarm-稳定性"><a href="#Overlay：子网大小-Swarm-稳定性" class="headerlink" title="Overlay：子网大小 + Swarm 稳定性"></a>Overlay：子网大小 + Swarm 稳定性</h2><p>Overlay 网络的关键是 VXLAN 封装，开销不小。</p>
+<p>几个优化点：</p>
+<p><strong>控制子网大小</strong>：推荐用 /24（256 个 IP），规模大的集群用 /16（约 6 万个 IP），但要提前规划，避免冲突。</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 推荐：/24 子网块</span><br><span class="line">docker network create --driver overlay --subnet=10.0.1.0/24 my-overlay</span><br></pre></td></tr></table></figure>
+<p><strong>监控 CPU 使用率</strong>：VXLAN 封装会增加 CPU 开销，尤其是高流量场景。用 <code>docker stats</code> 或 Prometheus 监控，发现 CPU 过高要及时优化，比如调整 MTU、减少跨主机通信。</p>
+<p><strong>Swarm 节点间网络稳定性优先</strong>：Overlay 依赖 Swarm，节点间网络不稳定，Overlay 就会出问题。生产环境用 Overlay，要确保 Swarm 节点间的网络延迟低、丢包少，最好用内网专线。</p>
+<h1 id="总结：记住三个核心原则"><a href="#总结：记住三个核心原则" class="headerlink" title="总结：记住三个核心原则"></a>总结：记住三个核心原则</h1><p>说了这么多，归根结底就是三句话：</p>
+<ol>
+<li><p><strong>单机默认 Bridge</strong></p>
+<p> 90% 的场景，Bridge 就够了。安全、简单、默认即用，不用纠结。如果服务发现麻烦，换自定义 Bridge，容器名就能通信。</p>
+</li>
+<li><p><strong>性能敏感用 Host</strong></p>
+<p> 延迟敏感、吞吐量关键的场景，Host 是最优选择。但记住：性能最好，隔离最差。生产环境用 Host，要做好安全加固。</p>
+</li>
+<li><p><strong>跨主机必 Overlay</strong></p>
+<p> 多台服务器上的容器要互相访问，Overlay 是唯一正解。前提是 Swarm 集群，配置比 Bridge、Host 复杂，但跨主机通信必需。</p>
+</li>
+</ol>
+<h2 id="实战建议"><a href="#实战建议" class="headerlink" title="实战建议"></a>实战建议</h2><p>下次遇到 Docker 网络问题，先问自己一个问题：<strong>单机还是跨主机</strong>？</p>
+<p>单机，默认 Bridge。性能不够，考虑 Host，但要评估安全代价。跨主机，Overlay，接受 VXLAN 的性能开销。</p>
+<p>别一开始就纠结”哪个模式最优”，从 Bridge 开始，遇到问题再调整。我当初就是搞反了，先配 Overlay，结果单机场景根本用不上，白白折腾。</p>
+<p>如果你对 bridge/host/none/container 的基础原理还不熟悉，建议先读系列中的第11篇《Docker网络模式详解》，把基础搞清楚，再看这篇进阶内容，会更顺畅。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="默认-Bridge-和自定义-Bridge-有什么区别？"><a href="#默认-Bridge-和自定义-Bridge-有什么区别？" class="headerlink" title="默认 Bridge 和自定义 Bridge 有什么区别？"></a>默认 Bridge 和自定义 Bridge 有什么区别？</h2><p>默认 Bridge 下容器只能用 IP 通信，重启后 IP 可能变化；自定义 Bridge 支持 DNS，容器名直接通信，推荐生产环境使用。</p>
+<h2 id="Host-模式端口冲突怎么办？"><a href="#Host-模式端口冲突怎么办？" class="headerlink" title="Host 模式端口冲突怎么办？"></a>Host 模式端口冲突怎么办？</h2><p>Host 模式直接占用宿主机端口，冲突时用 <code>netstat</code>/<code>ss</code>/<code>lsof</code> 检查占用进程，要么停掉冲突服务，要么在容器内修改应用监听端口。</p>
+<h2 id="不用-Swarm-能创建-Overlay-网络吗？"><a href="#不用-Swarm-能创建-Overlay-网络吗？" class="headerlink" title="不用 Swarm 能创建 Overlay 网络吗？"></a>不用 Swarm 能创建 Overlay 网络吗？</h2><p>不能。Overlay 必须依赖 Swarm 或外部 KV store（如 Consul）。单机 Docker 无法创建 overlay 网络，会报错 ‘This node is not a swarm manager’。</p>
+<h2 id="三种模式的性能差异有多大？"><a href="#三种模式的性能差异有多大？" class="headerlink" title="三种模式的性能差异有多大？"></a>三种模式的性能差异有多大？</h2><p>Host 延迟 32μs，Bridge 128μs（差约 14%），Overlay 200μs+。Host CPU 占用 0.9 核，Bridge 1.8 核，Overlay 2.0+ 核。性能敏感场景差异明显。</p>
+<h2 id="生产环境推荐哪种模式？"><a href="#生产环境推荐哪种模式？" class="headerlink" title="生产环境推荐哪种模式？"></a>生产环境推荐哪种模式？</h2><p>大部分场景用自定义 Bridge；高频交易、实时通信用 Host（需安全加固）；Swarm 集群跨主机通信用 Overlay。避免默认 Bridge 的 IP 依赖问题。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/f456/">https://jingluo23.github.io/posts/f456/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/89f5/" title="Docker容器访问宿主机：host.docker.internal完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker容器访问宿主机：host.docker.internal完全指南</div></div><div class="info-2"><div class="info-item-1">容器内用localhost连不上宿主机服务？本文详解host.docker.internal用法，涵盖Mac/Windows/Linux三平台配置方法，附完整排查清单，让你快速解决容器访问宿主机问题</div></div></div></a><a class="pagination-related" href="/posts/1820/" title="2026年国内 Docker 镜像源指南：5分钟解决 pull 超时"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">2026年国内 Docker 镜像源指南：5分钟解决 pull 超时</div></div><div class="info-2"><div class="info-item-1">2026 年 Docker mirror China 最新可用性判断：配置 daemon.json、测速镜像源、处理企业代理和 pull-through cache，并区分 Docker Hub 限速（429）与镜像源失效，5 分钟定位 docker pull timeout。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/a8d7/" title="Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-01</div><div class="info-item-2">Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失</div></div><div class="info-2"><div class="info-item-1">手把手教你用Docker部署Redis并配置RDB/AOF持久化和密码认证,避免容器重启数据丢失,附完整配置文件和代码示例,适合生产环境部署</div></div></div></a><a class="pagination-related" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-12</div><div class="info-item-2">Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)</div></div><div class="info-2"><div class="info-item-1">Docker容器启动后立即退出变Exited状态?本文提供系统性排查方法,详解退出码137/1含义,四步排查法和五大常见失败场景解决方案,帮你快速定位并修复容器启动问题</div></div></div></a><a class="pagination-related" href="/posts/1820/" title="2026年国内 Docker 镜像源指南：5分钟解决 pull 超时"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-28</div><div class="info-item-2">2026年国内 Docker 镜像源指南：5分钟解决 pull 超时</div></div><div class="info-2"><div class="info-item-1">2026 年 Docker mirror China 最新可用性判断：配置 daemon.json、测速镜像源、处理企业代理和 pull-through cache，并区分 Docker Hub 限速（429）与镜像源失效，5 分钟定位 docker pull timeout。</div></div></div></a><a class="pagination-related" href="/posts/8180/" title="Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-19</div><div class="info-item-2">Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题</div></div><div class="info-2"><div class="info-item-1">通过5个实战案例手把手教你使用Docker Volume，从基础概念到MySQL、Redis持久化，让容器数据不再随删除而消失，适合Docker初学者和开发者。</div></div></div></a><a class="pagination-related" href="/posts/980e/" title="Docker挂载方式对比：Volume vs Bind Mount选择指南（含性能测试）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-21</div><div class="info-item-2">Docker挂载方式对比：Volume vs Bind Mount选择指南（含性能测试）</div></div><div class="info-2"><div class="info-item-1">深入对比Docker三种挂载方式，解决Mac上npm install慢3倍的性能问题，通过决策树和真实场景帮你快速选择Volume、Bind Mount或tmpfs</div></div></div></a><a class="pagination-related" href="/posts/e0b1/" title="Dockerfile优化实战：5个技巧让镜像体积缩小80%"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-09</div><div class="info-item-2">Dockerfile优化实战：5个技巧让镜像体积缩小80%</div></div><div class="info-2"><div class="info-item-1">Docker镜像动辄几GB？掌握Alpine基础镜像、合并RUN指令、多阶段构建、.dockerignore配置和清理缓存5个技巧，将镜像从1.2GB降到180MB，减少85%。附完整Node.js优化案例和实测数据。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">165</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%8E%E4%B8%80%E4%B8%AA%E7%9C%9F%E5%AE%9E%E6%95%85%E9%9A%9C%E8%AF%B4%E8%B5%B7"><span class="toc-number">1.</span> <span class="toc-text">从一个真实故障说起</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Bridge%EF%BC%9A%E9%BB%98%E8%AE%A4%E9%80%89%E6%8B%A9%EF%BC%8C%E5%8D%95%E6%9C%BA%E9%80%9A%E4%BF%A1%E4%B9%8B%E7%8E%8B"><span class="toc-number">2.</span> <span class="toc-text">Bridge：默认选择，单机通信之王</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Bridge-%E6%98%AF-Docker-%E7%9A%84%E9%BB%98%E8%AE%A4%E7%BD%91%E7%BB%9C%E6%A8%A1%E5%BC%8F%E3%80%82"><span class="toc-number">2.1.</span> <span class="toc-text">Bridge 是 Docker 的默认网络模式。</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">2.2.</span> <span class="toc-text">适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B"><span class="toc-number">2.3.</span> <span class="toc-text">配置示例</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Host%EF%BC%9A%E6%80%A7%E8%83%BD%E6%9C%80%E4%BC%98%EF%BC%8C%E9%9A%94%E7%A6%BB%E6%9C%80%E5%BC%B1"><span class="toc-number">3.</span> <span class="toc-text">Host：性能最优，隔离最弱</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF-1"><span class="toc-number">3.1.</span> <span class="toc-text">适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B-1"><span class="toc-number">3.2.</span> <span class="toc-text">配置示例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A3%8E%E9%99%A9%E6%8F%90%E7%A4%BA"><span class="toc-number">3.3.</span> <span class="toc-text">风险提示</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Overlay%EF%BC%9A%E8%B7%A8%E4%B8%BB%E6%9C%BA%E9%80%9A%E4%BF%A1%E7%9A%84%E6%AD%A3%E8%A7%A3"><span class="toc-number">4.</span> <span class="toc-text">Overlay：跨主机通信的正解</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86"><span class="toc-number">4.1.</span> <span class="toc-text">核心原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF-2"><span class="toc-number">4.2.</span> <span class="toc-text">适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B%EF%BC%88%E5%AE%8C%E6%95%B4%E6%B5%81%E7%A8%8B%EF%BC%89"><span class="toc-number">4.3.</span> <span class="toc-text">配置示例（完整流程）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E5%9F%BA%E5%87%86%E5%AF%B9%E6%AF%94%EF%BC%9A%E6%95%B0%E6%8D%AE%E8%AF%B4%E8%AF%9D"><span class="toc-number">5.</span> <span class="toc-text">性能基准对比：数据说话</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%95%B0%E6%8D%AE%EF%BC%8872%E5%B0%8F%E6%97%B6%E5%8E%8B%E5%8A%9B%E6%B5%8B%E8%AF%95%EF%BC%89"><span class="toc-number">5.1.</span> <span class="toc-text">核心数据（72小时压力测试）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E5%8F%91%E7%8E%B0"><span class="toc-number">5.2.</span> <span class="toc-text">关键发现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E9%99%85%E5%BD%B1%E5%93%8D"><span class="toc-number">5.3.</span> <span class="toc-text">实际影响</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E6%B5%8B%E8%AF%95%E4%BD%A0%E7%9A%84%E7%8E%AF%E5%A2%83"><span class="toc-number">5.4.</span> <span class="toc-text">如何测试你的环境</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%B3%E7%AD%96%E6%B5%81%E7%A8%8B%E5%9B%BE%EF%BC%9A%E5%9C%BA%E6%99%AF%E5%88%B0%E6%A8%A1%E5%BC%8F%E9%80%89%E6%8B%A9"><span class="toc-number">6.</span> <span class="toc-text">决策流程图：场景到模式选择</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E6%AD%A5%E5%86%B3%E7%AD%96%E6%B5%81%E7%A8%8B"><span class="toc-number">6.1.</span> <span class="toc-text">三步决策流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF%E6%8E%A8%E8%8D%90%E8%A1%A8"><span class="toc-number">6.2.</span> <span class="toc-text">场景推荐表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E5%B0%8F%E5%BB%BA%E8%AE%AE"><span class="toc-number">6.3.</span> <span class="toc-text">一个小建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">7.</span> <span class="toc-text">生产环境最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Bridge%EF%BC%9A%E8%87%AA%E5%AE%9A%E4%B9%89%E7%BD%91%E7%BB%9C-DNS"><span class="toc-number">7.1.</span> <span class="toc-text">Bridge：自定义网络 + DNS</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Host%EF%BC%9A%E5%AE%89%E5%85%A8%E5%8A%A0%E5%9B%BA%E4%B8%8D%E8%83%BD%E5%B0%91"><span class="toc-number">7.2.</span> <span class="toc-text">Host：安全加固不能少</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Overlay%EF%BC%9A%E5%AD%90%E7%BD%91%E5%A4%A7%E5%B0%8F-Swarm-%E7%A8%B3%E5%AE%9A%E6%80%A7"><span class="toc-number">7.3.</span> <span class="toc-text">Overlay：子网大小 + Swarm 稳定性</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93%EF%BC%9A%E8%AE%B0%E4%BD%8F%E4%B8%89%E4%B8%AA%E6%A0%B8%E5%BF%83%E5%8E%9F%E5%88%99"><span class="toc-number">8.</span> <span class="toc-text">总结：记住三个核心原则</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E5%BB%BA%E8%AE%AE"><span class="toc-number">8.1.</span> <span class="toc-text">实战建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%BB%98%E8%AE%A4-Bridge-%E5%92%8C%E8%87%AA%E5%AE%9A%E4%B9%89-Bridge-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">默认 Bridge 和自定义 Bridge 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Host-%E6%A8%A1%E5%BC%8F%E7%AB%AF%E5%8F%A3%E5%86%B2%E7%AA%81%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">Host 模式端口冲突怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8D%E7%94%A8-Swarm-%E8%83%BD%E5%88%9B%E5%BB%BA-Overlay-%E7%BD%91%E7%BB%9C%E5%90%97%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">不用 Swarm 能创建 Overlay 网络吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E7%A7%8D%E6%A8%A1%E5%BC%8F%E7%9A%84%E6%80%A7%E8%83%BD%E5%B7%AE%E5%BC%82%E6%9C%89%E5%A4%9A%E5%A4%A7%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">三种模式的性能差异有多大？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%8E%A8%E8%8D%90%E5%93%AA%E7%A7%8D%E6%A8%A1%E5%BC%8F%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">生产环境推荐哪种模式？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"></a><div class="content"><a class="title" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</a><time datetime="2026-10-13T07:06:23.000Z" title="发表于 2026-10-13 15:06:23">2026-10-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"></a><div class="content"><a class="title" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)">Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)</a><time datetime="2026-10-12T07:19:19.000Z" title="发表于 2026-10-12 15:19:19">2026-10-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"></a><div class="content"><a class="title" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势">Docker容器调试指南：exec命令进入容器排查问题的正确姿势</a><time datetime="2026-10-11T07:06:23.000Z" title="发表于 2026-10-11 15:06:23">2026-10-11</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr">Java面渣手册</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/面试/">面试</a><span class="categoryBar-list-count">126</span><span class="categoryBar-list-descr">Docker 专题：安装、网络、报错与生产实践</span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Java面渣手册/">Java面渣手册</a><span class="categoryBar-list-count">1</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/40ac/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-13</span><a class="blog-slider__title" href="posts/40ac/" alt="">MySQL八股文面试题（一）：MySQL基础</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/40ac/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
