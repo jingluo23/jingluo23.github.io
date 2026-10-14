@@ -1,0 +1,1011 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Ollama 性能优化实战：量化、批处理与内存调优完全指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解 Ollama 量化技术 Q4&#x2F;Q5&#x2F;Q8 选择策略，批处理 num_batch 配置提升吞吐量 50-150%，GPU 内存管理与 OOM 解决方案。附带不同硬件性能基准数据。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ollama 性能优化实战：量化、批处理与内存调优完全指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/356c/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解 Ollama 量化技术 Q4&#x2F;Q5&#x2F;Q8 选择策略，批处理 num_batch 配置提升吞吐量 50-150%，GPU 内存管理与 OOM 解决方案。附带不同硬件性能基准数据。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-22T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-14T12:19:16.406Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Ollama">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Ollama 性能优化实战：量化、批处理与内存调优完全指南",
+  "url": "https://jingluo23.github.io/posts/356c/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-22T07:06:23.000Z",
+  "dateModified": "2026-10-14T12:19:16.406Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/356c/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Ollama 性能优化实战：量化、批处理与内存调优完全指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Ollama 性能优化实战：量化、批处理与内存调优完全指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Ollama 性能优化实战：量化、批处理与内存调优完全指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-22T07:06:23.000Z" title="发表于 2026-10-22 15:06:23">2026-10-22</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-14T12:19:16.406Z" title="更新于 2026-10-14 20:19:16">2026-10-14</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Ollama-%E6%9C%AC%E5%9C%B0-LLM-%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/">Ollama 本地 LLM 实战指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>13分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-14 20:19:16&quot;}" hidden></div><p>你的 14B 模型跑了起来，但推理速度只有 10 tokens/s？或者干脆直接 OOM 报错退出？显卡风扇狂转，黑屏了。</p>
+<p>常见情况：兴冲冲下载了 llama3 8B，ollama run 一敲，结果显存不够用。要么报错退出，要么慢得像蜗牛爬。换了个 Q4 量化版本，能跑了，但心里总犯嘀咕——这质量损失了多少？</p>
+<p>刚开始用 Ollama 时踩过这些坑：8GB 显存想跑 14B 模型，天真地以为只要能启动就行。结果要么 CUDA out of memory，要么一个词一个词往外蹦。</p>
+<p>问题不在硬件。是你的配置没到位。</p>
+<p>这篇文章聊聊三个核心优化技术：量化选择、批处理配置、内存调优。理解了这三块，你的本地 LLM 性能至少能翻倍。不是那种营销话术的”翻倍”，是实打实的 tokens/s 提升。</p>
+<h1 id="量化技术-—-从-Q4-到-FP16-的质量与速度权衡"><a href="#量化技术-—-从-Q4-到-FP16-的质量与速度权衡" class="headerlink" title="量化技术 — 从 Q4 到 FP16 的质量与速度权衡"></a>量化技术 — 从 Q4 到 FP16 的质量与速度权衡</h1><h2 id="什么是量化？为什么-GGUF-是主流格式"><a href="#什么是量化？为什么-GGUF-是主流格式" class="headerlink" title="什么是量化？为什么 GGUF 是主流格式"></a>什么是量化？为什么 GGUF 是主流格式</h2><p>先说人话：量化就是把模型”压小”。</p>
+<p>你下载的大模型，原始参数是 FP16（16 位浮点数）。一个 7B 模型按 FP16 算，光是参数就要 14GB 显存。但如果你把每个参数从 16 位压到 4 位呢？理论上能压到 3.5GB。这就是量化的核心逻辑——用更少的位数表示原来的数值，换取更低的内存占用和更快的推理速度。</p>
+<p>代价当然有：精度损失。就像你把一张 4K 照片压成 720P，细节肯定丢了，但大部分场景下”能用”。</p>
+<p>GGUF 格式能成为主流，原因就两个字：省事。它是 llama.cpp 团队专门设计的格式，支持内存映射（mmap），模型加载时不用全部读到内存里，按需读取。这意味着你的 16GB 内存机器也能跑 13B 模型——传统格式想都别想。</p>
+<h2 id="量化类型详解：Q4-0、Q4-K-M、Q5-K-M、Q8-0-对比"><a href="#量化类型详解：Q4-0、Q4-K-M、Q5-K-M、Q8-0-对比" class="headerlink" title="量化类型详解：Q4_0、Q4_K_M、Q5_K_M、Q8_0 对比"></a>量化类型详解：Q4_0、Q4_K_M、Q5_K_M、Q8_0 对比</h2><p>这是让很多人头疼的地方：Q4_0、Q4_1、Q4_K_M、Q5_K_M、Q8_0……一堆选项，到底选哪个？</p>
+<p>我把常用的量化类型做了个对比表：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">量化类型</th>
+<th style="text-align:center">压缩比</th>
+<th style="text-align:center">内存占用（7B模型）</th>
+<th style="text-align:center">质量损失</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Q4_0</td>
+<td style="text-align:center">约 4.5x</td>
+<td style="text-align:center">约 4.0GB</td>
+<td style="text-align:center">较大</td>
+<td style="text-align:center">显存极度紧张，质量要求不高</td>
+</tr>
+<tr>
+<td style="text-align:center">Q4_K_M</td>
+<td style="text-align:center">约 4.5x</td>
+<td style="text-align:center">约 4.7GB</td>
+<td style="text-align:center">很小</td>
+<td style="text-align:center"><strong>性价比首选</strong>，日常推荐</td>
+</tr>
+<tr>
+<td style="text-align:center">Q5_K_M</td>
+<td style="text-align:center">约 3.5x</td>
+<td style="text-align:center">约 5.8GB</td>
+<td style="text-align:center">极小</td>
+<td style="text-align:center">质量优先，显存充足</td>
+</tr>
+<tr>
+<td style="text-align:center">Q8_0</td>
+<td style="text-align:center">约 2x</td>
+<td style="text-align:center">约 7.2GB</td>
+<td style="text-align:center">几乎无损</td>
+<td style="text-align:center">追求最佳质量，显存够大</td>
+</tr>
+<tr>
+<td style="text-align:center">FP16</td>
+<td style="text-align:center">1x</td>
+<td style="text-align:center">约 14GB</td>
+<td style="text-align:center">无损</td>
+<td style="text-align:center">学术研究，土豪显卡</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>简单说：<strong>Q4_K_M 是性价比首选</strong>，质量损失几乎感知不到，内存占用最低。我测过很多次，Q4_K_M 和 FP16 的回答差异，除非你拿着显微镜找茬，否则日常对话根本感觉不出来。</p>
+<p>Q5_K_M 适合你显存还算宽裕、对质量有执念的情况。Q8_0 就别考虑了，除非你有 24GB 以上显存——有这条件干嘛不上更大参数的模型？</p>
+<h2 id="量化选择决策树"><a href="#量化选择决策树" class="headerlink" title="量化选择决策树"></a>量化选择决策树</h2><p>给你一个简单的决策逻辑：</p>
+<p><strong>Step 1：看显存</strong></p>
+<ul>
+<li>显存 ≤ 8GB：只能选 Q4_K_M，7B 模型勉强，14B 得靠 CPU offload</li>
+<li>显存 12-16GB：Q4_K_M 跑 14B 没问题，7B 可以上 Q5_K_M</li>
+<li>显存 ≥ 24GB：随意，Q5_K_M 或 Q8_0 都行，甚至可以上 70B 模型</li>
+</ul>
+<p><strong>Step 2：看需求</strong></p>
+<ul>
+<li>日常对话、写代码：Q4_K_M 够用</li>
+<li>翻译、写作质量敏感：Q5_K_M</li>
+<li>学术研究、评测对比：Q8_0 或 FP16</li>
+</ul>
+<p>实际数据给你参考：</p>
+<ul>
+<li>7B 模型 Q4_K_M：约 4.7GB 显存</li>
+<li>14B 模型 Q4_K_M：约 9GB 显存</li>
+<li>70B 模型 Q4_K_M：约 40GB 显存</li>
+</ul>
+<p>我的建议？先从 Q4_K_M 试起。如果感觉回答质量不对劲，再换 Q5_K_M。不要一上来就追求”无损”，很多时候是你心理作用。</p>
+<h2 id="如何下载指定量化版本"><a href="#如何下载指定量化版本" class="headerlink" title="如何下载指定量化版本"></a>如何下载指定量化版本</h2><p>Ollama 默认下载 Q4_K_M 量化版本。想指定其他版本？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 默认下载 Q4_K_M</span><br><span class="line">ollama run llama3</span><br><span class="line"></span><br><span class="line"># 指定 Q5 量化</span><br><span class="line">ollama run llama3:70b-q5</span><br><span class="line"></span><br><span class="line"># 指定 Q8 量化</span><br><span class="line">ollama run llama3:70b-q8</span><br></pre></td></tr></table></figure>
+<p>不是所有模型都有所有量化版本。你可以去 Ollama 官方模型库查，或者用这个命令看有哪些 tag：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 查看本地已有模型</span><br><span class="line">ollama list</span><br><span class="line"></span><br><span class="line"># 查看模型详情（包括量化信息）</span><br><span class="line">ollama show llama3 --modelfile</span><br></pre></td></tr></table></figure>
+<p>话说回来，如果你是重度用户，自己量化模型也是条路子。llama.cpp 提供了完整的量化工具链，可以自己控制精度和参数。但这属于进阶玩法，本文先不展开。</p>
+<h1 id="批处理配置-—-让吞吐量提升-50-150"><a href="#批处理配置-—-让吞吐量提升-50-150" class="headerlink" title="批处理配置 — 让吞吐量提升 50-150%"></a>批处理配置 — 让吞吐量提升 50-150%</h1><h2 id="批处理原理：为什么能提速？"><a href="#批处理原理：为什么能提速？" class="headerlink" title="批处理原理：为什么能提速？"></a>批处理原理：为什么能提速？</h2><p>批处理这个概念，很多人搞不明白。我来解释一下。</p>
+<p>假设你在超市结账。如果每次只处理一个顾客的商品，收银员要频繁切换、扫描、收钱，效率很低。但如果把 10 个顾客的商品一起扫描呢？收银员动作连贯，效率自然高了。</p>
+<p>GPU 推理也是同理。单个 token 推理时，GPU 大部分时间在等待内存传输数据——计算单元空转。批处理就是把多个 token 打包一起算，让 GPU 满负荷运转。</p>
+<p>注意：<strong>批处理提升的是吞吐量，不是单次请求的延迟</strong>。什么意思？你一个人用，感知不大。但如果你在跑 API 服务，同时处理多个请求，吞吐量能翻倍甚至更多。</p>
+<h2 id="num-batch-参数详解"><a href="#num-batch-参数详解" class="headerlink" title="num_batch 参数详解"></a>num_batch 参数详解</h2><p><code>num_batch</code> 是 Ollama 的核心批处理参数，默认值 512。</p>
+<p>这个值越大，GPU 利用率越高，吞吐量越大。代价是显存占用会增加 20-40%。</p>
+<p>怎么调？看你的显存富余程度：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">显存情况</th>
+<th style="text-align:center">建议 num_batch</th>
+<th style="text-align:center">预期效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">显存紧张</td>
+<td style="text-align:center">512（默认）</td>
+<td style="text-align:center">安全，可能略有闲置</td>
+</tr>
+<tr>
+<td style="text-align:center">显存适中</td>
+<td style="text-align:center">1024</td>
+<td style="text-align:center">吞吐量提升 50-80%</td>
+</tr>
+<tr>
+<td style="text-align:center">显存充裕</td>
+<td style="text-align:center">2048</td>
+<td style="text-align:center">吞吐量提升 100-150%</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>我的经验：RTX 3080（10GB）跑 7B Q4_K_M，num_batch 设 1024 稳稳的。设 2048 会偶尔触发 OOM。RTX 4090 跑 14B，2048 没压力。</p>
+<h2 id="num-ctx-与-KV-Cache"><a href="#num-ctx-与-KV-Cache" class="headerlink" title="num_ctx 与 KV Cache"></a>num_ctx 与 KV Cache</h2><p><code>num_ctx</code> 是上下文窗口大小，默认 2048。这个参数影响的是 KV Cache 内存占用。</p>
+<p>KV Cache 是什么？简单说，模型推理时会缓存之前的计算结果，避免重复计算。上下文越长，缓存越大。</p>
+<p>内存占用公式（粗略）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">KV Cache 内存 ≈ 2 × 层数 × 隐藏维度 × num_ctx × 精度字节数</span><br></pre></td></tr></table></figure>
+<p>实际数字给你参考：</p>
+<ul>
+<li>7B 模型，num_ctx=4096：额外占用约 1-2GB</li>
+<li>14B 模型，num_ctx=8192：额外占用约 3-4GB</li>
+</ul>
+<p>所以如果你跑长上下文（比如 32K、128K），显存消耗会蹭蹭往上涨。很多人以为模型参数占满显存了，其实是 KV Cache 吃掉了大头。</p>
+<p><strong>坑点</strong>：有些模型默认 num_ctx 很大。比如 llama3 支持到 128K，但你真设这么大，显存直接爆。日常使用，4096 或 8192 足够了。</p>
+<h2 id="批处理配置实战"><a href="#批处理配置实战" class="headerlink" title="批处理配置实战"></a>批处理配置实战</h2><p>直接上配置示例。</p>
+<p><strong>方式一：Modelfile 配置</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># 从基础模型创建</span><br><span class="line">FROM llama3</span><br><span class="line"></span><br><span class="line"># 设置批处理大小</span><br><span class="line">PARAMETER num_batch 1024</span><br><span class="line"></span><br><span class="line"># 设置上下文窗口</span><br><span class="line">PARAMETER num_ctx 4096</span><br><span class="line"></span><br><span class="line"># 保持系统提示词不被裁剪</span><br><span class="line">PARAMETER num_keep 128</span><br></pre></td></tr></table></figure>
+<p>保存为 <code>Modelfile</code>，然后创建新模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ollama create my-llama3 -f Modelfile</span><br><span class="line">ollama run my-llama3</span><br></pre></td></tr></table></figure>
+<p><strong>方式二：API options 配置</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:11434/api/generate -d &#x27;&#123;</span><br><span class="line">  &quot;model&quot;: &quot;llama3&quot;,</span><br><span class="line">  &quot;prompt&quot;: &quot;解释一下量子计算&quot;,</span><br><span class="line">  &quot;options&quot;: &#123;</span><br><span class="line">    &quot;num_batch&quot;: 1024,</span><br><span class="line">    &quot;num_ctx&quot;: 4096</span><br><span class="line">  &#125;</span><br><span class="line">&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p><strong>性能对比数据</strong>（RTX 3080，7B Q4_K_M）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">num_batch</th>
+<th style="text-align:center">吞吐量（tokens/s）</th>
+<th style="text-align:center">显存占用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">512</td>
+<td style="text-align:center">45</td>
+<td style="text-align:center">5.2GB</td>
+</tr>
+<tr>
+<td style="text-align:center">1024</td>
+<td style="text-align:center">72</td>
+<td style="text-align:center">6.1GB</td>
+</tr>
+<tr>
+<td style="text-align:center">2048</td>
+<td style="text-align:center">98</td>
+<td style="text-align:center">7.4GB</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>可以看到，num_batch 从 512 提到 1024，吞吐量涨了 60%，显存只多了不到 1GB。这笔账很划算。</p>
+<h1 id="内存调优-—-解决-OOM-的三大策略"><a href="#内存调优-—-解决-OOM-的三大策略" class="headerlink" title="内存调优 — 解决 OOM 的三大策略"></a>内存调优 — 解决 OOM 的三大策略</h1><h2 id="GPU-内存分配机制"><a href="#GPU-内存分配机制" class="headerlink" title="GPU 内存分配机制"></a>GPU 内存分配机制</h2><p>Ollama 的 GPU 内存管理，其实挺聪明的。它会自动判断：</p>
+<ol>
+<li>显存够不够装下模型？</li>
+<li>够的话，全部装进 GPU</li>
+<li>不够的话，自动把部分层 offload 到 CPU</li>
+</ol>
+<p>但”聪明”不代表完美。有时候判断失误，或者边界情况处理不好，就会触发 OOM。</p>
+<p>核心参数：<code>num_gpu</code>。这个参数控制多少层模型放到 GPU 上。默认 -1 表示自动判断。你可以手动指定，比如 <code>num_gpu: 20</code>，意思是只把前 20 层放 GPU，剩下的用 CPU。</p>
+<h2 id="策略一：量化降级"><a href="#策略一：量化降级" class="headerlink" title="策略一：量化降级"></a>策略一：量化降级</h2><p>这是最简单直接的方法。OOM 了？换更小的量化。</p>
+<p>降级路径：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Q8_0 → Q5_K_M → Q4_K_M → Q4_0</span><br></pre></td></tr></table></figure>
+<p>每次降级，大概节省 20-25% 显存。</p>
+<p>举个例子：你跑 14B 模型 Q5_K_M 需要 11GB 显存，OOM 了。换成 Q4_K_M，只需要 9GB。显存占用降了 18%，质量损失呢？说实话，日常对话你很难感知到。</p>
+<p>我之前在 8GB 显存上跑 7B Q4_K_M，完全没问题。想跑 14B？Q4_K_M 勉强，但上下文一大就 OOM。最后妥协方案是跑 14B Q4_0，质量差了点，但能用。</p>
+<h2 id="策略二：CPU-Offload-混合推理"><a href="#策略二：CPU-Offload-混合推理" class="headerlink" title="策略二：CPU Offload 混合推理"></a>策略二：CPU Offload 混合推理</h2><p>显存实在不够？让 CPU 分担一部分。</p>
+<p><code>num_gpu</code> 参数控制 GPU 层数。比如 32 层的模型，你设 <code>num_gpu: 24</code>，后 8 层用 CPU 计算。</p>
+<p>代价：速度下降。CPU 推理比 GPU 慢 10 倍以上。但总比直接 OOM 跑不起来强。</p>
+<p>配置方式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># Modelfile</span><br><span class="line">FROM llama3</span><br><span class="line">PARAMETER num_gpu 24</span><br></pre></td></tr></table></figure>
+<p>或者通过 API：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:11434/api/generate -d &#x27;&#123;</span><br><span class="line">  &quot;model&quot;: &quot;llama3&quot;,</span><br><span class="line">  &quot;prompt&quot;: &quot;你好&quot;,</span><br><span class="line">  &quot;options&quot;: &#123;</span><br><span class="line">    &quot;num_gpu&quot;: 24</span><br><span class="line">  &#125;</span><br><span class="line">&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p><strong>混合推理速度参考</strong>（14B Q4_K_M，RTX 3080 10GB + i7-12700K）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">num_gpu</th>
+<th style="text-align:center">推理速度</th>
+<th style="text-align:center">显存占用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">40（全GPU）</td>
+<td style="text-align:center">OOM</td>
+<td style="text-align:center">12GB（爆了）</td>
+</tr>
+<tr>
+<td style="text-align:center">30</td>
+<td style="text-align:center">18 tokens/s</td>
+<td style="text-align:center">9.2GB</td>
+</tr>
+<tr>
+<td style="text-align:center">20</td>
+<td style="text-align:center">12 tokens/s</td>
+<td style="text-align:center">6.5GB</td>
+</tr>
+<tr>
+<td style="text-align:center">0（纯CPU）</td>
+<td style="text-align:center">4 tokens/s</td>
+<td style="text-align:center">0.5GB</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>可以看到，num_gpu=30 时，速度还能接受，显存没爆。这就是混合推理的价值。</p>
+<h2 id="策略三：KV-Cache-优化"><a href="#策略三：KV-Cache-优化" class="headerlink" title="策略三：KV Cache 优化"></a>策略三：KV Cache 优化</h2><p>KV Cache 经常被忽略，但它可能是显存大户。</p>
+<p><strong>方法一：启用 Flash Attention</strong></p>
+<p>Flash Attention 是一种优化的注意力计算方式，能显著减少显存占用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 设置环境变量</span><br><span class="line">export OLLAMA_FLASH_ATTENTION=1</span><br><span class="line"></span><br><span class="line"># 或者 Docker 启动时</span><br><span class="line">docker run -e OLLAMA_FLASH_ATTENTION=1 ollama/ollama</span><br></pre></td></tr></table></figure>
+<p>效果：KV Cache 显存占用减少 30-50%。强烈推荐开启。</p>
+<p><strong>方法二：减小 num**</strong>_<strong>**ctx</strong></p>
+<p>上下文越长，KV Cache 越大。如果你不需要 32K 上下文，设小一点。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PARAMETER num_ctx 2048  # 默认 2048，够日常对话用</span><br></pre></td></tr></table></figure>
+<p><strong>方法三：num**</strong>_<strong>**keep 保留系统提示词</strong></p>
+<p><code>num_keep</code> 参数控制保留多少 token 不被裁剪。设成系统提示词的长度，能避免上下文滑动时系统提示词被吃掉。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">PARAMETER num_keep 128</span><br></pre></td></tr></table></figure>
+<h2 id="OOM-实战解决流程"><a href="#OOM-实战解决流程" class="headerlink" title="OOM 实战解决流程"></a>OOM 实战解决流程</h2><p>遇到 OOM，按这个流程排查：</p>
+<p><strong>Step 1：检查显存占用</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nvidia-smi</span><br></pre></td></tr></table></figure>
+<p>看一眼显存用了多少，剩多少。</p>
+<p><strong>Step 2：检查模型参数</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama show llama3 --modelfile</span><br></pre></td></tr></table></figure>
+<p>看看 num_ctx、num_batch 这些参数是不是设太大了。</p>
+<p><strong>Step 3：逐步降级</strong></p>
+<ul>
+<li>先降 num_batch：1024 → 512</li>
+<li>再降 num_ctx：4096 → 2048</li>
+<li>最后降量化：Q5_K_M → Q4_K_M</li>
+</ul>
+<p><strong>Step 4：启用 CPU offload</strong><br>设 num_gpu 为总层数的 70-80%。</p>
+<p><strong>Step 5：终极方案——纯 CPU 推理</strong><br>显存实在不够，就只能用 CPU 了。慢是慢点，但能用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 通过模型参数 num_gpu=0 强制纯 CPU（API 或 Modelfile）</span><br><span class="line">curl http://localhost:11434/api/generate -d &#x27;&#123;&quot;model&quot;:&quot;llama3&quot;,&quot;prompt&quot;:&quot;你好&quot;,&quot;options&quot;:&#123;&quot;num_gpu&quot;:0&#125;&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p>说实话，纯 CPU 推理速度大概只有 GPU 的 1/10。但如果你只是偶尔用用，或者跑批处理任务，也能接受。</p>
+<h1 id="性能基准与硬件参考"><a href="#性能基准与硬件参考" class="headerlink" title="性能基准与硬件参考"></a>性能基准与硬件参考</h1><h2 id="不同硬件下的推理速度表"><a href="#不同硬件下的推理速度表" class="headerlink" title="不同硬件下的推理速度表"></a>不同硬件下的推理速度表</h2><p>我整理了一份不同硬件配置下的推理速度数据，方便你对照自己的情况：</p>
+<p><strong>NVIDIA 显卡（7B 模型 Q4**</strong><em><strong><strong>K</strong></strong></em><strong>**M）</strong></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">显卡型号</th>
+<th style="text-align:center">显存</th>
+<th style="text-align:center">tokens/s</th>
+<th style="text-align:center">备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">RTX 3060</td>
+<td style="text-align:center">12GB</td>
+<td style="text-align:center">52</td>
+<td style="text-align:center">性价比之王</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 3080</td>
+<td style="text-align:center">10GB</td>
+<td style="text-align:center">68</td>
+<td style="text-align:center">稳定选择</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 3090</td>
+<td style="text-align:center">24GB</td>
+<td style="text-align:center">95</td>
+<td style="text-align:center">可跑 14B Q4</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 4070 Ti</td>
+<td style="text-align:center">12GB</td>
+<td style="text-align:center">78</td>
+<td style="text-align:center">新架构优势</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 4090</td>
+<td style="text-align:center">24GB</td>
+<td style="text-align:center">120</td>
+<td style="text-align:center">土豪配置</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>NVIDIA 显卡（14B 模型 Q4_K_M）</strong></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">显卡型号</th>
+<th style="text-align:center">显存</th>
+<th style="text-align:center">tokens/s</th>
+<th style="text-align:center">备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">RTX 3060</td>
+<td style="text-align:center">12GB</td>
+<td style="text-align:center">28</td>
+<td style="text-align:center">勉强能跑</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 3080</td>
+<td style="text-align:center">10GB</td>
+<td style="text-align:center">OOM</td>
+<td style="text-align:center">需 CPU offload</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 3090</td>
+<td style="text-align:center">24GB</td>
+<td style="text-align:center">55</td>
+<td style="text-align:center">舒服</td>
+</tr>
+<tr>
+<td style="text-align:center">RTX 4090</td>
+<td style="text-align:center">24GB</td>
+<td style="text-align:center">72</td>
+<td style="text-align:center">飞快</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Apple Silicon（Metal 加速）</strong></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">设备型号</th>
+<th style="text-align:center">内存</th>
+<th style="text-align:center">7B tokens/s</th>
+<th style="text-align:center">14B tokens/s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">M2 Air 8GB</td>
+<td style="text-align:center">8GB</td>
+<td style="text-align:center">35</td>
+<td style="text-align:center">OOM</td>
+</tr>
+<tr>
+<td style="text-align:center">M2 Pro 16GB</td>
+<td style="text-align:center">16GB</td>
+<td style="text-align:center">48</td>
+<td style="text-align:center">22</td>
+</tr>
+<tr>
+<td style="text-align:center">M2 Max 32GB</td>
+<td style="text-align:center">32GB</td>
+<td style="text-align:center">58</td>
+<td style="text-align:center">32</td>
+</tr>
+<tr>
+<td style="text-align:center">M2 Ultra 64GB</td>
+<td style="text-align:center">64GB</td>
+<td style="text-align:center">65</td>
+<td style="text-align:center">45</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Apple Silicon 的优势是统一内存，显存够大。但单核性能不如高端 GPU。</p>
+<p><strong>纯 CPU 推理</strong></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">CPU 型号</th>
+<th style="text-align:center">内存</th>
+<th style="text-align:center">7B tokens/s</th>
+<th style="text-align:center">14B tokens/s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">i7-12700K</td>
+<td style="text-align:center">32GB</td>
+<td style="text-align:center">6</td>
+<td style="text-align:center">3</td>
+</tr>
+<tr>
+<td style="text-align:center">Ryzen 9 7950X</td>
+<td style="text-align:center">64GB</td>
+<td style="text-align:center">8</td>
+<td style="text-align:center">4</td>
+</tr>
+<tr>
+<td style="text-align:center">M2 Max（CPU only）</td>
+<td style="text-align:center">32GB</td>
+<td style="text-align:center">12</td>
+<td style="text-align:center">6</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>能跑，但慢。适合批处理任务，不适合实时对话。</p>
+<h2 id="批处理吞吐量提升数据"><a href="#批处理吞吐量提升数据" class="headerlink" title="批处理吞吐量提升数据"></a>批处理吞吐量提升数据</h2><p>这张表展示不同 num_batch 设置对吞吐量的影响：</p>
+<p><strong>测试环境：RTX 3080，7B Q4**</strong><em><strong><strong>K</strong></strong></em><strong>**M，多并发请求</strong></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">num_batch</th>
+<th style="text-align:center">单请求延迟</th>
+<th style="text-align:center">并发吞吐量</th>
+<th style="text-align:center">显存占用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">512</td>
+<td style="text-align:center">22ms/token</td>
+<td style="text-align:center">45 tokens/s</td>
+<td style="text-align:center">5.2GB</td>
+</tr>
+<tr>
+<td style="text-align:center">1024</td>
+<td style="text-align:center">22ms/token</td>
+<td style="text-align:center">72 tokens/s</td>
+<td style="text-align:center">6.1GB</td>
+</tr>
+<tr>
+<td style="text-align:center">2048</td>
+<td style="text-align:center">22ms/token</td>
+<td style="text-align:center">98 tokens/s</td>
+<td style="text-align:center">7.4GB</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>关键发现：</p>
+<ul>
+<li><strong>单请求延迟几乎不变</strong>：批处理不影响单个请求的响应速度</li>
+<li><strong>吞吐量翻倍</strong>：并发场景下，num_batch=2048 比 512 提升了 118%</li>
+<li><strong>显存代价可控</strong>：提升 118% 吞吐量，只多花了 2.2GB 显存</li>
+</ul>
+<h2 id="环境变量配置汇总"><a href="#环境变量配置汇总" class="headerlink" title="环境变量配置汇总"></a>环境变量配置汇总</h2><p>Ollama 支持的环境变量，我整理了常用的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"># Flash Attention（强烈推荐，配合 KV Cache 量化可大幅省显存）</span><br><span class="line">export OLLAMA_FLASH_ATTENTION=1</span><br><span class="line"></span><br><span class="line"># KV Cache 量化：f16(默认)/q8_0(省约一半)/q4_0(省约四分之三)，需先开 Flash Attention</span><br><span class="line">export OLLAMA_KV_CACHE_TYPE=q8_0</span><br><span class="line"></span><br><span class="line"># 为系统/其他程序预留显存（单位：字节，默认 0）</span><br><span class="line">export OLLAMA_GPU_OVERHEAD=1073741824  # 预留 1GB</span><br><span class="line"></span><br><span class="line"># 默认上下文长度（覆盖模型默认值）</span><br><span class="line">export OLLAMA_CONTEXT_LENGTH=4096</span><br><span class="line"></span><br><span class="line"># 模型保活时间（默认 5 分钟）</span><br><span class="line">export OLLAMA_KEEP_ALIVE=24h</span><br><span class="line"></span><br><span class="line"># 并发请求数限制</span><br><span class="line">export OLLAMA_MAX_QUEUE=512</span><br><span class="line"></span><br><span class="line"># 日志级别</span><br><span class="line">export OLLAMA_DEBUG=1</span><br></pre></td></tr></table></figure>
+<p><strong>Docker Compose 完整配置示例</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3&#x27;</span><br><span class="line">services:</span><br><span class="line">  ollama:</span><br><span class="line">    image: ollama/ollama</span><br><span class="line">    container_name: ollama</span><br><span class="line">    restart: unless-stopped</span><br><span class="line">    environment:</span><br><span class="line">      - OLLAMA_FLASH_ATTENTION=1</span><br><span class="line">      - OLLAMA_KEEP_ALIVE=24h</span><br><span class="line">      - OLLAMA_MAX_QUEUE=512</span><br><span class="line">    volumes:</span><br><span class="line">      - ollama_data:/root/.ollama</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;11434:11434&quot;</span><br><span class="line">    deploy:</span><br><span class="line">      resources:</span><br><span class="line">        reservations:</span><br><span class="line">          devices:</span><br><span class="line">            - driver: nvidia</span><br><span class="line">              count: all</span><br><span class="line">              capabilities: [gpu]</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  ollama_data:</span><br></pre></td></tr></table></figure>
+<p>把上面的配置保存成 <code>docker-compose.yml</code>，然后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>说了这么多，给你一个三步优化流程：</p>
+<p><strong>第一步：选量化</strong><br>先看显存大小，选合适的量化版本。Q4_K_M 是性价比首选，大多数情况下够用。显存充裕再考虑 Q5_K_M。</p>
+<p><strong>第二步：调批处理</strong><br>显存有富余？把 num_batch 提到 1024 甚至 2048。吞吐量能翻倍，代价是多点显存。</p>
+<p><strong>第三步：解决 OOM</strong><br>还不够？启用 Flash Attention，减小 num_ctx，或者用 CPU offload。按顺序试，总能找到平衡点。</p>
+<p>性能优化不是一次到位的事情。你的硬件、模型大小、使用场景都不一样，需要逐步调优。我建议从量化开始，确认能跑起来，再调批处理参数，最后才去搞那些进阶的环境变量。</p>
+<p>对了，如果你遇到具体问题——比如某个模型怎么配置、某个报错怎么解决——可以留言或者去 Ollama 官方文档翻翻。社区里有很多实战经验分享，比理论讲解实用得多。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/356c/">https://jingluo23.github.io/posts/356c/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Ollama/">Ollama</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/dedf/" title="Ollama GPU 调度与资源管理：显存优化、多 GPU 负载均衡"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Ollama GPU 调度与资源管理：显存优化、多 GPU 负载均衡</div></div><div class="info-2"><div class="info-item-1">深入解析 Ollama GPU 调度与资源管理，涵盖显存优化参数配置、多 GPU 负载均衡实战架构、llama.cpp 技术原理。提供 3 个真实场景案例，帮你稳定运行大模型，充分利用多显卡硬件</div></div></div></a><a class="pagination-related" href="/posts/ccad/" title="Ollama 多模型并行运行：Qwen、Llama、DeepSeek 配置实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Ollama 多模型并行运行：Qwen、Llama、DeepSeek 配置实战</div></div><div class="info-2"><div class="info-item-1">详解 Ollama 多模型并行运行配置方法，对比 Qwen、Llama、DeepSeek 三大模型特点与适用场景，分享 GPU 内存管理技巧，助你打造智能模型切换系统。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/aa53/" title="Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-25</div><div class="info-item-2">Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口</div></div><div class="info-2"><div class="info-item-1">学习 Ollama API 调用的两种方式：原生 REST API（curl）和 OpenAI SDK 兼容接口。包含完整代码示例、流式响应处理和最佳实践指南</div></div></div></a><a class="pagination-related" href="/posts/dedf/" title="Ollama GPU 调度与资源管理：显存优化、多 GPU 负载均衡"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-21</div><div class="info-item-2">Ollama GPU 调度与资源管理：显存优化、多 GPU 负载均衡</div></div><div class="info-2"><div class="info-item-1">深入解析 Ollama GPU 调度与资源管理，涵盖显存优化参数配置、多 GPU 负载均衡实战架构、llama.cpp 技术原理。提供 3 个真实场景案例，帮你稳定运行大模型，充分利用多显卡硬件</div></div></div></a><a class="pagination-related" href="/posts/fbb8/" title="Ollama 模型管理：下载、切换、删除与版本控制完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-15</div><div class="info-item-2">Ollama 模型管理：下载、切换、删除与版本控制完全指南</div></div><div class="info-2"><div class="info-item-1">详细讲解 Ollama 模型管理核心命令，包括下载指定版本、切换模型、批量删除脚本、版本控制最佳实践，帮助你高效管理本地 LLM 库，腾出磁盘空间，避免版本混乱。适合 AI 开发者和 OpenClaw 部署者。</div></div></div></a><a class="pagination-related" href="/posts/45c2/" title="Ollama GPU 加速配置：CUDA、ROCm 与 Metal 全平台实战指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-20</div><div class="info-item-2">Ollama GPU 加速配置：CUDA、ROCm 与 Metal 全平台实战指南</div></div><div class="info-2"><div class="info-item-1">Ollama GPU 加速完整指南：覆盖 NVIDIA CUDA、AMD ROCm、Apple Metal 三平台配置方法，包含验证步骤、多 GPU 设置和故障排除，让本地 LLM 推理速度提升 10-20 倍。</div></div></div></a><a class="pagination-related" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-29</div><div class="info-item-2">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</div></div><div class="info-2"><div class="info-item-1">详解 Ollama GGUF 量化原理，引用 Red Hat 500K+ 评估数据揭示精度损失真相，提供不同硬件配置的量化选择建议，帮助你在消费级显卡上运行大模型。</div></div></div></a><a class="pagination-related" href="/posts/b204/" title="Llama 70B 本地运行：5700XT、Mac M4、CUDA 三方案对比与选型指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-18</div><div class="info-item-2">Llama 70B 本地运行：5700XT、Mac M4、CUDA 三方案对比与选型指南</div></div><div class="info-2"><div class="info-item-1">想本地运行 Llama 70B？本文对比 AMD 5700XT、Mac M4、NVIDIA CUDA 三种方案，用实测数据帮你判断哪种硬件适合自己，包含显存需求、性能对比和踩坑指南。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E6%8A%80%E6%9C%AF-%E2%80%94-%E4%BB%8E-Q4-%E5%88%B0-FP16-%E7%9A%84%E8%B4%A8%E9%87%8F%E4%B8%8E%E9%80%9F%E5%BA%A6%E6%9D%83%E8%A1%A1"><span class="toc-number">1.</span> <span class="toc-text">量化技术 — 从 Q4 到 FP16 的质量与速度权衡</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E9%87%8F%E5%8C%96%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88-GGUF-%E6%98%AF%E4%B8%BB%E6%B5%81%E6%A0%BC%E5%BC%8F"><span class="toc-number">1.1.</span> <span class="toc-text">什么是量化？为什么 GGUF 是主流格式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E7%B1%BB%E5%9E%8B%E8%AF%A6%E8%A7%A3%EF%BC%9AQ4-0%E3%80%81Q4-K-M%E3%80%81Q5-K-M%E3%80%81Q8-0-%E5%AF%B9%E6%AF%94"><span class="toc-number">1.2.</span> <span class="toc-text">量化类型详解：Q4_0、Q4_K_M、Q5_K_M、Q8_0 对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E9%80%89%E6%8B%A9%E5%86%B3%E7%AD%96%E6%A0%91"><span class="toc-number">1.3.</span> <span class="toc-text">量化选择决策树</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%B8%8B%E8%BD%BD%E6%8C%87%E5%AE%9A%E9%87%8F%E5%8C%96%E7%89%88%E6%9C%AC"><span class="toc-number">1.4.</span> <span class="toc-text">如何下载指定量化版本</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%89%B9%E5%A4%84%E7%90%86%E9%85%8D%E7%BD%AE-%E2%80%94-%E8%AE%A9%E5%90%9E%E5%90%90%E9%87%8F%E6%8F%90%E5%8D%87-50-150"><span class="toc-number">2.</span> <span class="toc-text">批处理配置 — 让吞吐量提升 50-150%</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%B9%E5%A4%84%E7%90%86%E5%8E%9F%E7%90%86%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E8%83%BD%E6%8F%90%E9%80%9F%EF%BC%9F"><span class="toc-number">2.1.</span> <span class="toc-text">批处理原理：为什么能提速？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#num-batch-%E5%8F%82%E6%95%B0%E8%AF%A6%E8%A7%A3"><span class="toc-number">2.2.</span> <span class="toc-text">num_batch 参数详解</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#num-ctx-%E4%B8%8E-KV-Cache"><span class="toc-number">2.3.</span> <span class="toc-text">num_ctx 与 KV Cache</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%B9%E5%A4%84%E7%90%86%E9%85%8D%E7%BD%AE%E5%AE%9E%E6%88%98"><span class="toc-number">2.4.</span> <span class="toc-text">批处理配置实战</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%85%E5%AD%98%E8%B0%83%E4%BC%98-%E2%80%94-%E8%A7%A3%E5%86%B3-OOM-%E7%9A%84%E4%B8%89%E5%A4%A7%E7%AD%96%E7%95%A5"><span class="toc-number">3.</span> <span class="toc-text">内存调优 — 解决 OOM 的三大策略</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#GPU-%E5%86%85%E5%AD%98%E5%88%86%E9%85%8D%E6%9C%BA%E5%88%B6"><span class="toc-number">3.1.</span> <span class="toc-text">GPU 内存分配机制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AD%96%E7%95%A5%E4%B8%80%EF%BC%9A%E9%87%8F%E5%8C%96%E9%99%8D%E7%BA%A7"><span class="toc-number">3.2.</span> <span class="toc-text">策略一：量化降级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AD%96%E7%95%A5%E4%BA%8C%EF%BC%9ACPU-Offload-%E6%B7%B7%E5%90%88%E6%8E%A8%E7%90%86"><span class="toc-number">3.3.</span> <span class="toc-text">策略二：CPU Offload 混合推理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AD%96%E7%95%A5%E4%B8%89%EF%BC%9AKV-Cache-%E4%BC%98%E5%8C%96"><span class="toc-number">3.4.</span> <span class="toc-text">策略三：KV Cache 优化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OOM-%E5%AE%9E%E6%88%98%E8%A7%A3%E5%86%B3%E6%B5%81%E7%A8%8B"><span class="toc-number">3.5.</span> <span class="toc-text">OOM 实战解决流程</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E5%9F%BA%E5%87%86%E4%B8%8E%E7%A1%AC%E4%BB%B6%E5%8F%82%E8%80%83"><span class="toc-number">4.</span> <span class="toc-text">性能基准与硬件参考</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8D%E5%90%8C%E7%A1%AC%E4%BB%B6%E4%B8%8B%E7%9A%84%E6%8E%A8%E7%90%86%E9%80%9F%E5%BA%A6%E8%A1%A8"><span class="toc-number">4.1.</span> <span class="toc-text">不同硬件下的推理速度表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%B9%E5%A4%84%E7%90%86%E5%90%9E%E5%90%90%E9%87%8F%E6%8F%90%E5%8D%87%E6%95%B0%E6%8D%AE"><span class="toc-number">4.2.</span> <span class="toc-text">批处理吞吐量提升数据</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%E9%85%8D%E7%BD%AE%E6%B1%87%E6%80%BB"><span class="toc-number">4.3.</span> <span class="toc-text">环境变量配置汇总</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr">Java 面渣手册</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr">Docker 专题：安装、网络、报错与生产实践</span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr">Ollama 本地 LLM 实战指南</span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
