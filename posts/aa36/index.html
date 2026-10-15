@@ -1,0 +1,683 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>多智能体协作实战：4 种架构模式选择指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="掌握多智能体协作系统的 4 种核心架构模式，从 Subagents 到 Router，附带 LangGraph 代码实现和生产级性能优化建议。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="多智能体协作实战：4 种架构模式选择指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/aa36/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="掌握多智能体协作系统的 4 种核心架构模式，从 Subagents 到 Router，附带 LangGraph 代码实现和生产级性能优化建议。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-04T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T09:02:49.866Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "多智能体协作实战：4 种架构模式选择指南",
+  "url": "https://jingluo23.github.io/posts/aa36/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-04T07:12:21.000Z",
+  "dateModified": "2026-10-15T09:02:49.866Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/aa36/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '多智能体协作实战：4 种架构模式选择指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">多智能体协作实战：4 种架构模式选择指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">多智能体协作实战：4 种架构模式选择指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-04T07:12:21.000Z" title="发表于 2026-08-04 15:12:21">2026-08-04</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T09:02:49.866Z" title="更新于 2026-10-15 17:02:49">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>17分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 17:02:49&quot;}" hidden></div><p>Anthropic 研究数据显示：多 Agent 系统比单 Agent 性能高出 90.2%。单 Agent 有三个致命伤：上下文限制（200k token 撑爆后开始乱输出）、能力分散（塞太多技能变成”万金油”）、调试困难（一个 Agent 挂了找不到问题源头）。多智能体协作系统是 AI 界的”微服务架构”，每个 Agent 只做一件事，通过清晰的消息传递协作。</p>
+<p>四种核心架构模式各有适用场景：Subagents（中央编排）适合多独立域并行，Skills（按需加载）适合单线程多阶段，Handoffs（状态驱动）适合多阶段对话，Router（并行分发）适合多数据源查询。这篇文章从选择逻辑、生产环境踩坑到 LangGraph 代码实现，帮你判断”用 Subagents 还是 Skills”、“怎么管理 Agent 间的状态”。</p>
+<h1 id="为什么需要多智能体系统"><a href="#为什么需要多智能体系统" class="headerlink" title="为什么需要多智能体系统"></a>为什么需要多智能体系统</h1><p>说实话，单 Agent 最大的问题不是”能不能用”，而是”能用多久”。</p>
+<p>你有没有遇到过这种情况：一个 Agent 本来写得挺好的代码，突然开始输出乱七八糟的东西？或者你明明只问了 A，它偏要扯到 B 再扯到 C，最后连 Z 都给你搬出来？这不是 Agent”笨”，是它的上下文窗口被撑爆了。</p>
+<p>单 Agent 有三个致命伤。</p>
+<p><strong>上下文限制</strong>。一个 Agent 再怎么强大，200k token 的上下文也就那么多。你让它同时处理代码审查、安全分析、性能优化，它能记住一半就不错了。我见过一个 Agent 在同一个对话里，前 20 轮还在聊 Python，第 21 轮就开始输出 JavaScript——它彻底忘了自己该干什么。</p>
+<p><strong>能力分散</strong>。你塞给一个 Agent 越多的技能，它就越像个”万金油”——什么都会一点，什么都不精。让它做个代码审查，它可能给你写个单元测试；让它写文档，它可能顺便重构了代码。方向感？不存在的。</p>
+<p><strong>调试困难</strong>。一个 Agent 挂了，你根本不知道是哪个环节出的问题。提示词太长？工具调用失败？还是上下文污染？排查起来像大海捞针。</p>
+<p>多智能体系统，说白了就是 AI 界的”微服务架构”。每个 Agent 只做一件事，做好一件事。它们之间通过清晰的消息传递协作，而不是一股脑全塞进一个”超级 Agent”里。</p>
+<p>Google、LangChain、Anthropic 都在推这套思路。O’Reilly 的报告显示，2025 年 Agent 相关论文已经从年初的 820 篇涨到 2500 多篇，翻了三倍。为什么？因为大家发现：单 Agent 打天下的时代，结束了。</p>
+<h1 id="四种核心架构模式"><a href="#四种核心架构模式" class="headerlink" title="四种核心架构模式"></a>四种核心架构模式</h1><p>LangChain 和 Google 总结出了几种主流的多智能体架构。我跑了几个项目后，发现它们各有各的适用场景，选错了就是”用大炮打蚊子”或者”拿筷子喝汤”。</p>
+<h2 id="Subagents（子代理）-中央编排模式"><a href="#Subagents（子代理）-中央编排模式" class="headerlink" title="Subagents（子代理）- 中央编排模式"></a>Subagents（子代理）- 中央编排模式</h2><p>这是最直观的模式：一个”主 Agent”当指挥官，手下带一群”子 Agent”。子 Agent 就是主 Agent 的工具，主 Agent 决定什么时候调用谁。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户请求 → 主 Agent（协调器）→ 分发给子 Agent A/B/C → 汇总结果 → 返回用户</span><br></pre></td></tr></table></figure>
+<p><strong>什么时候用？</strong> 你的任务涉及多个独立领域。比如一个客服系统：一个子 Agent 处理订单查询，一个处理退款，一个处理投诉。每个领域有自己的知识库和工具，主 Agent 只负责”分流”。</p>
+<p><strong>代码示例</strong>（LangGraph）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.prebuilt import create_react_agent</span><br><span class="line"></span><br><span class="line"># 定义子 Agent</span><br><span class="line">order_agent = create_react_agent(</span><br><span class="line">    model=&quot;claude-3-5-sonnet-20241022&quot;,</span><br><span class="line">    tools=[query_order, update_order],</span><br><span class="line">    prompt=&quot;你是订单专家，只处理订单相关问题。&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">refund_agent = create_react_agent(</span><br><span class="line">    model=&quot;claude-3-5-sonnet-20241022&quot;,</span><br><span class="line">    tools=[check_refund_policy, process_refund],</span><br><span class="line">    prompt=&quot;你是退款专家，只处理退款相关问题。&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 主 Agent 持有子 Agent 作为工具</span><br><span class="line">main_agent = create_react_agent(</span><br><span class="line">    model=&quot;claude-3-5-sonnet-20241022&quot;,</span><br><span class="line">    tools=[order_agent, refund_agent],  # 子 Agent 就是工具</span><br><span class="line">    prompt=&quot;你是客服总管，根据用户问题分发给合适的专家。&quot;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p><strong>优点</strong>：上下文隔离干净，每个子 Agent 只看自己该看的。并行执行效率高。</p>
+<p><strong>缺点</strong>：每个子 Agent 都是独立的 LLM 调用，token 消耗大。如果子 Agent 之间要共享状态，得绕一圈。</p>
+<h2 id="Skills（技能）-按需加载模式"><a href="#Skills（技能）-按需加载模式" class="headerlink" title="Skills（技能）- 按需加载模式"></a>Skills（技能）- 按需加载模式</h2><p>一个 Agent，多套”人格”。Skills 本质上是动态加载的提示词模板。Agent 根据任务切换”身份”，但始终是同一个 Agent。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户请求 → 单一 Agent → 加载&quot;代码审查&quot;Skill → 执行 → 加载&quot;文档生成&quot;Skill → 执行</span><br></pre></td></tr></table></figure>
+<p><strong>什么时候用？</strong> 你的任务需要”单线程”处理，但不同阶段需要不同的专业知识。比如一个编程助手：写代码时用”开发者”模式，写文档时用”技术写手”模式。</p>
+<p><strong>代码示例</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"># Skills 目录结构</span><br><span class="line">skills/</span><br><span class="line">├── code_review.md      # 代码审查提示词</span><br><span class="line">├── doc_writer.md       # 文档生成提示词</span><br><span class="line">└── security_audit.md   # 安全审计提示词</span><br><span class="line"></span><br><span class="line"># 动态加载 Skill</span><br><span class="line">def load_skill(skill_name: str) -&gt; str:</span><br><span class="line">    with open(f&quot;skills/&#123;skill_name&#125;.md&quot;) as f:</span><br><span class="line">        return f.read()</span><br><span class="line"></span><br><span class="line"># 使用示例</span><br><span class="line">agent = create_react_agent(</span><br><span class="line">    model=&quot;claude-3-5-sonnet-20241022&quot;,</span><br><span class="line">    tools=[...],</span><br><span class="line">    prompt=load_skill(&quot;code_review&quot;)  # 运行时切换</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p><strong>优点</strong>：轻量，不需要额外的 Agent 协调开销。token 消耗比 Subagents 低。</p>
+<p><strong>缺点</strong>：上下文会累积。你切换了 10 次 Skill，之前 9 次 Skill 的内容还在上下文里，越堆越乱。</p>
+<h2 id="Handoffs（移交）-状态驱动模式"><a href="#Handoffs（移交）-状态驱动模式" class="headerlink" title="Handoffs（移交）- 状态驱动模式"></a>Handoffs（移交）- 状态驱动模式</h2><p>Agent 之间像传球一样交接任务。Agent A 干完活，把状态”扔”给 Agent B，Agent B 继续。有点像接力赛。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户请求 → Agent A（收集信息）→ 移交 → Agent B（分析问题）→ 移交 → Agent C（给出方案）</span><br></pre></td></tr></table></figure>
+<p><strong>什么时候用？</strong> 多阶段对话场景。比如一个技术支持流程：先收集问题 → 诊断问题 → 给方案 → 确认解决。每个阶段可能需要不同的专业知识。</p>
+<p><strong>代码示例</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">from langchain_core.tools import tool</span><br><span class="line"></span><br><span class="line"># 定义移交工具</span><br><span class="line">@tool</span><br><span class="line">def handoff_to_diagnosis(issue_summary: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;将问题移交给诊断专家。&quot;&quot;&quot;</span><br><span class="line">    return f&quot;已接收问题：&#123;issue_summary&#125;，开始诊断...&quot;</span><br><span class="line"></span><br><span class="line">@tool</span><br><span class="line">def handoff_to_solution(diagnosis_result: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;将诊断结果移交给方案专家。&quot;&quot;&quot;</span><br><span class="line">    return f&quot;根据诊断：&#123;diagnosis_result&#125;，制定方案中...&quot;</span><br><span class="line"></span><br><span class="line"># Agent 链</span><br><span class="line">triage_agent = create_react_agent(</span><br><span class="line">    tools=[handoff_to_diagnosis],</span><br><span class="line">    prompt=&quot;你是问题分拣员，收集用户问题并移交给诊断专家。&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">diagnosis_agent = create_react_agent(</span><br><span class="line">    tools=[handoff_to_solution],</span><br><span class="line">    prompt=&quot;你是诊断专家，分析问题根因并移交给方案专家。&quot;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p><strong>优点</strong>：对话流自然，符合人类协作直觉。每个 Agent 只关注当前阶段。</p>
+<p><strong>缺点</strong>：状态管理复杂。你得保证 Agent A 传给 Agent B 的数据格式是对的，否则链条就断了。</p>
+<h2 id="Router（路由）-并行分发模式"><a href="#Router（路由）-并行分发模式" class="headerlink" title="Router（路由）- 并行分发模式"></a>Router（路由）- 并行分发模式</h2><p>一个”路由 Agent”分析请求，然后并行调用多个专业 Agent，最后把结果综合起来。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">用户请求 → Router（分类）→ 并行调用 Agent A/B/C → 结果综合 → 返回用户</span><br></pre></td></tr></table></figure>
+<p><strong>什么时候用？</strong> 一个请求需要查询多个数据源。比如一个企业知识库问答：Router 判断问题类型，然后并行查询内部文档、外部 API、数据库，最后综合答案。</p>
+<p><strong>代码示例</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.graph import StateGraph</span><br><span class="line"></span><br><span class="line"># 定义并行执行节点</span><br><span class="line">async def query_internal_docs(state):</span><br><span class="line">    # 查询内部文档</span><br><span class="line">    return &#123;&quot;internal_results&quot;: [...]&#125;</span><br><span class="line"></span><br><span class="line">async def query_external_api(state):</span><br><span class="line">    # 查询外部 API</span><br><span class="line">    return &#123;&quot;external_results&quot;: [...]&#125;</span><br><span class="line"></span><br><span class="line">async def query_database(state):</span><br><span class="line">    # 查询数据库</span><br><span class="line">    return &#123;&quot;db_results&quot;: [...]&#125;</span><br><span class="line"></span><br><span class="line">async def synthesize(state):</span><br><span class="line">    # 综合所有结果</span><br><span class="line">    all_results = state[&quot;internal_results&quot;] + state[&quot;external_results&quot;] + state[&quot;db_results&quot;]</span><br><span class="line">    return &#123;&quot;final_answer&quot;: summarize(all_results)&#125;</span><br><span class="line"></span><br><span class="line"># 构建并行图</span><br><span class="line">graph = StateGraph(State)</span><br><span class="line">graph.add_node(&quot;internal&quot;, query_internal_docs)</span><br><span class="line">graph.add_node(&quot;external&quot;, query_external_api)</span><br><span class="line">graph.add_node(&quot;database&quot;, query_database)</span><br><span class="line">graph.add_node(&quot;synthesize&quot;, synthesize)</span><br><span class="line"></span><br><span class="line"># 并行执行</span><br><span class="line">graph.add_edge(&quot;router&quot;, [&quot;internal&quot;, &quot;external&quot;, &quot;database&quot;])</span><br><span class="line">graph.add_edge([&quot;internal&quot;, &quot;external&quot;, &quot;database&quot;], &quot;synthesize&quot;)</span><br></pre></td></tr></table></figure>
+<p><strong>优点</strong>：并行执行，速度最快。无状态，每个查询独立。</p>
+<p><strong>缺点</strong>：不适合多轮对话。每个请求都是新的，Agent 不记得上一轮聊了什么。</p>
+<h1 id="架构选择决策框架"><a href="#架构选择决策框架" class="headerlink" title="架构选择决策框架"></a>架构选择决策框架</h1><p>说了这么多，到底该选哪个？我画了个简单的决策流程：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">你的需求是什么？</span><br><span class="line">         │</span><br><span class="line">         ├─→ 多个独立域需要并行处理？</span><br><span class="line">         │         │</span><br><span class="line">         │         └─→ Subagents（中央编排）</span><br><span class="line">         │</span><br><span class="line">         ├─→ 单 Agent 多阶段切换技能？</span><br><span class="line">         │         │</span><br><span class="line">         │         └─→ Skills（按需加载）</span><br><span class="line">         │</span><br><span class="line">         ├─→ 顺序工作流，一棒接一棒？</span><br><span class="line">         │         │</span><br><span class="line">         │         └─→ Handoffs（状态驱动）</span><br><span class="line">         │</span><br><span class="line">         └─→ 多数据源查询需要综合？</span><br><span class="line">                   │</span><br><span class="line">                   └─→ Router（并行分发）</span><br></pre></td></tr></table></figure>
+<p>光看流程可能还不够直观，我整理了一个对比表：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">模式</th>
+<th style="text-align:center">分布式开发</th>
+<th style="text-align:center">并行化</th>
+<th style="text-align:center">多跳对话</th>
+<th style="text-align:center">直接用户交互</th>
+<th style="text-align:center">Token 消耗</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Subagents</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">低</td>
+<td style="text-align:center">高</td>
+</tr>
+<tr>
+<td style="text-align:center">Skills</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">中</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">低</td>
+</tr>
+<tr>
+<td style="text-align:center">Handoffs</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td style="text-align:center">Router</td>
+<td style="text-align:center">中</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">中</td>
+<td style="text-align:center">高</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这张表怎么读？</p>
+<ul>
+<li><strong>分布式开发</strong>：你的团队是不是分头开发不同模块？如果是，Subagents 和 Skills 都适合，每个成员负责一个子 Agent 或 Skill。</li>
+<li><strong>并行化</strong>：你追求速度吗？Router 和 Subagents 能并行跑多个 Agent，效率最高。</li>
+<li><strong>多跳对话</strong>：用户需要多轮交互吗？Handoffs 和 Skills 天然支持对话流。</li>
+<li><strong>直接用户交互</strong>：用户是不是直接跟子 Agent 说话？Skills 和 Handoffs 支持，Router 不支持。</li>
+<li><strong>Token 消耗</strong>：成本敏感的话，Skills 最省，Router 和 Subagents 最费。</li>
+</ul>
+<p>我的经验是：<strong>从简单开始</strong>。先用 Skills 或 Handoffs 跑通一个 MVP，发现瓶颈了再升级到 Subagents 或 Router。别一上来就搞分布式架构，过度设计的痛苦我懂。</p>
+<h1 id="生产级实现要点"><a href="#生产级实现要点" class="headerlink" title="生产级实现要点"></a>生产级实现要点</h1><p>从 Demo 到生产，中间隔着一个太平洋。这几个坑我全踩过。</p>
+<h2 id="状态管理"><a href="#状态管理" class="headerlink" title="状态管理"></a>状态管理</h2><p>多 Agent 共享状态，最容易出问题的就是”竞态条件”——两个 Agent 同时写同一个变量，最后谁覆盖谁？</p>
+<p>LangGraph 的解决方案是 <code>output_key</code>：每个 Agent 只能写入自己专属的键。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.graph import StateGraph, MessagesState</span><br><span class="line"></span><br><span class="line">class GraphState(MessagesState):</span><br><span class="line">    security_result: str = &quot;&quot;   # 安全 Agent 专属</span><br><span class="line">    style_result: str = &quot;&quot;      # 风格 Agent 专属</span><br><span class="line">    perf_result: str = &quot;&quot;       # 性能 Agent 专属</span><br><span class="line"></span><br><span class="line"># 安全 Agent 只写 security_result</span><br><span class="line">async def security_agent(state: GraphState):</span><br><span class="line">    result = await analyze_security(state[&quot;messages&quot;])</span><br><span class="line">    return &#123;&quot;security_result&quot;: result&#125;  # 只写这一个键</span><br><span class="line"></span><br><span class="line"># 风格 Agent 只写 style_result</span><br><span class="line">async def style_agent(state: GraphState):</span><br><span class="line">    result = await analyze_style(state[&quot;messages&quot;])</span><br><span class="line">    return &#123;&quot;style_result&quot;: result&#125;</span><br></pre></td></tr></table></figure>
+<p>这样，无论并行还是串行，每个 Agent 只动自己那一亩三分地，互不干扰。</p>
+<p>另一个常见问题是”上下文污染”。Agent A 的输出被 Agent B 读到，但 B 根本不需要这些信息。我的做法是：在状态里加一个 <code>relevant_keys</code> 字段，每个 Agent 只读自己需要的键。</p>
+<h2 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h2><p>多 Agent 系统的 token 消耗是个无底洞。几个省 token 的技巧：</p>
+<p><strong>1. Subagents 比 Skills 省 67% token（多域场景）</strong></p>
+<p>LangChain 的测试数据：如果一个任务涉及 3 个独立领域，Subagents 的 token 消耗是 Skills 的三分之一。为什么？因为 Subagents 的上下文隔离，每个子 Agent 只看自己领域的内容。Skills 的话，所有 Skill 的上下文累积在一起，越堆越大。</p>
+<p><strong>2. 有状态模式节省 40-50% 重复调用</strong></p>
+<p>如果你的任务有大量重复查询（比如同一个问题问 10 遍），用有状态的 Handoffs 模式，Agent 能记住之前的答案。LangChain 的数据：有状态比无状态节省接近一半的 LLM 调用。</p>
+<p><strong>3. 反思模式限制迭代次数</strong></p>
+<p>很多人喜欢给 Agent 加”反思”能力——让它自己检查输出、发现问题、重新生成。这东西好是好，但容易陷入无限循环。我一般限制 <code>max_iterations=2</code> 或 <code>3</code>，超过就强制退出。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.checkpoint.memory import MemorySaver</span><br><span class="line"></span><br><span class="line"># 设置迭代上限</span><br><span class="line">graph = create_react_agent(</span><br><span class="line">    model=&quot;claude-3-5-sonnet-20241022&quot;,</span><br><span class="line">    tools=[...],</span><br><span class="line">    checkpointer=MemorySaver(),</span><br><span class="line">    config=&#123;&quot;configurable&quot;: &#123;&quot;max_iterations&quot;: 3&#125;&#125;  # 最多反思 3 次</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="常见踩坑"><a href="#常见踩坑" class="headerlink" title="常见踩坑"></a>常见踩坑</h2><p><strong>无限循环</strong>：Agent 调用自己，自己调自己，自己调自己…没完没了。解决方案：设置 <code>max_iterations</code> 和明确的退出条件。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">def should_continue(state):</span><br><span class="line">    if state[&quot;iteration_count&quot;] &gt;= 3:</span><br><span class="line">        return &quot;end&quot;</span><br><span class="line">    if &quot;done&quot; in state[&quot;messages&quot;][-1].content:</span><br><span class="line">        return &quot;end&quot;</span><br><span class="line">    return &quot;continue&quot;</span><br></pre></td></tr></table></figure>
+<p><strong>上下文膨胀</strong>：Agent 越来越”笨”，输出越来越短。多半是上下文塞太多东西了。解决方案：用 Blackboard 模式（共享黑板），只保留必要的上下文，定期清理。</p>
+<p><strong>协调税</strong>：Agent 数量增加，通信开销指数级增长。我测试过一个系统：从 3 个 Agent 加到 10 个，响应时间从 2 秒变成 15 秒。解决方案：合并职责相近的 Agent，控制 Agent 数量在 5 个以内。</p>
+<h1 id="完整实现示例"><a href="#完整实现示例" class="headerlink" title="完整实现示例"></a>完整实现示例</h1><p>说了这么多理论，来点实际的。我搭了一个代码审查多智能体系统，用的是 Router + ParallelAgent 模式。</p>
+<p><strong>架构</strong>：Router 判断代码语言和类型 → 并行调用安全审计、风格检查、性能分析三个 Agent → 综合结果输出报告。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br></pre></td><td class="code"><pre><span class="line">from typing import TypedDict, Annotated</span><br><span class="line">from langgraph.graph import StateGraph, END</span><br><span class="line">from langchain_anthropic import ChatAnthropic</span><br><span class="line"></span><br><span class="line"># 定义状态</span><br><span class="line">class CodeReviewState(TypedDict):</span><br><span class="line">    code: str</span><br><span class="line">    language: str</span><br><span class="line">    security_issues: list</span><br><span class="line">    style_issues: list</span><br><span class="line">    perf_issues: list</span><br><span class="line">    final_report: str</span><br><span class="line"></span><br><span class="line"># 初始化 LLM</span><br><span class="line">llm = ChatAnthropic(model=&quot;claude-3-5-sonnet-20241022&quot;)</span><br><span class="line"></span><br><span class="line"># Router: 判断语言</span><br><span class="line">async def route_code(state: CodeReviewState) -&gt; dict:</span><br><span class="line">    code = state[&quot;code&quot;]</span><br><span class="line">    # 简单判断，实际可以用 LLM 分类</span><br><span class="line">    if &quot;def &quot; in code or &quot;import &quot; in code:</span><br><span class="line">        language = &quot;python&quot;</span><br><span class="line">    elif &quot;function&quot; in code or &quot;const &quot; in code:</span><br><span class="line">        language = &quot;javascript&quot;</span><br><span class="line">    else:</span><br><span class="line">        language = &quot;unknown&quot;</span><br><span class="line">    return &#123;&quot;language&quot;: language&#125;</span><br><span class="line"></span><br><span class="line"># 安全审计 Agent</span><br><span class="line">async def security_audit(state: CodeReviewState) -&gt; dict:</span><br><span class="line">    code = state[&quot;code&quot;]</span><br><span class="line">    prompt = f&quot;&quot;&quot;你是安全审计专家。检查以下代码的安全问题：</span><br><span class="line">- SQL 注入风险</span><br><span class="line">- XSS 漏洞</span><br><span class="line">- 敏感信息泄露</span><br><span class="line">- 不安全的依赖</span><br><span class="line"></span><br><span class="line">代码：</span><br><span class="line">&#123;code&#125;</span><br><span class="line"></span><br><span class="line">以 JSON 列表形式输出问题，每项包含：line（行号）、severity（严重程度）、description（描述）。</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">    response = await llm.ainvoke(prompt)</span><br><span class="line">    # 解析结果...</span><br><span class="line">    return &#123;&quot;security_issues&quot;: []&#125;</span><br><span class="line"></span><br><span class="line"># 风格检查 Agent</span><br><span class="line">async def style_check(state: CodeReviewState) -&gt; dict:</span><br><span class="line">    code = state[&quot;code&quot;]</span><br><span class="line">    language = state[&quot;language&quot;]</span><br><span class="line">    prompt = f&quot;&quot;&quot;你是代码风格专家。检查以下 &#123;language&#125; 代码的风格问题：</span><br><span class="line">- 命名规范</span><br><span class="line">- 代码格式</span><br><span class="line">- 注释完整性</span><br><span class="line"></span><br><span class="line">代码：</span><br><span class="line">&#123;code&#125;</span><br><span class="line"></span><br><span class="line">以 JSON 列表形式输出问题。</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">    response = await llm.ainvoke(prompt)</span><br><span class="line">    return &#123;&quot;style_issues&quot;: []&#125;</span><br><span class="line"></span><br><span class="line"># 性能分析 Agent</span><br><span class="line">async def perf_analysis(state: CodeReviewState) -&gt; dict:</span><br><span class="line">    code = state[&quot;code&quot;]</span><br><span class="line">    prompt = f&quot;&quot;&quot;你是性能分析专家。检查以下代码的性能问题：</span><br><span class="line">- 时间复杂度过高</span><br><span class="line">- 不必要的循环</span><br><span class="line">- 内存泄漏风险</span><br><span class="line"></span><br><span class="line">代码：</span><br><span class="line">&#123;code&#125;</span><br><span class="line"></span><br><span class="line">以 JSON 列表形式输出问题。</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">    response = await llm.ainvoke(prompt)</span><br><span class="line">    return &#123;&quot;perf_issues&quot;: []&#125;</span><br><span class="line"></span><br><span class="line"># 综合报告</span><br><span class="line">async def generate_report(state: CodeReviewState) -&gt; dict:</span><br><span class="line">    security = state.get(&quot;security_issues&quot;, [])</span><br><span class="line">    style = state.get(&quot;style_issues&quot;, [])</span><br><span class="line">    perf = state.get(&quot;perf_issues&quot;, [])</span><br><span class="line"></span><br><span class="line">    total_issues = len(security) + len(style) + len(perf)</span><br><span class="line"></span><br><span class="line">    report = f&quot;&quot;&quot;# 代码审查报告</span><br><span class="line"></span><br><span class="line">## 概览</span><br><span class="line">- 语言：&#123;state[&#x27;language&#x27;]&#125;</span><br><span class="line">- 总问题数：&#123;total_issues&#125;</span><br><span class="line"></span><br><span class="line">## 安全问题 (&#123;len(security)&#125; 个)</span><br><span class="line">&#123;format_issues(security)&#125;</span><br><span class="line"></span><br><span class="line">## 风格问题 (&#123;len(style)&#125; 个)</span><br><span class="line">&#123;format_issues(style)&#125;</span><br><span class="line"></span><br><span class="line">## 性能问题 (&#123;len(perf)&#125; 个)</span><br><span class="line">&#123;format_issues(perf)&#125;</span><br><span class="line"></span><br><span class="line">## 建议</span><br><span class="line">根据以上分析，建议优先修复安全问题...</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">    return &#123;&quot;final_report&quot;: report&#125;</span><br><span class="line"></span><br><span class="line"># 构建图</span><br><span class="line">graph = StateGraph(CodeReviewState)</span><br><span class="line">graph.add_node(&quot;router&quot;, route_code)</span><br><span class="line">graph.add_node(&quot;security&quot;, security_audit)</span><br><span class="line">graph.add_node(&quot;style&quot;, style_check)</span><br><span class="line">graph.add_node(&quot;perf&quot;, perf_analysis)</span><br><span class="line">graph.add_node(&quot;report&quot;, generate_report)</span><br><span class="line"></span><br><span class="line"># 流程：Router → 并行执行三个检查 → 生成报告</span><br><span class="line">graph.set_entry_point(&quot;router&quot;)</span><br><span class="line">graph.add_edge(&quot;router&quot;, &quot;security&quot;)</span><br><span class="line">graph.add_edge(&quot;router&quot;, &quot;style&quot;)</span><br><span class="line">graph.add_edge(&quot;router&quot;, &quot;perf&quot;)</span><br><span class="line">graph.add_edge(&quot;security&quot;, &quot;report&quot;)</span><br><span class="line">graph.add_edge(&quot;style&quot;, &quot;report&quot;)</span><br><span class="line">graph.add_edge(&quot;perf&quot;, &quot;report&quot;)</span><br><span class="line">graph.add_edge(&quot;report&quot;, END)</span><br><span class="line"></span><br><span class="line"># 编译</span><br><span class="line">app = graph.compile()</span><br><span class="line"></span><br><span class="line"># 使用</span><br><span class="line">async def review_code(code: str):</span><br><span class="line">    result = await app.ainvoke(&#123;&quot;code&quot;: code&#125;)</span><br><span class="line">    return result[&quot;final_report&quot;]</span><br></pre></td></tr></table></figure>
+<p>这个示例跑起来后，一段 100 行的代码，三个 Agent 并行执行，大概 3-5 秒出结果。如果串行执行，至少要 10 秒。</p>
+<p>当然，这只是个基础版本。生产环境你还需要加：缓存（同样的代码不重复审查）、增量审查（只看改动的部分）、人工反馈（让用户标记误报）。但这些扩展，都是在这个架构基础上做的。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实就三句话：</p>
+<p><strong>底层逻辑</strong>：模式选择比框架选择更重要。LangGraph、AutoGen、CrewAI 都是好工具，但如果你用 Router 模式去解决一个需要 Handoffs 的问题，再好的框架也救不了你。</p>
+<p><strong>中层策略</strong>：从简单开始，逐步升级。先跑通一个 Skills 或 Handoffs 的 MVP，发现瓶颈了再考虑 Subagents 或 Router。过度设计是最大的坑——我踩过，别再踩。</p>
+<p><strong>顶层落地</strong>：生产环境关注状态管理、性能和成本。Token 消耗、无限循环、上下文污染，这三个问题搞定，你的多 Agent 系统就能稳稳跑起来。</p>
+<p>下一步行动：打开 LangGraph 文档，选一个模式，用 50 行代码实现一个最简单的多智能体系统。别想太多，先跑起来。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Subagents-和-Skills-有什么区别？"><a href="#Subagents-和-Skills-有什么区别？" class="headerlink" title="Subagents 和 Skills 有什么区别？"></a>Subagents 和 Skills 有什么区别？</h2><p>Subagents 是多个独立 Agent 协作，每个 Agent 有独立上下文，适合多域并行任务。Skills 是单个 Agent 动态加载不同提示词，适合单线程多阶段任务。Subagents token 消耗高但上下文隔离好，Skills 轻量但上下文会累积。</p>
+<h2 id="什么时候应该用-Handoffs-模式？"><a href="#什么时候应该用-Handoffs-模式？" class="headerlink" title="什么时候应该用 Handoffs 模式？"></a>什么时候应该用 Handoffs 模式？</h2><p>当你的任务有明确的多阶段流程，且每个阶段需要不同专业知识时，用 Handoffs。比如技术支持流程（收集问题 → 诊断 → 给方案 → 确认）。每个 Agent 只关注当前阶段，符合人类协作直觉。</p>
+<h2 id="多-Agent-系统如何避免竞态条件？"><a href="#多-Agent-系统如何避免竞态条件？" class="headerlink" title="多 Agent 系统如何避免竞态条件？"></a>多 Agent 系统如何避免竞态条件？</h2><p>使用 output_key 机制，让每个 Agent 只能写入专属的键。比如安全 Agent 写 security_result，风格 Agent 写 style_result，互不干扰。也可以用 Blackboard 模式，定义 relevant_keys 让 Agent 只读需要的字段。</p>
+<h2 id="如何控制多-Agent-系统的-token-消耗？"><a href="#如何控制多-Agent-系统的-token-消耗？" class="headerlink" title="如何控制多 Agent 系统的 token 消耗？"></a>如何控制多 Agent 系统的 token 消耗？</h2><p>三个策略：</p>
+<ol>
+<li>多域场景用 Subagents 比 Skills 省 67% token；</li>
+<li>有重复查询时用有状态模式节省 40-50% 调用；</li>
+<li>反思模式限制迭代次数（max_iterations=2 或 3）。</li>
+</ol>
+<p>另外，控制 Agent 数量在 5 个以内能避免协调税。</p>
+<h2 id="Router-模式适合什么场景？"><a href="#Router-模式适合什么场景？" class="headerlink" title="Router 模式适合什么场景？"></a>Router 模式适合什么场景？</h2><p>Router 适合需要并行查询多个数据源的场景。比如企业知识库问答，Router 判断问题类型后并行查询内部文档、外部 API、数据库，最后综合答案。优点是速度最快，缺点是不适合多轮对话。</p>
+<h2 id="如何防止-Agent-陷入无限循环？"><a href="#如何防止-Agent-陷入无限循环？" class="headerlink" title="如何防止 Agent 陷入无限循环？"></a>如何防止 Agent 陷入无限循环？</h2><p>设置 max_iterations 限制迭代次数（一般 2-3 次），同时定义明确的退出条件。比如检查 state[‘iteration_count’] 或判断消息中是否包含完成标记。LangGraph 的 MemorySaver 可以帮助追踪迭代状态。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/aa36/">https://jingluo23.github.io/posts/aa36/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/392d/" title="Computer-Use Agent：让 AI 操作你的电脑"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Computer-Use Agent：让 AI 操作你的电脑</div></div><div class="info-2"><div class="info-item-1">深入解析 Claude Computer Use 技术，从原理到实践完整指南。包含 Docker 部署、代码示例、竞品分析和安全最佳实践，助你掌握 AI 桌面自动化的前沿技术</div></div></div></a><a class="pagination-related" href="/posts/1f8c/" title="AI Agent 工具链设计：从单一工具到工具生态的演进指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">AI Agent 工具链设计：从单一工具到工具生态的演进指南</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 工具链设计，从 MCP 协议到主流框架选型，覆盖 LangChain、CrewAI、AutoGen 对比与企业落地实践，助你构建可扩展的工具生态</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/69d1/" title="2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-14</div><div class="info-item-2">2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选</div></div><div class="info-2"><div class="info-item-1">用状态管理、工具调用、HITL、guardrails、eval、可观测性和部署复杂度比较 LangGraph、OpenAI Agents SDK、AutoGen、CrewAI 与 Temporal，帮你从 Agent demo 进入生产选型。</div></div></div></a><a class="pagination-related" href="/posts/c6f7/" title="Agent 规划能力怎么测？推理深度、任务分解与自我纠错的评估实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-11</div><div class="info-item-2">Agent 规划能力怎么测？推理深度、任务分解与自我纠错的评估实战</div></div><div class="info-2"><div class="info-item-1">Agent 规划能力怎么测？本文详解推理深度、任务分解、自我纠错的评测方法论，对比 AgentBench、ToolBench、ACPBench 等主流 benchmark，提供实战评测指南。</div></div></div></a><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-02</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a><a class="pagination-related" href="/posts/439a/" title="DeepAgents 架构解析：规划工具、子代理与文件系统"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">DeepAgents 架构解析：规划工具、子代理与文件系统</div></div><div class="info-2"><div class="info-item-1">深度解析 DeepAgents 四大支柱架构：Planning Tools、Sub-agents、File System 和 System Prompts，对比 LangGraph、AutoGen 等框架，提供实战代码示例和最佳实践</div></div></div></a><a class="pagination-related" href="/posts/8a83/" title="Agent 状态机设计：为什么复杂任务不能只靠 Prompt"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-19</div><div class="info-item-2">Agent 状态机设计：为什么复杂任务不能只靠 Prompt</div></div><div class="info-2"><div class="info-item-1">复杂 Agent 任务不能只靠 prompt 记进度。本文用 state、event、transition、guard、action、checkpoint、retry、compensation、approval pause 和 terminal state，设计可恢复的 Agent 状态机。</div></div></div></a><a class="pagination-related" href="/posts/aa55/" title="Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南</div></div><div class="info-2"><div class="info-item-1">详解 Agent 评估基准与性能测试框架，对比 AgentBench、WebArena、τ-Bench 等五大基准，介绍 DeepEval 组件级评估方法，提供完整代码示例。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E5%A4%9A%E6%99%BA%E8%83%BD%E4%BD%93%E7%B3%BB%E7%BB%9F"><span class="toc-number">1.</span> <span class="toc-text">为什么需要多智能体系统</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E7%A7%8D%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.</span> <span class="toc-text">四种核心架构模式</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Subagents%EF%BC%88%E5%AD%90%E4%BB%A3%E7%90%86%EF%BC%89-%E4%B8%AD%E5%A4%AE%E7%BC%96%E6%8E%92%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.1.</span> <span class="toc-text">Subagents（子代理）- 中央编排模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Skills%EF%BC%88%E6%8A%80%E8%83%BD%EF%BC%89-%E6%8C%89%E9%9C%80%E5%8A%A0%E8%BD%BD%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.2.</span> <span class="toc-text">Skills（技能）- 按需加载模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Handoffs%EF%BC%88%E7%A7%BB%E4%BA%A4%EF%BC%89-%E7%8A%B6%E6%80%81%E9%A9%B1%E5%8A%A8%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.3.</span> <span class="toc-text">Handoffs（移交）- 状态驱动模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Router%EF%BC%88%E8%B7%AF%E7%94%B1%EF%BC%89-%E5%B9%B6%E8%A1%8C%E5%88%86%E5%8F%91%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.4.</span> <span class="toc-text">Router（路由）- 并行分发模式</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E9%80%89%E6%8B%A9%E5%86%B3%E7%AD%96%E6%A1%86%E6%9E%B6"><span class="toc-number">3.</span> <span class="toc-text">架构选择决策框架</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%BA%A7%E5%AE%9E%E7%8E%B0%E8%A6%81%E7%82%B9"><span class="toc-number">4.</span> <span class="toc-text">生产级实现要点</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E7%AE%A1%E7%90%86"><span class="toc-number">4.1.</span> <span class="toc-text">状态管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96"><span class="toc-number">4.2.</span> <span class="toc-text">性能优化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E8%B8%A9%E5%9D%91"><span class="toc-number">4.3.</span> <span class="toc-text">常见踩坑</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E5%AE%9E%E7%8E%B0%E7%A4%BA%E4%BE%8B"><span class="toc-number">5.</span> <span class="toc-text">完整实现示例</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Subagents-%E5%92%8C-Skills-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">Subagents 和 Skills 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%BA%94%E8%AF%A5%E7%94%A8-Handoffs-%E6%A8%A1%E5%BC%8F%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">什么时候应该用 Handoffs 模式？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A-Agent-%E7%B3%BB%E7%BB%9F%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E7%AB%9E%E6%80%81%E6%9D%A1%E4%BB%B6%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">多 Agent 系统如何避免竞态条件？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E6%8E%A7%E5%88%B6%E5%A4%9A-Agent-%E7%B3%BB%E7%BB%9F%E7%9A%84-token-%E6%B6%88%E8%80%97%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">如何控制多 Agent 系统的 token 消耗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Router-%E6%A8%A1%E5%BC%8F%E9%80%82%E5%90%88%E4%BB%80%E4%B9%88%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">Router 模式适合什么场景？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%98%B2%E6%AD%A2-Agent-%E9%99%B7%E5%85%A5%E6%97%A0%E9%99%90%E5%BE%AA%E7%8E%AF%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">如何防止 Agent 陷入无限循环？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

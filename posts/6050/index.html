@@ -1,0 +1,727 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解 AI Agent 沙盒环境搭建方案，从 gVisor 到 Firecracker 技术对比，提供本地开发到 Kubernetes 集群的完整部署指南">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案">
+<meta property="og:url" content="https://jingluo23.github.io/posts/6050/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解 AI Agent 沙盒环境搭建方案，从 gVisor 到 Firecracker 技术对比，提供本地开发到 Kubernetes 集群的完整部署指南">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-29T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T09:39:19.300Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案",
+  "url": "https://jingluo23.github.io/posts/6050/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-29T07:12:21.000Z",
+  "dateModified": "2026-10-15T09:39:19.300Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/6050/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-29T07:12:21.000Z" title="发表于 2026-07-29 15:12:21">2026-07-29</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T09:39:19.300Z" title="更新于 2026-10-15 17:39:19">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>12分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 17:39:19&quot;}" hidden></div><p>2025 年春天，安全研究人员做了一件事——把 YCombinator Spring 批次的 16 个公开 AI Agent 全部测试了一遍。结果呢？7 个被攻破。有的泄露用户数据，有的被远程执行代码，还有个直接把数据库给删了。</p>
+<p>这就是让 AI Agent 执行代码的代价。给它自由，它给你挖坑。</p>
+<p>都在用 AI 写代码、跑脚本、处理数据。但有没有想过——那些由大模型生成的代码，敢直接在服务器上跑吗？万一它来个 <code>rm -rf /</code>，或者偷偷把 AWS 密钥发到外部服务器，连哭的地方都没有。</p>
+<p>这就是 Agent Sandbox 存在的意义。</p>
+<p>AI Agent 和传统应用最大的区别在哪？不是它能对话，不是它能理解指令，而是它能自己写代码并执行。</p>
+<p>想象一下这个场景：你让数据分析 Agent 帮你处理一份 1GB 的销售数据，它写了一段 Python 代码去读取、分析、生成图表。这段代码完全是大模型自动生成的，你根本没审过。然后呢？它跑起来了。</p>
+<p>这里面有几个要命的风险：</p>
+<p><strong>任意代码执行</strong>。大模型不懂安全边界。<code>os.system()</code>、<code>subprocess.run()</code> 这些函数，它该用就用，根本不会考虑后果。一个精心设计的 prompt，就能让它执行任意系统命令。</p>
+<p><strong>资源耗尽攻击</strong>。Agent 写的代码没有资源意识。一个死循环就能把 CPU 吃满，一个无限递归能把内存撑爆。你的服务器直接瘫痪。</p>
+<p><strong>文件系统越权</strong>。如果你没有限制文件访问路径，它能读遍你的整个磁盘，写任意文件。配置文件、密钥、用户数据，全在它手里。</p>
+<p><strong>网络数据外泄</strong>。代码里偷偷藏一个 HTTP 请求，把敏感数据发到攻击者的服务器，你根本发现不了。</p>
+<p>OWASP 在 2025 年发布了 AI Agent 安全威胁 Top 10，排名第一的就是「Agent 工具交互操纵」。简单说，就是攻击者可以通过 prompt 注入或者其他手段，让 Agent 调用工具的方式偏离你的预期。</p>
+<p>已经有真实的攻击案例了：</p>
+<ul>
+<li><strong>Langflow RCE 漏洞</strong>：Horizon3 发现的远程代码执行漏洞，攻击者可以通过恶意输入在服务器上执行任意代码。</li>
+<li><strong>Cursor 自动执行漏洞</strong>：有研究者发现 Cursor 会自动执行某些 MCP 命令，攻击者可以构造恶意 prompt 触发。</li>
+<li><strong>Replit 数据库擦除</strong>：AI 生成的代码意外删除了整个数据库。</li>
+</ul>
+<p>沙盒不是可选项。它是 AI Agent 应用的基础设施，就像你不会在不装防火墙的情况下把服务器暴露在公网上一样，你也不应该在没有沙盒的情况下让 AI 执行代码。</p>
+<p>沙盒的核心价值就三点：<strong>隔离</strong>——把风险代码关在笼子里；<strong>限制</strong>——给 CPU、内存、网络、文件访问设上限；<strong>审计</strong>——记录它干了什么，出了事能追查。</p>
+<h1 id="主流沙盒技术方案对比"><a href="#主流沙盒技术方案对比" class="headerlink" title="主流沙盒技术方案对比"></a>主流沙盒技术方案对比</h1><p>好了，既然知道需要沙盒，那用什么呢？现在市面上主要有三种技术路线：容器（Docker）、gVisor、Firecracker 微虚拟机。</p>
+<p>先给你一张对比表，心里有个数：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">方案</th>
+<th style="text-align:center">安全隔离</th>
+<th style="text-align:center">启动速度</th>
+<th style="text-align:center">资源开销</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Docker 容器</td>
+<td style="text-align:center">★★☆☆☆</td>
+<td style="text-align:center">★★★★★</td>
+<td style="text-align:center">★★★★★</td>
+<td style="text-align:center">开发测试、低风险代码</td>
+</tr>
+<tr>
+<td style="text-align:center">gVisor</td>
+<td style="text-align:center">★★★★☆</td>
+<td style="text-align:center">★★★★☆</td>
+<td style="text-align:center">★★★☆☆</td>
+<td style="text-align:center">生产环境、中等风险</td>
+</tr>
+<tr>
+<td style="text-align:center">Firecracker</td>
+<td style="text-align:center">★★★★★</td>
+<td style="text-align:center">★★★★☆</td>
+<td style="text-align:center">★★★☆☆</td>
+<td style="text-align:center">高安全要求、生产部署</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="Docker-容器：快但不够安全"><a href="#Docker-容器：快但不够安全" class="headerlink" title="Docker 容器：快但不够安全"></a>Docker 容器：快但不够安全</h2><p>Docker 是最常见的选择。启动快、资源消耗低、生态成熟。但问题是，Docker 容器和宿主机共享内核。</p>
+<p>什么意思？容器里的进程虽然被 namespace 隔离了，但如果攻击者利用内核漏洞，就能突破容器边界，拿到宿主机的 root 权限。</p>
+<p>2024 年就有好几个容器逃逸漏洞被披露。对于 AI 生成的不可信代码，Docker 的安全边界是不够的。</p>
+<h2 id="gVisor：在用户空间造一个”假内核”"><a href="#gVisor：在用户空间造一个”假内核”" class="headerlink" title="gVisor：在用户空间造一个”假内核”"></a>gVisor：在用户空间造一个”假内核”</h2><p>gVisor 是 Google 开源的项目，思路很有意思——不直接用宿主机内核，而是在用户空间实现一个”假内核”（叫做 Sentry）。</p>
+<p>容器里的程序发起系统调用时，gVisor 会拦截这些调用，由 Sentry 来处理。Sentry 只允许安全的操作，危险的操作会被拒绝。这样一来，即使代码想搞破坏，也接触不到真正的内核。</p>
+<p>gVisor 的优势是兼容性好，大部分 Docker 镜像都能直接跑。缺点是有一定的性能损耗（大概 10-20%），而且对于一些特殊的系统调用可能不支持。</p>
+<p>GKE（Google Kubernetes Engine）原生支持 gVisor，只需要在 Pod 配置里加一行 <code>runtimeClassName: gvisor</code> 就能用。</p>
+<h2 id="Firecracker：真正的硬件级隔离"><a href="#Firecracker：真正的硬件级隔离" class="headerlink" title="Firecracker：真正的硬件级隔离"></a>Firecracker：真正的硬件级隔离</h2><p>Firecracker 是 AWS 开源的微虚拟机技术。每个沙盒都是一个小型的虚拟机，有自己独立的内核。</p>
+<p>这意味着什么？就算攻击者拿到了沙盒里的 root 权限，利用了内核漏洞，他也只是在一个虚拟机里折腾，完全影响不到宿主机。</p>
+<p>Firecracker 的启动速度能做到 100-800 毫秒，资源开销比传统虚拟机小得多（一个虚拟机最小只需要 128MB 内存）。</p>
+<p>E2B、AWS Bedrock AgentCore 这些专业的 AI 代码沙盒服务，底层都是用的 Firecracker。</p>
+<h2 id="选型决策框架"><a href="#选型决策框架" class="headerlink" title="选型决策框架"></a>选型决策框架</h2><p>怎么选？给你一个简单的决策树：</p>
+<ol>
+<li><strong>只是本地开发测试</strong>？用 Docker 就够了，方便快捷。</li>
+<li><strong>要部署到生产环境</strong>？<ul>
+<li>安全要求中等、追求性能 → gVisor</li>
+<li>安全要求高、要符合合规要求 → Firecracker</li>
+</ul>
+</li>
+<li><strong>不想自己运维基础设施</strong>？直接用托管服务（E2B、Bedrock AgentCore）</li>
+</ol>
+<h1 id="实战：搭建本地开发沙盒"><a href="#实战：搭建本地开发沙盒" class="headerlink" title="实战：搭建本地开发沙盒"></a>实战：搭建本地开发沙盒</h1><p>说了这么多理论，来动手搭一个。方案是：<strong>FastAPI + Jupyter Kernel + gVisor 容器</strong>。</p>
+<p>为什么这么组合？</p>
+<ul>
+<li>FastAPI 提供简洁的 HTTP 接口，AI Agent 可以通过 REST API 提交代码执行请求</li>
+<li>Jupyter Kernel 提供交互式的 Python 执行环境，支持变量持久化</li>
+<li>gVisor 容器提供安全隔离，防止恶意代码影响宿主机</li>
+</ul>
+<h2 id="步骤-1：编写-FastAPI-服务"><a href="#步骤-1：编写-FastAPI-服务" class="headerlink" title="步骤 1：编写 FastAPI 服务"></a>步骤 1：编写 FastAPI 服务</h2><p>创建一个 <code>main.py</code> 文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"># main.py</span><br><span class="line">import asyncio</span><br><span class="line">from contextlib import asynccontextmanager</span><br><span class="line">from fastapi import FastAPI, HTTPException</span><br><span class="line">from jupyter_client.manager import AsyncKernelManager</span><br><span class="line">from pydantic import BaseModel</span><br><span class="line"></span><br><span class="line">app = FastAPI()</span><br><span class="line"></span><br><span class="line">class CodeRequest(BaseModel):</span><br><span class="line">    code: str</span><br><span class="line"></span><br><span class="line">class ExecutionResult(BaseModel):</span><br><span class="line">    output: str</span><br><span class="line"></span><br><span class="line">@asynccontextmanager</span><br><span class="line">async def kernel_client():</span><br><span class="line">    &quot;&quot;&quot;管理 Jupyter Kernel 的生命周期&quot;&quot;&quot;</span><br><span class="line">    km = AsyncKernelManager(kernel_name=&quot;python3&quot;)</span><br><span class="line">    await km.start_kernel()</span><br><span class="line">    kc = km.client()</span><br><span class="line">    kc.start_channels()</span><br><span class="line">    await kc.wait_for_ready()</span><br><span class="line">    try:</span><br><span class="line">        yield kc</span><br><span class="line">    finally:</span><br><span class="line">        kc.stop_channels()</span><br><span class="line">        await km.shutdown_kernel()</span><br><span class="line"></span><br><span class="line">async def execute_code(code: str, timeout: int = 30) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;执行代码并返回结果&quot;&quot;&quot;</span><br><span class="line">    async with kernel_client() as kc:</span><br><span class="line">        msg_id = kc.execute(code)</span><br><span class="line">        try:</span><br><span class="line">            while True:</span><br><span class="line">                reply = await asyncio.wait_for(</span><br><span class="line">                    kc.get_iopub_msg(),</span><br><span class="line">                    timeout=timeout</span><br><span class="line">                )</span><br><span class="line">                if reply[&quot;parent_header&quot;][&quot;msg_id&quot;] != msg_id:</span><br><span class="line">                    continue</span><br><span class="line">                msg_type = reply[&quot;msg_type&quot;]</span><br><span class="line">                if msg_type == &quot;stream&quot;:</span><br><span class="line">                    return reply[&quot;content&quot;][&quot;text&quot;]</span><br><span class="line">                elif msg_type == &quot;error&quot;:</span><br><span class="line">                    return f&quot;Error: &#123;reply[&#x27;content&#x27;][&#x27;evalue&#x27;]&#125;&quot;</span><br><span class="line">                elif msg_type == &quot;status&quot; and reply[&quot;content&quot;][&quot;execution_state&quot;] == &quot;idle&quot;:</span><br><span class="line">                    break</span><br><span class="line">        except asyncio.TimeoutError:</span><br><span class="line">            return &quot;Error: Execution timed out&quot;</span><br><span class="line">    return &quot;&quot;</span><br><span class="line"></span><br><span class="line">@app.post(&quot;/execute&quot;, response_model=ExecutionResult)</span><br><span class="line">async def execute(request: CodeRequest):</span><br><span class="line">    &quot;&quot;&quot;代码执行接口&quot;&quot;&quot;</span><br><span class="line">    try:</span><br><span class="line">        output = await execute_code(request.code)</span><br><span class="line">    except Exception as e:</span><br><span class="line">        raise HTTPException(status_code=500, detail=str(e))</span><br><span class="line">    return ExecutionResult(output=output)</span><br><span class="line"></span><br><span class="line">if __name__ == &quot;__main__&quot;:</span><br><span class="line">    import uvicorn</span><br><span class="line">    uvicorn.run(app, host=&quot;0.0.0.0&quot;, port=8000)</span><br></pre></td></tr></table></figure>
+<p>这段代码的核心逻辑是：每次收到执行请求，启动一个独立的 Jupyter Kernel，执行代码，返回结果，然后销毁 Kernel。</p>
+<h2 id="步骤-2：编写-Dockerfile"><a href="#步骤-2：编写-Dockerfile" class="headerlink" title="步骤 2：编写 Dockerfile"></a>步骤 2：编写 Dockerfile</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">FROM jupyter/base-notebook:latest</span><br><span class="line"></span><br><span class="line">WORKDIR /app</span><br><span class="line"></span><br><span class="line">COPY main.py /app/main.py</span><br><span class="line">COPY requirements.txt /app/requirements.txt</span><br><span class="line"></span><br><span class="line">RUN pip install --no-cache-dir -r requirements.txt</span><br><span class="line"></span><br><span class="line"># 使用非 root 用户（安全最佳实践）</span><br><span class="line">USER jovyan</span><br><span class="line"></span><br><span class="line">EXPOSE 8000</span><br><span class="line"></span><br><span class="line">CMD [&quot;uvicorn&quot;, &quot;main:app&quot;, &quot;--host&quot;, &quot;0.0.0.0&quot;, &quot;--port&quot;, &quot;8000&quot;]</span><br></pre></td></tr></table></figure>
+<p>注意那个 <code>USER jovyan</code>，这是安全实践。用非 root 用户运行容器，就算代码逃逸了，拿到的权限也有限。</p>
+<h2 id="步骤-3：部署到-GKE（启用-gVisor）"><a href="#步骤-3：部署到-GKE（启用-gVisor）" class="headerlink" title="步骤 3：部署到 GKE（启用 gVisor）"></a>步骤 3：部署到 GKE（启用 gVisor）</h2><p>如果你用的是 GKE，只需要在 Pod 配置里加一行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: apps/v1</span><br><span class="line">kind: Deployment</span><br><span class="line">metadata:</span><br><span class="line">  name: agent-sandbox</span><br><span class="line">spec:</span><br><span class="line">  template:</span><br><span class="line">    spec:</span><br><span class="line">      runtimeClassName: gvisor  # 关键：启用 gVisor</span><br><span class="line">      containers:</span><br><span class="line">      - name: sandbox</span><br><span class="line">        image: your-registry/agent-sandbox:latest</span><br><span class="line">        ports:</span><br><span class="line">        - containerPort: 8000</span><br><span class="line">        resources:</span><br><span class="line">          limits:</span><br><span class="line">            memory: &quot;512Mi&quot;</span><br><span class="line">            cpu: &quot;500m&quot;</span><br></pre></td></tr></table></figure>
+<p>就这样，你的代码执行环境已经跑在 gVisor 沙盒里了。</p>
+<h2 id="步骤-4：添加安全限制"><a href="#步骤-4：添加安全限制" class="headerlink" title="步骤 4：添加安全限制"></a>步骤 4：添加安全限制</h2><p>上面的配置还不够完善。生产环境至少还要加这些限制：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 网络策略：限制只能访问必要的 API</span><br><span class="line"># 文件系统只读</span><br><span class="line">securityContext:</span><br><span class="line">  readOnlyRootFilesystem: true</span><br><span class="line">  allowPrivilegeEscalation: false</span><br><span class="line"></span><br><span class="line"># 设置执行超时</span><br><span class="line"># 在 FastAPI 代码里已经加了 timeout 参数</span><br></pre></td></tr></table></figure>
+<h1 id="进阶：Kubernetes-集群部署"><a href="#进阶：Kubernetes-集群部署" class="headerlink" title="进阶：Kubernetes 集群部署"></a>进阶：Kubernetes 集群部署</h1><p>如果你的 AI Agent 应用需要大规模部署，单个容器就不够用了。这时候可以用 Kubernetes 的 Agent Sandbox 控制器。</p>
+<p>Google 在 2025 年开源了一个 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/kubernetes-sigs/agent-sandbox">Agent Sandbox</a> 项目，提供了声明式的沙盒管理 API。</p>
+<h2 id="Sandbox-CRD-核心概念"><a href="#Sandbox-CRD-核心概念" class="headerlink" title="Sandbox CRD 核心概念"></a>Sandbox CRD 核心概念</h2><p>Agent Sandbox 定义了几个自定义资源：</p>
+<ul>
+<li><strong>Sandbox</strong>：单个沙盒实例，有稳定身份、持久存储、生命周期管理</li>
+<li><strong>SandboxTemplate</strong>：沙盒模板，定义标准化配置</li>
+<li><strong>SandboxClaim</strong>：按需申请沙盒实例</li>
+</ul>
+<p>一个简单的 Sandbox 配置示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: sandbox.k8s.io/v1alpha1</span><br><span class="line">kind: Sandbox</span><br><span class="line">metadata:</span><br><span class="line">  name: my-agent-sandbox</span><br><span class="line">spec:</span><br><span class="line">  template:</span><br><span class="line">    spec:</span><br><span class="line">      runtimeClassName: gvisor</span><br><span class="line">      containers:</span><br><span class="line">      - name: executor</span><br><span class="line">        image: python:3.11-slim</span><br><span class="line">        command: [&quot;sleep&quot;, &quot;infinity&quot;]</span><br><span class="line">      # 持久存储</span><br><span class="line">      volumes:</span><br><span class="line">      - name: workspace</span><br><span class="line">        emptyDir: &#123;&#125;</span><br><span class="line">      # 资源限制</span><br><span class="line">      resources:</span><br><span class="line">        limits:</span><br><span class="line">          memory: &quot;1Gi&quot;</span><br><span class="line">          cpu: &quot;1&quot;</span><br></pre></td></tr></table></figure>
+<h2 id="生命周期管理"><a href="#生命周期管理" class="headerlink" title="生命周期管理"></a>生命周期管理</h2><p>Agent Sandbox 的一个亮点是支持暂停/恢复：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 暂停沙盒（释放 CPU 和大部分内存）</span><br><span class="line">kubectl patch sandbox my-agent-sandbox --type=merge -p &#x27;&#123;&quot;spec&quot;:&#123;&quot;paused&quot;:true&#125;&#125;&#x27;</span><br><span class="line"></span><br><span class="line"># 恢复沙盒</span><br><span class="line">kubectl patch sandbox my-agent-sandbox --type=merge -p &#x27;&#123;&quot;spec&quot;:&#123;&quot;paused&quot;:false&#125;&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p>这对于间歇性执行的 AI Agent 特别有用——没任务的时候暂停，几乎不占资源；有任务了秒级恢复。</p>
+<h2 id="预热池（Pool）"><a href="#预热池（Pool）" class="headerlink" title="预热池（Pool）"></a>预热池（Pool）</h2><p>为了进一步减少启动延迟，Agent Sandbox 支持”预热池”——预先创建一批处于暂停状态的沙盒，需要时直接激活。</p>
+<p>这招能把沙盒的”冷启动”时间从秒级降到毫秒级。</p>
+<h1 id="托管服务选型建议"><a href="#托管服务选型建议" class="headerlink" title="托管服务选型建议"></a>托管服务选型建议</h1><p>如果你不想自己折腾基础设施，托管服务是个好选择。目前主流的有这几家：</p>
+<h2 id="E2B：开源-云托管双模式"><a href="#E2B：开源-云托管双模式" class="headerlink" title="E2B：开源 + 云托管双模式"></a>E2B：开源 + 云托管双模式</h2><p>E2B 是专门为 AI Agent 设计的代码沙盒服务。它有两个版本：</p>
+<ul>
+<li><strong>E2B Cloud</strong>：直接用他们的云服务，按量付费</li>
+<li><strong>E2B on AWS</strong>：把开源版本部署到你自己的 AWS 账户</li>
+</ul>
+<p>E2B 底层用的是 Firecracker，安全性有保障。它的 SDK 很简洁：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">from e2b import Sandbox</span><br><span class="line"></span><br><span class="line"># 创建沙盒</span><br><span class="line">sandbox = Sandbox()</span><br><span class="line"></span><br><span class="line"># 执行代码</span><br><span class="line">result = sandbox.run_code(&quot;print(&#x27;Hello, World!&#x27;)&quot;)</span><br><span class="line"></span><br><span class="line"># 关闭沙盒</span><br><span class="line">sandbox.close()</span><br></pre></td></tr></table></figure>
+<p>E2B on AWS 特别适合对数据主权有要求的企业——所有数据都在你自己账户里，不用担心第三方。</p>
+<h2 id="AWS-Bedrock-AgentCore"><a href="#AWS-Bedrock-AgentCore" class="headerlink" title="AWS Bedrock AgentCore"></a>AWS Bedrock AgentCore</h2><p>AWS 在 2025 年推出了 Bedrock AgentCore，专门为 AI Agent 提供代码执行和浏览器操作能力。</p>
+<p><strong>Code Interpreter</strong> 提供 Python/JavaScript/TypeScript 运行时，每个会话在独立的微虚拟机里执行，支持最大 5GB 的文件处理。</p>
+<p><strong>Browser Tool</strong> 让 AI Agent 能操作浏览器——打开网页、填表单、点击按钮。这对于需要爬取网页、操作 SaaS 应用的 Agent 特别有用。</p>
+<p>计费模式也挺合理：按 vCPU 和内存的实际使用时间计费，不是按实例运行时间。代码执行完资源就释放，不会浪费钱。</p>
+<h2 id="选型建议"><a href="#选型建议" class="headerlink" title="选型建议"></a>选型建议</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">快速验证、小规模应用</td>
+<td style="text-align:center">E2B Cloud</td>
+</tr>
+<tr>
+<td style="text-align:center">企业级、需要数据本地化</td>
+<td style="text-align:center">E2B on AWS 或 Bedrock AgentCore</td>
+</tr>
+<tr>
+<td style="text-align:center">已深度使用 AWS 生态</td>
+<td style="text-align:center">Bedrock AgentCore</td>
+</tr>
+<tr>
+<td style="text-align:center">需要浏览器自动化</td>
+<td style="text-align:center">Bedrock AgentCore Browser Tool</td>
+</tr>
+<tr>
+<td style="text-align:center">完全自主控制、有运维能力</td>
+<td style="text-align:center">自建 Kubernetes + Agent Sandbox</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实核心就一句话：<strong>安全不是可选项，而是 AI Agent 应用的基础设施</strong>。</p>
+<p>从技术选型来说：</p>
+<ul>
+<li>小团队、快速验证，用 Docker 或 gVisor 就够了</li>
+<li>企业级应用、高安全要求，用 Firecracker 或托管服务</li>
+<li>已经在用 Kubernetes，直接上 Agent Sandbox 控制器</li>
+</ul>
+<p>不管你选哪个，先从本地测试开始。写一个最简单的 FastAPI + Docker 配置，跑起来，然后再考虑安全加固和生产部署。</p>
+<p>记住：沙盒越早加越好。别等到出了安全事故再来补救，那时候成本就高多了。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Docker-容器和-gVisor-有什么区别？"><a href="#Docker-容器和-gVisor-有什么区别？" class="headerlink" title="Docker 容器和 gVisor 有什么区别？"></a>Docker 容器和 gVisor 有什么区别？</h2><p>Docker 容器和宿主机共享内核，如果攻击者利用内核漏洞可以逃逸。gVisor 在用户空间实现了一个”假内核”（Sentry），拦截所有系统调用，只允许安全的操作，提供更强的隔离性。</p>
+<h2 id="什么时候应该用-Firecracker-而不是-gVisor？"><a href="#什么时候应该用-Firecracker-而不是-gVisor？" class="headerlink" title="什么时候应该用 Firecracker 而不是 gVisor？"></a>什么时候应该用 Firecracker 而不是 gVisor？</h2><p>当安全要求极高时选择 Firecracker：</p>
+<ul>
+<li>需要硬件级隔离（如金融、医疗数据）  </li>
+<li>必须符合严格的合规要求  </li>
+<li>处理完全不可信的第三方代码</li>
+</ul>
+<p>gVisor 性能损耗较小（10-20%），适合大多数生产场景。</p>
+<h2 id="E2B-和-AWS-Bedrock-AgentCore-怎么选？"><a href="#E2B-和-AWS-Bedrock-AgentCore-怎么选？" class="headerlink" title="E2B 和 AWS Bedrock AgentCore 怎么选？"></a>E2B 和 AWS Bedrock AgentCore 怎么选？</h2><ul>
+<li>小规模应用先用 E2B Cloud  </li>
+<li><p>需要数据本地化用 E2B on AWS</p>
+</li>
+<li><p>已用 AWS 服务，集成更方便  </p>
+</li>
+<li>需要浏览器自动化选 Browser Tool</li>
+</ul>
+<h2 id="沙盒会影响代码执行性能吗？"><a href="#沙盒会影响代码执行性能吗？" class="headerlink" title="沙盒会影响代码执行性能吗？"></a>沙盒会影响代码执行性能吗？</h2><p>会有一定影响：Docker 几乎无损，gVisor 损耗约 10-20%，Firecracker 损耗约 15-30%。但对于 AI Agent 的代码执行场景（数据分析、脚本处理），这个损耗通常可以接受。</p>
+<h2 id="本地开发如何快速搭建沙盒？"><a href="#本地开发如何快速搭建沙盒？" class="headerlink" title="本地开发如何快速搭建沙盒？"></a>本地开发如何快速搭建沙盒？</h2><p>最简单的方案：用 Docker 运行一个带 gVisor 的容器。如果用 GKE，只需在 Pod 配置加 `runtimeClassName: gvisor` 一行。对于纯本地开发，Docker 的隔离也够用，关键是设置资源限制和用户权限。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/6050/">https://jingluo23.github.io/posts/6050/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/posts/37a1/" title="AI Agent 开发实战：架构设计与实现指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">AI Agent 开发实战：架构设计与实现指南</div></div><div class="info-2"><div class="info-item-1">深入解析 AI Agent 架构设计：ReAct、Plan-and-Execute、Multi-Agent 三大模式对比，五种多代理编排模式详解，Claude Agent SDK 实战代码示例，助你从理论到实践一网打尽。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/aa36/" title="多智能体协作实战：4 种架构模式选择指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">多智能体协作实战：4 种架构模式选择指南</div></div><div class="info-2"><div class="info-item-1">掌握多智能体协作系统的 4 种核心架构模式，从 Subagents 到 Router，附带 LangGraph 代码实现和生产级性能优化建议。</div></div></div></a><a class="pagination-related" href="/posts/f104/" title="Agent 记忆系统设计：从会话到长期记忆"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-31</div><div class="info-item-2">Agent 记忆系统设计：从会话到长期记忆</div></div><div class="info-2"><div class="info-item-1">从零构建 Agent 记忆系统：四种记忆类型选型、五阶段流水线实现、Mem0/Zep/LangMem 框架对比与生产级成本优化策略</div></div></div></a><a class="pagination-related" href="/posts/8a83/" title="Agent 状态机设计：为什么复杂任务不能只靠 Prompt"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-19</div><div class="info-item-2">Agent 状态机设计：为什么复杂任务不能只靠 Prompt</div></div><div class="info-2"><div class="info-item-1">复杂 Agent 任务不能只靠 prompt 记进度。本文用 state、event、transition、guard、action、checkpoint、retry、compensation、approval pause 和 terminal state，设计可恢复的 Agent 状态机。</div></div></div></a><a class="pagination-related" href="/posts/1bec/" title="Human-in-the-loop Agent 设计：哪些步骤必须人工审批"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-16</div><div class="info-item-2">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</div></div><div class="info-2"><div class="info-item-1">用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve/reject/resume、超时、补偿和审计记录怎么做。</div></div></div></a><a class="pagination-related" href="/posts/439a/" title="DeepAgents 架构解析：规划工具、子代理与文件系统"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-13</div><div class="info-item-2">DeepAgents 架构解析：规划工具、子代理与文件系统</div></div><div class="info-2"><div class="info-item-1">深度解析 DeepAgents 四大支柱架构：Planning Tools、Sub-agents、File System 和 System Prompts，对比 LangGraph、AutoGen 等框架，提供实战代码示例和最佳实践</div></div></div></a><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-02</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BB%E6%B5%81%E6%B2%99%E7%9B%92%E6%8A%80%E6%9C%AF%E6%96%B9%E6%A1%88%E5%AF%B9%E6%AF%94"><span class="toc-number">1.</span> <span class="toc-text">主流沙盒技术方案对比</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E5%AE%B9%E5%99%A8%EF%BC%9A%E5%BF%AB%E4%BD%86%E4%B8%8D%E5%A4%9F%E5%AE%89%E5%85%A8"><span class="toc-number">1.1.</span> <span class="toc-text">Docker 容器：快但不够安全</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#gVisor%EF%BC%9A%E5%9C%A8%E7%94%A8%E6%88%B7%E7%A9%BA%E9%97%B4%E9%80%A0%E4%B8%80%E4%B8%AA%E2%80%9D%E5%81%87%E5%86%85%E6%A0%B8%E2%80%9D"><span class="toc-number">1.2.</span> <span class="toc-text">gVisor：在用户空间造一个”假内核”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Firecracker%EF%BC%9A%E7%9C%9F%E6%AD%A3%E7%9A%84%E7%A1%AC%E4%BB%B6%E7%BA%A7%E9%9A%94%E7%A6%BB"><span class="toc-number">1.3.</span> <span class="toc-text">Firecracker：真正的硬件级隔离</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E6%A1%86%E6%9E%B6"><span class="toc-number">1.4.</span> <span class="toc-text">选型决策框架</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%EF%BC%9A%E6%90%AD%E5%BB%BA%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E6%B2%99%E7%9B%92"><span class="toc-number">2.</span> <span class="toc-text">实战：搭建本地开发沙盒</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-1%EF%BC%9A%E7%BC%96%E5%86%99-FastAPI-%E6%9C%8D%E5%8A%A1"><span class="toc-number">2.1.</span> <span class="toc-text">步骤 1：编写 FastAPI 服务</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-2%EF%BC%9A%E7%BC%96%E5%86%99-Dockerfile"><span class="toc-number">2.2.</span> <span class="toc-text">步骤 2：编写 Dockerfile</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-3%EF%BC%9A%E9%83%A8%E7%BD%B2%E5%88%B0-GKE%EF%BC%88%E5%90%AF%E7%94%A8-gVisor%EF%BC%89"><span class="toc-number">2.3.</span> <span class="toc-text">步骤 3：部署到 GKE（启用 gVisor）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-4%EF%BC%9A%E6%B7%BB%E5%8A%A0%E5%AE%89%E5%85%A8%E9%99%90%E5%88%B6"><span class="toc-number">2.4.</span> <span class="toc-text">步骤 4：添加安全限制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%EF%BC%9AKubernetes-%E9%9B%86%E7%BE%A4%E9%83%A8%E7%BD%B2"><span class="toc-number">3.</span> <span class="toc-text">进阶：Kubernetes 集群部署</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Sandbox-CRD-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="toc-number">3.1.</span> <span class="toc-text">Sandbox CRD 核心概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E7%AE%A1%E7%90%86"><span class="toc-number">3.2.</span> <span class="toc-text">生命周期管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A2%84%E7%83%AD%E6%B1%A0%EF%BC%88Pool%EF%BC%89"><span class="toc-number">3.3.</span> <span class="toc-text">预热池（Pool）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%89%98%E7%AE%A1%E6%9C%8D%E5%8A%A1%E9%80%89%E5%9E%8B%E5%BB%BA%E8%AE%AE"><span class="toc-number">4.</span> <span class="toc-text">托管服务选型建议</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#E2B%EF%BC%9A%E5%BC%80%E6%BA%90-%E4%BA%91%E6%89%98%E7%AE%A1%E5%8F%8C%E6%A8%A1%E5%BC%8F"><span class="toc-number">4.1.</span> <span class="toc-text">E2B：开源 + 云托管双模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AWS-Bedrock-AgentCore"><span class="toc-number">4.2.</span> <span class="toc-text">AWS Bedrock AgentCore</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%89%E5%9E%8B%E5%BB%BA%E8%AE%AE"><span class="toc-number">4.3.</span> <span class="toc-text">选型建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">5.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E5%AE%B9%E5%99%A8%E5%92%8C-gVisor-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">Docker 容器和 gVisor 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%BA%94%E8%AF%A5%E7%94%A8-Firecracker-%E8%80%8C%E4%B8%8D%E6%98%AF-gVisor%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">什么时候应该用 Firecracker 而不是 gVisor？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#E2B-%E5%92%8C-AWS-Bedrock-AgentCore-%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">E2B 和 AWS Bedrock AgentCore 怎么选？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B2%99%E7%9B%92%E4%BC%9A%E5%BD%B1%E5%93%8D%E4%BB%A3%E7%A0%81%E6%89%A7%E8%A1%8C%E6%80%A7%E8%83%BD%E5%90%97%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">沙盒会影响代码执行性能吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91%E5%A6%82%E4%BD%95%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BA%E6%B2%99%E7%9B%92%EF%BC%9F"><span class="toc-number">6.5.</span> <span class="toc-text">本地开发如何快速搭建沙盒？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

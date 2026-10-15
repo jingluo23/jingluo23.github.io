@@ -1,0 +1,1219 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch&#x2F;Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计">
+<meta property="og:url" content="https://jingluo23.github.io/posts/488b/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch&#x2F;Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-17T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T03:22:53.239Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计",
+  "url": "https://jingluo23.github.io/posts/488b/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-17T07:12:21.000Z",
+  "dateModified": "2026-10-15T03:22:53.239Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/488b/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-17T07:12:21.000Z" title="发表于 2026-08-17 15:12:21">2026-08-17</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T03:22:53.239Z" title="更新于 2026-10-15 11:22:53">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.8k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>15分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 11:22:53&quot;}" hidden></div><p>凌晨 3 点，后台 report Agent 返回空响应。HTTP 状态码是 200，body 却是空的。重试逻辑只检查状态码，于是继续尝试。每次请求发送 500 token 输入，重试 1500 次，烧掉 75 万 token。第二天早上看到账单，血压拉满。</p>
+<p>根本原因不是“模型选贵了”，而是三个缺失：熔断器、预算检查、错误分类。Agent 成本失控有三种典型模式：</p>
+<p><strong>重试无上限。</strong> 失败模式分类缺失，把空响应当成可重试错误。熔断器缺失，连续失败 1500 次也不停。每次重试都重新发送完整上下文，成本放大 2-5 倍。</p>
+<p><strong>上下文膨胀。</strong> 长任务跑 6 小时后对话历史膨胀到 80K tokens。没有 checkpoint，失败后从头重跑，每一步都重新付费。</p>
+<p><strong>模型滥用。</strong> 所有任务都用 frontier 模型，没有路由策略。简单分类任务也用最贵模型，浪费 70% 的 token。</p>
+<p>Agent 成本控制不是单点优化，而是多层设计：预算对象、路由策略、缓存命中、重试熔断、成本日志和告警阈值。把这六个工程对象拆成判断表或可执行清单。</p>
+<h1 id="预算对象设计：记什么、记在哪、怎么熔断"><a href="#预算对象设计：记什么、记在哪、怎么熔断" class="headerlink" title="预算对象设计：记什么、记在哪、怎么熔断"></a>预算对象设计：记什么、记在哪、怎么熔断</h1><p>成本控制先要有预算对象，不能只记总数。没有分层，账单异常时你无法定位是哪个用户、哪个任务、哪个工具烧钱。</p>
+<h2 id="七层预算对象"><a href="#七层预算对象" class="headerlink" title="七层预算对象"></a>七层预算对象</h2><p>预算对象从粗到细分成七层：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">预算层级</th>
+<th style="text-align:center">预算对象</th>
+<th style="text-align:center">预算上限建议</th>
+<th style="text-align:center">告警触发条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>Layer 1</strong></td>
+<td style="text-align:center">user</td>
+<td style="text-align:center">每用户每日/每月上限</td>
+<td style="text-align:center">剩余 &lt; 20% 触发告警</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Layer 2</strong></td>
+<td style="text-align:center">tenant</td>
+<td style="text-align:center">每租户独立预算池</td>
+<td style="text-align:center">剩余 &lt; 30% 触发告警</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Layer 3</strong></td>
+<td style="text-align:center">workflow</td>
+<td style="text-align:center">每类 workflow 独立预算</td>
+<td style="text-align:center">剩余 &lt; 40% 触发告警</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Layer 4</strong></td>
+<td style="text-align:center">task</td>
+<td style="text-align:center">每任务类型独立预算</td>
+<td style="text-align:center">剩余 &lt; 50% 触发告警</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Layer 5</strong></td>
+<td style="text-align:center">tool</td>
+<td style="text-align:center">每工具调用独立预算</td>
+<td style="text-align:center">超上限跳过工具</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Layer 6</strong></td>
+<td style="text-align:center">retry</td>
+<td style="text-align:center">重试次数上限 + 熔断</td>
+<td style="text-align:center">连续失败 N 次停用工具</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Layer 7</strong></td>
+<td style="text-align:center">cache</td>
+<td style="text-align:center">缓存命中率监控</td>
+<td style="text-align:center">命中率 &lt; 预期值告警</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>每层预算上限依赖业务模型，属于易变配置；分层结构本身更稳定。预算剩余字段要写入成本日志，用于告警和熔断判断。</p>
+<h2 id="每层要记的字段"><a href="#每层要记的字段" class="headerlink" title="每层要记的字段"></a>每层要记的字段</h2><p>每层预算都要记录以下字段：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段名</th>
+<th style="text-align:center">用途</th>
+<th style="text-align:center">类型</th>
+<th style="text-align:center">必须记录原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>model</code></td>
+<td style="text-align:center">定位模型</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">判断模型路由是否合理</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>inputTokens</code></td>
+<td style="text-align:center">输入 token 数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">计算输入成本</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>outputTokens</code></td>
+<td style="text-align:center">输出 token 数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">输出成本常常高于输入，需独立记录</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>cachedTokens</code></td>
+<td style="text-align:center">缓存命中 token 数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">计算缓存节省</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>costEstimate</code></td>
+<td style="text-align:center">本次成本估算</td>
+<td style="text-align:center">float</td>
+<td style="text-align:center">实时成本累加</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>budgetRemaining</code></td>
+<td style="text-align:center">预算剩余</td>
+<td style="text-align:center">float</td>
+<td style="text-align:center">熔断判断依据</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>预算对象设计核心是“按维度记账”，不是“只记 total_cost”。多租户场景要按 tenantId 分摊成本，多工具场景要按 toolName 定位黑盒。</p>
+<h2 id="熔断逻辑"><a href="#熔断逻辑" class="headerlink" title="熔断逻辑"></a>熔断逻辑</h2><p>预算剩余 &lt; 阈值时触发熔断：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">def check_budget_before_retry(budget_remaining, retry_cost_estimate):</span><br><span class="line">    if budget_remaining &lt; retry_cost_estimate:</span><br><span class="line">        return &quot;skip_retry&quot;  # 超预算跳过重试</span><br><span class="line">    if budget_remaining &lt; threshold:  # threshold 如 20%</span><br><span class="line">        return &quot;wait_approval&quot;  # 剩余不足，等待审批</span><br><span class="line">    return &quot;continue&quot;</span><br></pre></td></tr></table></figure>
+<p>熔断逻辑要检查预算剩余，不是重试后才发现没预算。每次重试前先估算成本，检查是否超预算，避免“空响应重试 1500 次”烧掉整日预算。</p>
+<p>关于上下文工程中哪些内容进入稳定 prefix、哪些只放运行时变量，会在同系列的上下文工程文章中展开。</p>
+<h1 id="模型路由策略：不是所有任务都需要最贵模型"><a href="#模型路由策略：不是所有任务都需要最贵模型" class="headerlink" title="模型路由策略：不是所有任务都需要最贵模型"></a>模型路由策略：不是所有任务都需要最贵模型</h1><p>一个 ticket triage Agent 的实际分布：70% 任务是简单分类，20% 需要起草回复，只有 10% 要发客户邮件前才升级 frontier 模型。路由策略可节省 40-85% 成本。</p>
+<h2 id="模型层路由"><a href="#模型层路由" class="headerlink" title="模型层路由"></a>模型层路由</h2><p>模型层路由按任务复杂度分级：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">任务层级</th>
+<th style="text-align:center">典型任务</th>
+<th style="text-align:center">推荐模型层级</th>
+<th style="text-align:center">占比</th>
+<th style="text-align:center">成本特征</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>70% - S 级</strong></td>
+<td style="text-align:center">分类、提取、过滤、简单问答</td>
+<td style="text-align:center">nano/flash（最便宜）</td>
+<td style="text-align:center">70%</td>
+<td style="text-align:center">输出短、轮次少、工具调用少</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>20% - M 级</strong></td>
+<td style="text-align:center">起草、总结、代码生成、中等推理</td>
+<td style="text-align:center">mid-tier（中等价格）</td>
+<td style="text-align:center">20%</td>
+<td style="text-align:center">输出中等长度、可能调用工具</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>10% - L 级</strong></td>
+<td style="text-align:center">审核、架构设计、复杂推理、多工具协调</td>
+<td style="text-align:center">frontier（最贵）</td>
+<td style="text-align:center">10%</td>
+<td style="text-align:center">输出长、轮次多、工具调用频繁</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>路由策略三步骤：</p>
+<p><strong>第一步：任务分级。</strong> 给每个 workflow 定义 S/M/L 三档复杂度标准，包括输出长度、工具调用次数、推理深度和风险级别。</p>
+<p><strong>第二步：默认路由到 S 级。</strong> 只有命中复杂特征时才升级到 M 或 L 级。</p>
+<p><strong>第三步：级联路由。</strong> S 级模型失败时升级到 M 级，M 级失败升级到 L 级，L 级失败进入人工介入。升级前检查预算剩余，超预算时跳过升级。</p>
+<h2 id="服务层路由"><a href="#服务层路由" class="headerlink" title="服务层路由"></a>服务层路由</h2><p>同一模型也可按 latency priority 分流。折扣比例和完成窗口属于易变事实，发布前复核官方定价。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">服务层级</th>
+<th style="text-align:center">成本折扣</th>
+<th style="text-align:center">完成时间</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>实时 API</strong></td>
+<td style="text-align:center">无折扣</td>
+<td style="text-align:center">即时响应</td>
+<td style="text-align:center">交互式 Agent 对话、高优先级任务</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Batch API</strong></td>
+<td style="text-align:center">50% cost discount（发布前复核）</td>
+<td style="text-align:center">24-hour turnaround（发布前复核）</td>
+<td style="text-align:center">批量 eval、分类、embedding、内容仓库处理</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Flex Processing</strong></td>
+<td style="text-align:center">低成本（发布前复核）</td>
+<td style="text-align:center">较慢响应，偶发不可用</td>
+<td style="text-align:center">低优先级异步任务、model evaluations、data enrichment</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>离线任务路由决策清单：</p>
+<ul>
+<li>是否需要即时响应？是 -&gt; 实时 API，走模型路由。</li>
+<li>是否可以接受 24 小时延迟？是 -&gt; Batch API。</li>
+<li>是否低优先级且可容忍偶发失败？是 -&gt; Flex Processing。</li>
+<li>是否批量处理 eval、分类、embedding？是 -&gt; Batch API。</li>
+</ul>
+<h2 id="风险分级"><a href="#风险分级" class="headerlink" title="风险分级"></a>风险分级</h2><p>任务按风险级别分级，对应不同路由路径：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">风险级别</th>
+<th style="text-align:center">典型操作</th>
+<th style="text-align:center">路由策略</th>
+<th style="text-align:center">预算分支</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>低风险</strong></td>
+<td style="text-align:center">分类、提取、内部总结</td>
+<td style="text-align:center">S 级模型 + 自动路径</td>
+<td style="text-align:center">无审批，预算上限宽松</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>中风险</strong></td>
+<td style="text-align:center">起草客户回复、代码变更建议</td>
+<td style="text-align:center">M 级模型 + 可选审批</td>
+<td style="text-align:center">超预算触发审批，可继续</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>高风险</strong></td>
+<td style="text-align:center">发客户邮件、扣款、架构变更</td>
+<td style="text-align:center">L 级模型 + 必审批</td>
+<td style="text-align:center">审批等待、拒绝、超时进入预算分支</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>关于审批等待、拒绝、超时如何影响预算分支，会在同系列的 Human-in-the-Loop 文章中展开。</p>
+<h2 id="关键约束"><a href="#关键约束" class="headerlink" title="关键约束"></a>关键约束</h2><p>路由策略的关键约束：</p>
+<ul>
+<li><strong>不硬编码价格数字</strong>：价格是易变事实，记录 model + pricingVersion，不写死成本公式。</li>
+<li><strong>预算剩余检查</strong>：升级前检查 budgetRemaining，超预算时跳过升级或进入审批。</li>
+<li><strong>错误分类</strong>：路由失败要区分可恢复的模型能力不足，以及不可恢复的参数错误、权限拒绝。</li>
+</ul>
+<h1 id="工具调用预算：per-tool-budget、timeout-和重试上限"><a href="#工具调用预算：per-tool-budget、timeout-和重试上限" class="headerlink" title="工具调用预算：per-tool budget、timeout 和重试上限"></a>工具调用预算：per-tool budget、timeout 和重试上限</h1><p>工具调用本身有 schema + API 双重成本。每次调用要发送 schema、参数、响应解析，加上外部 API 可能限流或超时，这些开销独立于模型调用。</p>
+<h2 id="工具预算控制"><a href="#工具预算控制" class="headerlink" title="工具预算控制"></a>工具预算控制</h2><p>每个工具设置独立预算控制：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">控制项</th>
+<th style="text-align:center">建议配置</th>
+<th style="text-align:center">监控字段</th>
+<th style="text-align:center">触发动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>Per-tool budget</strong></td>
+<td style="text-align:center">单次调用上限</td>
+<td style="text-align:center"><code>tool_cost_estimate</code></td>
+<td style="text-align:center">超上限跳过工具或降级处理</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Tool timeout</strong></td>
+<td style="text-align:center">外部 API 被动超时</td>
+<td style="text-align:center"><code>tool_duration</code></td>
+<td style="text-align:center">超时标记为可重试错误</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Retry limit per tool</strong></td>
+<td style="text-align:center">单工具重试上限</td>
+<td style="text-align:center"><code>tool_retry_count</code></td>
+<td style="text-align:center">超上限放弃工具，不进入重试循环</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>外部 API 用工具，包括搜索、数据库和第三方服务，都要单独记账，避免工具调用成为成本黑盒。</p>
+<h2 id="工具失败分类"><a href="#工具失败分类" class="headerlink" title="工具失败分类"></a>工具失败分类</h2><p>工具失败分两类：可恢复和不可恢复。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">失败类型</th>
+<th style="text-align:center">典型错误</th>
+<th style="text-align:center">处理策略</th>
+<th style="text-align:center">成本影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>可恢复失败</strong></td>
+<td style="text-align:center">网络超时、503 Service Unavailable、429 Rate Limit</td>
+<td style="text-align:center">自动重试，配合指数退避和 retry-after</td>
+<td style="text-align:center">每次重试消耗完整上下文</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>不可恢复失败</strong></td>
+<td style="text-align:center">403 Permission Denied、400 Bad Request、工具不存在</td>
+<td style="text-align:center">不重试，注入错误让模型判断</td>
+<td style="text-align:center">不重试，避免无效消耗</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>失败分类的核心是“外部原因导致的临时失败才重试，内部配置错误不重试”。</p>
+<h2 id="熔断器"><a href="#熔断器" class="headerlink" title="熔断器"></a>熔断器</h2><p>连续失败 N 次后停用工具，避免“空响应重试 1500 次”：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">def circuit_breaker_tool(tool_name, consecutive_failures, threshold=5):</span><br><span class="line">    if consecutive_failures &gt;= threshold:</span><br><span class="line">        return &quot;disable_tool&quot;  # 停用工具</span><br><span class="line">    return &quot;continue&quot;</span><br></pre></td></tr></table></figure>
+<p>熔断器状态要写入日志，用于排查“为什么工具停用”。熔断后等待人工介入或自动恢复检查，不要反复调用不稳定工具。</p>
+<p>关于工具调用基础，已在工具调用文章中展开，本文扩展 per-tool budget、timeout 和重试上限。</p>
+<h1 id="Prompt-Caching-设计：稳定-prefix、变量位置、1024-token-门槛"><a href="#Prompt-Caching-设计：稳定-prefix、变量位置、1024-token-门槛" class="headerlink" title="Prompt Caching 设计：稳定 prefix、变量位置、1024 token 门槛"></a>Prompt Caching 设计：稳定 prefix、变量位置、1024 token 门槛</h1><p>Prompt Caching 是稳定 prompt prefix 的输入 token 优化，不是业务结果缓存。它用相同 prompt prefix 路由到近期处理过同前缀的服务器，能降低延迟和输入 token 成本。</p>
+<h2 id="Prompt-Caching-≠-结果缓存"><a href="#Prompt-Caching-≠-结果缓存" class="headerlink" title="Prompt Caching ≠ 结果缓存"></a>Prompt Caching ≠ 结果缓存</h2><p>Prompt Caching 缓存的是稳定 prompt prefix，不是业务结果。关键区别：</p>
+<ul>
+<li><strong>Prompt Caching</strong>：缓存稳定 prompt prefix，如 system prompt、tool schema；命中时节省输入 token，但仍会重新执行推理。</li>
+<li><strong>业务结果缓存</strong>：缓存完整输出，如工具调用结果、数据库查询；命中时直接返回，不调用模型。</li>
+</ul>
+<p>两者目的不同：Prompt Caching 优化输入 token 成本，业务结果缓存优化完整调用成本。可以同时使用：稳定前缀走 Prompt Caching，高频工具调用结果走业务缓存。</p>
+<h2 id="结构要求"><a href="#结构要求" class="headerlink" title="结构要求"></a>结构要求</h2><p>Prompt Caching 的关键是区分稳定前缀和运行时变量：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">内容类型</th>
+<th style="text-align:center">位置</th>
+<th style="text-align:center">命中缓存可能性</th>
+<th style="text-align:center">典型内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>稳定前缀（进 cache）</strong></td>
+<td style="text-align:center">Prompt 前部</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">System prompt、Tool schema、Policy 文档、Few-shot 示例</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>运行时变量（不进 cache）</strong></td>
+<td style="text-align:center">Prompt 后部</td>
+<td style="text-align:center">低</td>
+<td style="text-align:center">User input、File fragments、Runtime state（当前对话轮次、临时变量）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>设计步骤：</p>
+<ol>
+<li><strong>把 System prompt、Tool schema、Policy 放在前部</strong>：这些内容在多次调用中稳定不变，容易命中缓存。</li>
+<li><strong>把 User input、File fragments、Runtime state 放在后部</strong>：这些内容每次调用都变化，不应该进稳定前缀。</li>
+<li><strong>监控 Cache hit rate</strong>：记录 cachedTokens 和总输入 token，计算命中率。Cache hit rate &gt; 40% 为健康，&lt; 20% 需调整前缀结构。</li>
+</ol>
+<h2 id="门槛与效果"><a href="#门槛与效果" class="headerlink" title="门槛与效果"></a>门槛与效果</h2><p>Prompt Caching 自动启用门槛和效果都属于易变事实，发布前复核官方文档：</p>
+<ul>
+<li><strong>门槛</strong>：1024 tokens 及以上自动启用（发布前复核）。</li>
+<li><strong>效果</strong>：命中可降低成本和延迟（发布前复核具体比例）。</li>
+<li><strong>检查命中</strong>：<code>usage.prompt_tokens_details.cached_tokens</code> 字段。</li>
+</ul>
+<p>Prompt Caching 的支持模型、门槛、折扣比例都是易变事实，发布前按官方 pricing 页复核。关键设计原则是“静态内容在前，变量在后”，这个结构本身是稳定的。</p>
+<h1 id="失败重试熔断：幂等性、状态保存、预算剩余检查"><a href="#失败重试熔断：幂等性、状态保存、预算剩余检查" class="headerlink" title="失败重试熔断：幂等性、状态保存、预算剩余检查"></a>失败重试熔断：幂等性、状态保存、预算剩余检查</h1><p>重试是成本失控的最大来源。一个后台 report Agent 卡在不稳定工具上，每次失败都重新发送完整上下文，重试 1500 次后成本会迅速偏离正常路径。</p>
+<h2 id="重试前检查预算"><a href="#重试前检查预算" class="headerlink" title="重试前检查预算"></a>重试前检查预算</h2><p>重试前检查预算剩余，不是重试后才发现没预算：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">def should_retry(error_type, budget_remaining, retry_cost_estimate):</span><br><span class="line">    # 错误分类</span><br><span class="line">    if error_type in [&quot;403&quot;, &quot;400&quot;, &quot;tool_not_exist&quot;]:</span><br><span class="line">        return False  # 不可恢复错误，不重试</span><br><span class="line"></span><br><span class="line">    # 预算检查</span><br><span class="line">    if budget_remaining &lt; retry_cost_estimate:</span><br><span class="line">        return False  # 超预算，不重试</span><br><span class="line"></span><br><span class="line">    return True  # 可重试</span><br></pre></td></tr></table></figure>
+<p>预算检查要写在重试逻辑之前，避免“空响应重试 1500 次”烧掉整日预算。</p>
+<h2 id="幂等性"><a href="#幂等性" class="headerlink" title="幂等性"></a>幂等性</h2><p>重试不会重复执行副作用，比如发邮件、扣款：</p>
+<ul>
+<li>工具调用用幂等 ID，例如 requestId；外部 API 收到相同 ID 时返回缓存结果，不重复处理。</li>
+<li>幂等 ID 要写入成本日志，用于判断是否重复调用。</li>
+</ul>
+<p>幂等设计的核心是“同一操作不重复消耗”，避免重试放大成本。</p>
+<h2 id="状态保存（Checkpoint）"><a href="#状态保存（Checkpoint）" class="headerlink" title="状态保存（Checkpoint）"></a>状态保存（Checkpoint）</h2><p>长任务失败恢复不重跑完整流程：</p>
+<ul>
+<li>Agent 执行到关键节点时保存 checkpoint，包括已完成步骤、当前状态和上下文摘要。</li>
+<li>失败恢复时从 checkpoint 继续，不从头重跑。</li>
+<li>Checkpoint 要写入持久化存储，不只留在内存。</li>
+</ul>
+<p>关于 checkpoint 和 thread state 的设计，已在LangGraph Agent 架构文章中展开。</p>
+<h2 id="重试策略"><a href="#重试策略" class="headerlink" title="重试策略"></a>重试策略</h2><p>不同错误类型要不同重试策略：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">错误类型</th>
+<th style="text-align:center">典型错误</th>
+<th style="text-align:center">重试策略</th>
+<th style="text-align:center">成本影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>网络超时</strong></td>
+<td style="text-align:center">10 秒未响应</td>
+<td style="text-align:center">指数退避 + retry-after，最多 3 次</td>
+<td style="text-align:center">每次重试消耗完整上下文</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>503/429</strong></td>
+<td style="text-align:center">Service Unavailable、Rate Limit</td>
+<td style="text-align:center">等待限流窗口 + retry-after，最多 3 次</td>
+<td style="text-align:center">等待时间不消耗 token，但重试会消耗</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>403/400</strong></td>
+<td style="text-align:center">Permission Denied、Bad Request</td>
+<td style="text-align:center">不重试，注入错误让模型判断</td>
+<td style="text-align:center">不重试，避免无效消耗</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>重试策略核心是“可恢复错误才重试，不可恢复错误不重试”，避免把无效请求反复发给模型。</p>
+<h2 id="熔断器-1"><a href="#熔断器-1" class="headerlink" title="熔断器"></a>熔断器</h2><p>连续失败 N 次后停止重试，等待人工介入：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">def circuit_breaker(consecutive_failures, threshold=5):</span><br><span class="line">    if consecutive_failures &gt;= threshold:</span><br><span class="line">        return &quot;stop_retry&quot;  # 停止重试</span><br><span class="line">    return &quot;continue&quot;</span><br></pre></td></tr></table></figure>
+<p>熔断器要写入日志，用于排查“为什么停止重试”。熔断后等待人工介入或预算恢复，不要反复调用不稳定工具或模型。</p>
+<h1 id="成本日志与告警：记录哪些字段、设置什么阈值"><a href="#成本日志与告警：记录哪些字段、设置什么阈值" class="headerlink" title="成本日志与告警：记录哪些字段、设置什么阈值"></a>成本日志与告警：记录哪些字段、设置什么阈值</h1><p>成本可观测性是控制的前提。日志字段不完整就无法定位问题。</p>
+<h2 id="OpenTelemetry-trace-span-attributes"><a href="#OpenTelemetry-trace-span-attributes" class="headerlink" title="OpenTelemetry trace span attributes"></a>OpenTelemetry trace span attributes</h2><p>成本日志按三层 span 设计：</p>
+<p><strong>Agent run span（顶层）</strong>：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段名</th>
+<th style="text-align:center">用途</th>
+<th style="text-align:center">类型</th>
+<th style="text-align:center">必须记录原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>runId</code></td>
+<td style="text-align:center">定位具体执行</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">区分同一 workflow 的多次执行</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>tenantId</code></td>
+<td style="text-align:center">定位租户</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">多租户场景分摊成本</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>userId</code></td>
+<td style="text-align:center">定位用户</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">按用户统计成本趋势</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>workflowName</code></td>
+<td style="text-align:center">定位 workflow</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">按 workflow 类型统计成本</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>totalCost</code></td>
+<td style="text-align:center">总成本估算</td>
+<td style="text-align:center">float</td>
+<td style="text-align:center">实时成本累加</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>budgetRemaining</code></td>
+<td style="text-align:center">预算剩余</td>
+<td style="text-align:center">float</td>
+<td style="text-align:center">熔断判断依据</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>totalRetries</code></td>
+<td style="text-align:center">总重试次数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">重试放大成本</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Model call span（子 span）</strong>：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段名</th>
+<th style="text-align:center">用途</th>
+<th style="text-align:center">类型</th>
+<th style="text-align:center">必须记录原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>model</code></td>
+<td style="text-align:center">定位模型</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">判断模型路由是否合理</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>pricingVersion</code></td>
+<td style="text-align:center">定价版本</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">成本公式不写死，记录版本</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>inputTokens</code></td>
+<td style="text-align:center">输入 token 数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">计算输入成本</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>outputTokens</code></td>
+<td style="text-align:center">输出 token 数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">输出成本需独立记录</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>cachedTokens</code></td>
+<td style="text-align:center">缓存命中 token 数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">计算缓存节省</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>costEstimate</code></td>
+<td style="text-align:center">本次成本估算</td>
+<td style="text-align:center">float</td>
+<td style="text-align:center">实时成本累加</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>latencyMs</code></td>
+<td style="text-align:center">调用延迟</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">判断是否走 Batch/Flex</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Tool call span（子 span）</strong>：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段名</th>
+<th style="text-align:center">用途</th>
+<th style="text-align:center">类型</th>
+<th style="text-align:center">必须记录原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>toolName</code></td>
+<td style="text-align:center">定位工具</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">定位工具调用 overhead</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>toolBudget</code></td>
+<td style="text-align:center">工具预算上限</td>
+<td style="text-align:center">float</td>
+<td style="text-align:center">熔断判断依据</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>toolTimeout</code></td>
+<td style="text-align:center">工具超时时间</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">判断是否超时失败</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>retryCount</code></td>
+<td style="text-align:center">重试次数</td>
+<td style="text-align:center">integer</td>
+<td style="text-align:center">判断重试放大</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>errorType</code></td>
+<td style="text-align:center">错误类型</td>
+<td style="text-align:center">string</td>
+<td style="text-align:center">区分可恢复和不可恢复</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>不要只记 total_cost，要按维度拆分。没有这些字段，账单异常时你只能看到“超标”，却不知道是哪个用户、哪个工具、哪次重试烧钱。</p>
+<p>关于日志、告警、失败恢复的完整设计，已在Agent 监控恢复文章中展开，本文补充成本字段和预算对象。</p>
+<h2 id="告警阈值"><a href="#告警阈值" class="headerlink" title="告警阈值"></a>告警阈值</h2><p>告警阈值按维度设置：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">告警维度</th>
+<th style="text-align:center">告警阈值</th>
+<th style="text-align:center">告警方式</th>
+<th style="text-align:center">触发动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>全局预算消耗</strong></td>
+<td style="text-align:center">70%、90%、100%</td>
+<td style="text-align:center">Slack/邮件告警</td>
+<td style="text-align:center">70% 提示，90% 降级，100% 熔断</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>单用户/tenant 消耗</strong></td>
+<td style="text-align:center">超过均值 3 倍</td>
+<td style="text-align:center">Slack/邮件告警</td>
+<td style="text-align:center">检查是否有异常调用</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>单模型调用失败率</strong></td>
+<td style="text-align:center">&gt; 5%</td>
+<td style="text-align:center">Dashboard 告警</td>
+<td style="text-align:center">检查模型路由或服务状态</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>单工具重试次数</strong></td>
+<td style="text-align:center">&gt; 阈值</td>
+<td style="text-align:center">Dashboard 告警</td>
+<td style="text-align:center">检查工具稳定性</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>缓存命中率</strong></td>
+<td style="text-align:center">&lt; 预期值</td>
+<td style="text-align:center">Dashboard 告警</td>
+<td style="text-align:center">检查 prompt 结构是否错误</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>告警阈值要写在成本日志里，用于自动触发告警和熔断。</p>
+<h2 id="降级策略"><a href="#降级策略" class="headerlink" title="降级策略"></a>降级策略</h2><p>告警触发后的降级路径：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">降级路径</th>
+<th style="text-align:center">降级方式</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">成本影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>模型降级</strong></td>
+<td style="text-align:center">大模型 -&gt; 小模型</td>
+<td style="text-align:center">单模型失败率过高</td>
+<td style="text-align:center">降成本，可能降质量</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>路径降级</strong></td>
+<td style="text-align:center">实时 API -&gt; Batch API -&gt; Flex Processing</td>
+<td style="text-align:center">全局预算消耗过快</td>
+<td style="text-align:center">延迟增加，成本下降</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>功能降级</strong></td>
+<td style="text-align:center">关闭非核心工具调用</td>
+<td style="text-align:center">单工具重试次数过高</td>
+<td style="text-align:center">减少工具调用 overhead</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>用户降级</strong></td>
+<td style="text-align:center">限流、排队、提示“稍后重试”</td>
+<td style="text-align:center">单用户消耗异常</td>
+<td style="text-align:center">避免单用户烧预算</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>降级策略要写在预算逻辑里，告警触发时自动降级，而不是人工介入后才降级。</p>
+<h1 id="下一步推荐"><a href="#下一步推荐" class="headerlink" title="下一步推荐"></a>下一步推荐</h1><p>Agent 成本控制不是孤立的，需要监控、工具调用、上下文工程配合：</p>
+<ul>
+<li><strong>已发布：</strong>Agent 监控恢复：日志字段、告警设置、失败恢复，本文补充成本字段和预算对象。</li>
+<li><strong>已发布：</strong>LangGraph Agent 架构：checkpoint、thread state、失败恢复，用于说明长任务状态保存。</li>
+<li><strong>已发布：</strong>工具调用：工具调用基础，本文扩展 per-tool budget、timeout、重试上限。</li>
+<li><strong>同系列：上下文工程</strong>：稳定 prefix 与缓存命中，哪些上下文进入稳定 prefix，哪些只放运行时变量。</li>
+<li><strong>同系列：Human-in-the-Loop</strong>：审批等待、拒绝、超时的预算分支，审批如何影响成本和重试路径。</li>
+</ul>
+<p>从 Session 级防线开始：设置 per-session cost limit，单次会话超预算自动终止。这是最快见效的第一步，避免一个跑飞的任务烧掉整日预算。后续逐步扩展到预算对象分层、模型路由、工具调用预算、Prompt Caching、重试熔断和成本日志。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Agent-成本应该按用户、会话、任务还是工具统计？"><a href="#Agent-成本应该按用户、会话、任务还是工具统计？" class="headerlink" title="Agent 成本应该按用户、会话、任务还是工具统计？"></a>Agent 成本应该按用户、会话、任务还是工具统计？</h2><p>按多层记账：用户、tenant、workflow、task、tool、retry、cache 七层，每层独立预算和熔断。不能只记 total_cost，要按维度拆分，否则账单异常时无法定位问题。</p>
+<h2 id="模型路由是不是只要把简单任务换成小模型？"><a href="#模型路由是不是只要把简单任务换成小模型？" class="headerlink" title="模型路由是不是只要把简单任务换成小模型？"></a>模型路由是不是只要把简单任务换成小模型？</h2><p>不只是模型层路由，还要考虑服务层路由（Batch/Flex/实时）和风险分级。同一模型也可按 latency priority 分流，离线任务走 Batch API，低优先级任务走 Flex Processing。</p>
+<h2 id="Prompt-Caching-和普通业务缓存有什么区别？"><a href="#Prompt-Caching-和普通业务缓存有什么区别？" class="headerlink" title="Prompt Caching 和普通业务缓存有什么区别？"></a>Prompt Caching 和普通业务缓存有什么区别？</h2><p>Prompt Caching 缓存的是稳定 prompt prefix，如 system prompt、tool schema、policy，不是业务结果。业务结果缓存保存完整输出或工具响应；两者目的不同，可以同时使用。</p>
+<h2 id="工具调用失败时重试几次才算合理？"><a href="#工具调用失败时重试几次才算合理？" class="headerlink" title="工具调用失败时重试几次才算合理？"></a>工具调用失败时重试几次才算合理？</h2><p>不是固定次数，而是看失败分类、预算剩余和熔断器。可恢复错误最多少量重试；403、400、工具不存在等不可恢复错误不重试，避免无效消耗。</p>
+<h2 id="Agent-长任务跑到一半没预算了，应该降级、暂停还是直接失败？"><a href="#Agent-长任务跑到一半没预算了，应该降级、暂停还是直接失败？" class="headerlink" title="Agent 长任务跑到一半没预算了，应该降级、暂停还是直接失败？"></a>Agent 长任务跑到一半没预算了，应该降级、暂停还是直接失败？</h2><p>优先暂停并保存 checkpoint，等待预算恢复或人工介入。直接失败会丢失进度，盲目降级可能影响质量；暂停通常是更稳的工程选择。</p>
+<h2 id="成本日志应该记录哪些字段？"><a href="#成本日志应该记录哪些字段？" class="headerlink" title="成本日志应该记录哪些字段？"></a>成本日志应该记录哪些字段？</h2><p>至少记录 runId、tenantId、workflow、model、input/output/cached tokens、toolName、retryCount、latency、costEstimate、budgetRemaining、decision 和 traceId。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/488b/">https://jingluo23.github.io/posts/488b/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/1bec/" title="Human-in-the-loop Agent 设计：哪些步骤必须人工审批"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</div></div><div class="info-2"><div class="info-item-1">用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve/reject/resume、超时、补偿和审计记录怎么做。</div></div></div></a><a class="pagination-related" href="/posts/5644/" title="Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 接入真实工具前，先设计权限模型：用户身份映射、service account、per-tool permission、scope、secret vault、key rotation、approval policy、data boundary 和 audit log。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/aa55/" title="Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南</div></div><div class="info-2"><div class="info-item-1">详解 Agent 评估基准与性能测试框架，对比 AgentBench、WebArena、τ-Bench 等五大基准，介绍 DeepEval 组件级评估方法，提供完整代码示例。</div></div></div></a><a class="pagination-related" href="/posts/69d1/" title="2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-14</div><div class="info-item-2">2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选</div></div><div class="info-2"><div class="info-item-1">用状态管理、工具调用、HITL、guardrails、eval、可观测性和部署复杂度比较 LangGraph、OpenAI Agents SDK、AutoGen、CrewAI 与 Temporal，帮你从 Agent demo 进入生产选型。</div></div></div></a><a class="pagination-related" href="/posts/1bec/" title="Human-in-the-loop Agent 设计：哪些步骤必须人工审批"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-16</div><div class="info-item-2">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</div></div><div class="info-2"><div class="info-item-1">用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve/reject/resume、超时、补偿和审计记录怎么做。</div></div></div></a><a class="pagination-related" href="/posts/392d/" title="Computer-Use Agent：让 AI 操作你的电脑"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-03</div><div class="info-item-2">Computer-Use Agent：让 AI 操作你的电脑</div></div><div class="info-2"><div class="info-item-1">深入解析 Claude Computer Use 技术，从原理到实践完整指南。包含 Docker 部署、代码示例、竞品分析和安全最佳实践，助你掌握 AI 桌面自动化的前沿技术</div></div></div></a><a class="pagination-related" href="/posts/6050/" title="Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-29</div><div class="info-item-2">Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 沙盒环境搭建方案，从 gVisor 到 Firecracker 技术对比，提供本地开发到 Kubernetes 集群的完整部署指南</div></div></div></a><a class="pagination-related" href="/posts/a6e0/" title="AI Agent 监控告警与失败恢复：从日志到状态机的设计实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-12</div><div class="info-item-2">AI Agent 监控告警与失败恢复：从日志到状态机的设计实践</div></div><div class="info-2"><div class="info-item-1">AI Agent 上线后失败无从排查？本文从日志到状态机的完整设计实践，教你构建生产级监控告警体系，让每个失败可观测、可恢复</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%A2%84%E7%AE%97%E5%AF%B9%E8%B1%A1%E8%AE%BE%E8%AE%A1%EF%BC%9A%E8%AE%B0%E4%BB%80%E4%B9%88%E3%80%81%E8%AE%B0%E5%9C%A8%E5%93%AA%E3%80%81%E6%80%8E%E4%B9%88%E7%86%94%E6%96%AD"><span class="toc-number">1.</span> <span class="toc-text">预算对象设计：记什么、记在哪、怎么熔断</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E5%B1%82%E9%A2%84%E7%AE%97%E5%AF%B9%E8%B1%A1"><span class="toc-number">1.1.</span> <span class="toc-text">七层预算对象</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AF%8F%E5%B1%82%E8%A6%81%E8%AE%B0%E7%9A%84%E5%AD%97%E6%AE%B5"><span class="toc-number">1.2.</span> <span class="toc-text">每层要记的字段</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%86%94%E6%96%AD%E9%80%BB%E8%BE%91"><span class="toc-number">1.3.</span> <span class="toc-text">熔断逻辑</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E8%B7%AF%E7%94%B1%E7%AD%96%E7%95%A5%EF%BC%9A%E4%B8%8D%E6%98%AF%E6%89%80%E6%9C%89%E4%BB%BB%E5%8A%A1%E9%83%BD%E9%9C%80%E8%A6%81%E6%9C%80%E8%B4%B5%E6%A8%A1%E5%9E%8B"><span class="toc-number">2.</span> <span class="toc-text">模型路由策略：不是所有任务都需要最贵模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E5%B1%82%E8%B7%AF%E7%94%B1"><span class="toc-number">2.1.</span> <span class="toc-text">模型层路由</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%8D%E5%8A%A1%E5%B1%82%E8%B7%AF%E7%94%B1"><span class="toc-number">2.2.</span> <span class="toc-text">服务层路由</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A3%8E%E9%99%A9%E5%88%86%E7%BA%A7"><span class="toc-number">2.3.</span> <span class="toc-text">风险分级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E7%BA%A6%E6%9D%9F"><span class="toc-number">2.4.</span> <span class="toc-text">关键约束</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E9%A2%84%E7%AE%97%EF%BC%9Aper-tool-budget%E3%80%81timeout-%E5%92%8C%E9%87%8D%E8%AF%95%E4%B8%8A%E9%99%90"><span class="toc-number">3.</span> <span class="toc-text">工具调用预算：per-tool budget、timeout 和重试上限</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E9%A2%84%E7%AE%97%E6%8E%A7%E5%88%B6"><span class="toc-number">3.1.</span> <span class="toc-text">工具预算控制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E5%A4%B1%E8%B4%A5%E5%88%86%E7%B1%BB"><span class="toc-number">3.2.</span> <span class="toc-text">工具失败分类</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%86%94%E6%96%AD%E5%99%A8"><span class="toc-number">3.3.</span> <span class="toc-text">熔断器</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Prompt-Caching-%E8%AE%BE%E8%AE%A1%EF%BC%9A%E7%A8%B3%E5%AE%9A-prefix%E3%80%81%E5%8F%98%E9%87%8F%E4%BD%8D%E7%BD%AE%E3%80%811024-token-%E9%97%A8%E6%A7%9B"><span class="toc-number">4.</span> <span class="toc-text">Prompt Caching 设计：稳定 prefix、变量位置、1024 token 门槛</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Prompt-Caching-%E2%89%A0-%E7%BB%93%E6%9E%9C%E7%BC%93%E5%AD%98"><span class="toc-number">4.1.</span> <span class="toc-text">Prompt Caching ≠ 结果缓存</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%84%E8%A6%81%E6%B1%82"><span class="toc-number">4.2.</span> <span class="toc-text">结构要求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%A8%E6%A7%9B%E4%B8%8E%E6%95%88%E6%9E%9C"><span class="toc-number">4.3.</span> <span class="toc-text">门槛与效果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%A4%B1%E8%B4%A5%E9%87%8D%E8%AF%95%E7%86%94%E6%96%AD%EF%BC%9A%E5%B9%82%E7%AD%89%E6%80%A7%E3%80%81%E7%8A%B6%E6%80%81%E4%BF%9D%E5%AD%98%E3%80%81%E9%A2%84%E7%AE%97%E5%89%A9%E4%BD%99%E6%A3%80%E6%9F%A5"><span class="toc-number">5.</span> <span class="toc-text">失败重试熔断：幂等性、状态保存、预算剩余检查</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E8%AF%95%E5%89%8D%E6%A3%80%E6%9F%A5%E9%A2%84%E7%AE%97"><span class="toc-number">5.1.</span> <span class="toc-text">重试前检查预算</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B9%82%E7%AD%89%E6%80%A7"><span class="toc-number">5.2.</span> <span class="toc-text">幂等性</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E4%BF%9D%E5%AD%98%EF%BC%88Checkpoint%EF%BC%89"><span class="toc-number">5.3.</span> <span class="toc-text">状态保存（Checkpoint）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E8%AF%95%E7%AD%96%E7%95%A5"><span class="toc-number">5.4.</span> <span class="toc-text">重试策略</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%86%94%E6%96%AD%E5%99%A8-1"><span class="toc-number">5.5.</span> <span class="toc-text">熔断器</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%88%90%E6%9C%AC%E6%97%A5%E5%BF%97%E4%B8%8E%E5%91%8A%E8%AD%A6%EF%BC%9A%E8%AE%B0%E5%BD%95%E5%93%AA%E4%BA%9B%E5%AD%97%E6%AE%B5%E3%80%81%E8%AE%BE%E7%BD%AE%E4%BB%80%E4%B9%88%E9%98%88%E5%80%BC"><span class="toc-number">6.</span> <span class="toc-text">成本日志与告警：记录哪些字段、设置什么阈值</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenTelemetry-trace-span-attributes"><span class="toc-number">6.1.</span> <span class="toc-text">OpenTelemetry trace span attributes</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%91%8A%E8%AD%A6%E9%98%88%E5%80%BC"><span class="toc-number">6.2.</span> <span class="toc-text">告警阈值</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%8D%E7%BA%A7%E7%AD%96%E7%95%A5"><span class="toc-number">6.3.</span> <span class="toc-text">降级策略</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%8B%E4%B8%80%E6%AD%A5%E6%8E%A8%E8%8D%90"><span class="toc-number">7.</span> <span class="toc-text">下一步推荐</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E6%88%90%E6%9C%AC%E5%BA%94%E8%AF%A5%E6%8C%89%E7%94%A8%E6%88%B7%E3%80%81%E4%BC%9A%E8%AF%9D%E3%80%81%E4%BB%BB%E5%8A%A1%E8%BF%98%E6%98%AF%E5%B7%A5%E5%85%B7%E7%BB%9F%E8%AE%A1%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">Agent 成本应该按用户、会话、任务还是工具统计？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E8%B7%AF%E7%94%B1%E6%98%AF%E4%B8%8D%E6%98%AF%E5%8F%AA%E8%A6%81%E6%8A%8A%E7%AE%80%E5%8D%95%E4%BB%BB%E5%8A%A1%E6%8D%A2%E6%88%90%E5%B0%8F%E6%A8%A1%E5%9E%8B%EF%BC%9F"><span class="toc-number">8.2.</span> <span class="toc-text">模型路由是不是只要把简单任务换成小模型？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Prompt-Caching-%E5%92%8C%E6%99%AE%E9%80%9A%E4%B8%9A%E5%8A%A1%E7%BC%93%E5%AD%98%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">Prompt Caching 和普通业务缓存有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E5%A4%B1%E8%B4%A5%E6%97%B6%E9%87%8D%E8%AF%95%E5%87%A0%E6%AC%A1%E6%89%8D%E7%AE%97%E5%90%88%E7%90%86%EF%BC%9F"><span class="toc-number">8.4.</span> <span class="toc-text">工具调用失败时重试几次才算合理？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E9%95%BF%E4%BB%BB%E5%8A%A1%E8%B7%91%E5%88%B0%E4%B8%80%E5%8D%8A%E6%B2%A1%E9%A2%84%E7%AE%97%E4%BA%86%EF%BC%8C%E5%BA%94%E8%AF%A5%E9%99%8D%E7%BA%A7%E3%80%81%E6%9A%82%E5%81%9C%E8%BF%98%E6%98%AF%E7%9B%B4%E6%8E%A5%E5%A4%B1%E8%B4%A5%EF%BC%9F"><span class="toc-number">8.5.</span> <span class="toc-text">Agent 长任务跑到一半没预算了，应该降级、暂停还是直接失败？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%90%E6%9C%AC%E6%97%A5%E5%BF%97%E5%BA%94%E8%AF%A5%E8%AE%B0%E5%BD%95%E5%93%AA%E4%BA%9B%E5%AD%97%E6%AE%B5%EF%BC%9F"><span class="toc-number">8.6.</span> <span class="toc-text">成本日志应该记录哪些字段？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

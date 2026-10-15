@@ -1,0 +1,901 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Human-in-the-loop Agent 设计：哪些步骤必须人工审批 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve&#x2F;reject&#x2F;resume、超时、补偿和审计记录怎么做。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Human-in-the-loop Agent 设计：哪些步骤必须人工审批">
+<meta property="og:url" content="https://jingluo23.github.io/posts/1bec/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve&#x2F;reject&#x2F;resume、超时、补偿和审计记录怎么做。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-16T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T03:42:34.247Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Human-in-the-loop Agent 设计：哪些步骤必须人工审批",
+  "url": "https://jingluo23.github.io/posts/1bec/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-16T07:12:21.000Z",
+  "dateModified": "2026-10-15T03:42:34.247Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/1bec/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Human-in-the-loop Agent 设计：哪些步骤必须人工审批',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-16T07:12:21.000Z" title="发表于 2026-08-16 15:12:21">2026-08-16</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T03:42:34.247Z" title="更新于 2026-10-15 11:42:34">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>18分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 11:42:34&quot;}" hidden></div><p>飞书消息草稿已经生成好了：标题、正文、附件链接都填完，只差一步——点发送。但你的 Agent 在 <code>send_message</code> 前停了下来，等你确认。</p>
+<p>邮件内容可以自动生成,发给客户前必须展示收件人、主题、正文摘要。CMS 表单填完了，提交时被策略拦下，等待 owner approve。这些场景看起来是 UI 层面的”点确认按钮”，但背后是运行状态暂停。Agent 的 RunState 被保存下来，等你做决策后恢复执行。审批要在哪一步停下来、谁来批、拒绝或超时怎么处理，这些不是前端弹窗的事，是工具系统的安全边界。</p>
+<p>这篇文章给出一套可执行的风险分级矩阵、审批点清单、暂停恢复机制和审计字段模板，帮你把审批从”加个确认按钮”改写为”可序列化、可恢复、可审计的系统状态”。</p>
+<h1 id="风险分级矩阵：决定哪些动作要审批"><a href="#风险分级矩阵：决定哪些动作要审批" class="headerlink" title="风险分级矩阵：决定哪些动作要审批"></a>风险分级矩阵：决定哪些动作要审批</h1><p>不是所有动作都要审批。只读操作可以自动执行，删除和付款必须停下来等人。怎么判断？用这五个维度：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">维度</th>
+<th style="text-align:center">分级标准</th>
+<th style="text-align:center">示例动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">外部影响</td>
+<td style="text-align:center">涉及外部系统/用户</td>
+<td style="text-align:center">发邮件、提交表单、调用外部 API、写协作系统（飞书/Slack）</td>
+</tr>
+<tr>
+<td style="text-align:center">可逆性</td>
+<td style="text-align:center">动作是否可撤销</td>
+<td style="text-align:center">删除记录（不可逆）、写草稿（可逆）、付款（部分可逆需补偿）、发送消息（不可逆）</td>
+</tr>
+<tr>
+<td style="text-align:center">数据敏感度</td>
+<td style="text-align:center">涉及的数据级别</td>
+<td style="text-align:center">查询公开数据（公开）、修改内部记录（内部）、导出用户隐私（敏感）、读取生产配置（敏感）</td>
+</tr>
+<tr>
+<td style="text-align:center">金额/权限阈值</td>
+<td style="text-align:center">涉及资金或权限变更</td>
+<td style="text-align:center">付款、转账、退款、改权限、批量操作、删除用户数据</td>
+</tr>
+<tr>
+<td style="text-align:center">自动程度</td>
+<td style="text-align:center">允许的自动级别</td>
+<td style="text-align:center">只读查询（全自动）、写草稿（全自动）、外发消息（需确认）、删除/付款（需审批）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这套矩阵来自 OWASP LLM06 的”过度功能、过度权限、过度自主”风险分类（发布前需核验 OWASP 编号）。你可以直接套用，或者根据业务场景调整阈值。</p>
+<p>具体来说：</p>
+<p>外部影响：只要涉及外部系统或用户，就要警惕。邮件发出去就收不回，表单提交可能触发订单，外部 API 调用可能改别人家的数据。</p>
+<p>可逆性：删除记录不可逆，写草稿可随时改，付款部分可逆但需要退款流程补偿。</p>
+<p>数据敏感度：公开数据可以自由读，内部数据要限制写，敏感数据（用户隐私、生产配置）必须审批。</p>
+<p>金额/权限阈值：任何涉及资金或权限变更的动作，都该停下来。付款、转账、退款、改权限、批量操作都是高风险点。</p>
+<p>自动程度：读操作可以全自动，写草稿也可以自动（毕竟只是草稿），外发需要确认，删除和付款必须审批。</p>
+<p>矩阵不是一次性配置，要根据业务场景调整。比如你的业务场景中”发送消息”风险低（内部通知），可以降到”需确认”；但”付款”风险高（涉及真实资金），必须”需审批+双人复核”。</p>
+<h2 id="三个真实场景的分级案例"><a href="#三个真实场景的分级案例" class="headerlink" title="三个真实场景的分级案例"></a>三个真实场景的分级案例</h2><p>案例1：飞书消息草稿</p>
+<p>Agent 写飞书消息草稿：自动执行（L0）。草稿只是保存在飞书草稿箱，没有发送出去，可逆、无外部影响、不涉及敏感数据。但当 Agent 调用 <code>send_message</code> 发送给客户：需审批（L2）。消息一旦发送就不可逆，外部用户会收到内容，可能包含敏感信息或误导性内容。MCP tools/call 前确认就是这个场景。</p>
+<p>案例2：邮件发送</p>
+<p>Agent 生成邮件内容：自动执行（L0）。内容只是字符串，没有发送出去，可随时修改。但当 Agent 调用邮件 API 发送给客户：需审批展示收件人/主题/附件（L2）。审批 UI 必须展示摘要和证据，不能只显示”确认发送”按钮。</p>
+<p>案例3：CMS 表单提交</p>
+<p>Agent 填写表单：自动执行（L0）。表单只是填写，没有提交，数据还在本地。但当 Agent 调用 CMS API 提交表单：策略拦截需 owner approve（L2）。策略可以是 guardrail 自动拦截（比如”金额超阈值”），也可以是 policy 静态规则（比如”所有 CMS 提交都要审批”）。</p>
+<p>案例4：生产数据库删除</p>
+<p>Agent 查询生产数据库：自动执行（L0）。查询只是读操作，无外部影响、可逆、不修改数据。但当 Agent 调用删除 API 删除生产库：强制人工审批+backup 审计（L3）。删除生产数据库不可逆、涉及敏感数据、影响外部用户，必须 Policy 强制规则限制，不能依赖 Guardrail 自动拦截。</p>
+<p>这四个案例说明：同一个任务的不同步骤，风险级别不同。写草稿可以自动，发送必须审批，生产库删除必须双人复核。风险分级不是一刀切，要拆到具体动作。</p>
+<h1 id="审批点定义清单：具体到动作类型"><a href="#审批点定义清单：具体到动作类型" class="headerlink" title="审批点定义清单：具体到动作类型"></a>审批点定义清单：具体到动作类型</h1><p>有了风险矩阵，现在定义审批等级。这套清单覆盖常见动作类型：</p>
+<p>L0 自动执行：读操作（查询数据库、检索向量库、读取配置）、写草稿（保存草稿、生成预览）。这些动作没有外部影响、可逆、不涉及敏感数据，可以自动执行。</p>
+<p>L1 需确认：外发消息/数据（发送邮件、提交表单、调用外部 API）、批量读操作（导出数据、批量查询）。这些动作有外部影响，但风险相对可控，需要确认但不需要严格审批。</p>
+<p>L2 需审批：删除/改权限（删除记录、修改权限、批量删除）、写协作系统（飞书消息、Slack 消息、CRM 记录）。这些动作不可逆或有较高外部影响，必须停下来审批。</p>
+<p>L3 强制审批+双人复核：付款/转账（支付订单、退款）、敏感数据操作（导出用户隐私、修改生产配置、删除生产库）。这些动作涉及资金或敏感数据，必须双人复核。</p>
+<p>这套清单来自 OpenAI Agents SDK 的 <code>needs_approval</code> 和 MCP Tools 的安全建议（发布前需复核 API 字段名）。MCP spec 要求”工具调用应让用户能拒绝，敏感操作确认”，对应的就是 L2 和 L3 级别。</p>
+<p>你可以按业务场景调整。比如：</p>
+<ul>
+<li>如果你的业务场景中”发送飞书消息”风险低（内部通知），可以降到 L1 需确认。</li>
+<li>如果”删除记录”风险高（用户数据），必须保持 L2 需审批。</li>
+<li>如果”付款”风险极高（大额资金），可以升级到 L3 双人复核+审批理由必填。</li>
+</ul>
+<p>清单不是静态的，要根据业务变化调整。比如某天业务规则变了，“发送消息”不再需要审批，可以直接从清单中移除。</p>
+<h1 id="审批流程状态机：如何暂停、保存状态、恢复执行"><a href="#审批流程状态机：如何暂停、保存状态、恢复执行" class="headerlink" title="审批流程状态机：如何暂停、保存状态、恢复执行"></a>审批流程状态机：如何暂停、保存状态、恢复执行</h1><p>审批不是 UI 弹窗，是运行状态暂停。当工具调用需要审批时，Agent 的 RunState 被保存，等你做决策后恢复。</p>
+<h2 id="状态流转图"><a href="#状态流转图" class="headerlink" title="状态流转图"></a>状态流转图</h2><p>审批状态机包含以下流转：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">request -&gt; pending -&gt; approved/rejected/timeout -&gt; resume/abort/compensate</span><br></pre></td></tr></table></figure>
+<p>具体步骤：</p>
+<ul>
+<li>request：工具调用触发审批请求，RunState 包含工具名、参数、上下文。</li>
+<li>pending：等待人工决策，状态保存在 checkpoint 中，关联 thread_id。</li>
+<li>approved：审批通过，从 checkpoint 恢复执行，调用工具。</li>
+<li>rejected：审批拒绝，进入 abort 或 convert to draft。</li>
+<li>timeout：审批超时，进入 escalate 或 auto-reject。</li>
+<li>resume/abort/compensate：恢复执行、中断任务、补偿已执行步骤。</li>
+</ul>
+<h2 id="恢复方式"><a href="#恢复方式" class="headerlink" title="恢复方式"></a>恢复方式</h2><p>三种恢复方式：</p>
+<ul>
+<li>approve：继续执行，调用工具，完成后继续下一步。</li>
+<li>reject：中断或改草稿，不调用工具。</li>
+<li>edit：修改参数后继续，比如修改邮件收件人或内容后重新审批。</li>
+</ul>
+<p>checkpoint 和 thread state 是状态保存的技术背景。具体实现见站内已发布的 LangGraph checkpoint/thread state 文章。checkpoint 用于暂停时保存状态，thread state 用于恢复时回到执行点。</p>
+<h2 id="OpenAI-Agents-SDK-HITL-代码示例"><a href="#OpenAI-Agents-SDK-HITL-代码示例" class="headerlink" title="OpenAI Agents SDK HITL 代码示例"></a>OpenAI Agents SDK HITL 代码示例</h2><p>以下代码演示 OpenAI Agents SDK 的审批机制（API 易变，发布前需核对官方文档）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">from agents import Agent, Runner, function_tool</span><br><span class="line"></span><br><span class="line">@function_tool(needs_approval=True)</span><br><span class="line">def send_email(to: str, subject: str, body: str) -&gt; str:</span><br><span class="line">    return send_email_handler(to=to, subject=subject, body=body)</span><br><span class="line"></span><br><span class="line">agent = Agent(</span><br><span class="line">    name=&quot;EmailAgent&quot;,</span><br><span class="line">    tools=[send_email],</span><br><span class="line">    instructions=&quot;写邮件草稿，发送前等待审批&quot;,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">result = Runner.run_sync(agent, &quot;给客户写封退款通知邮件&quot;)</span><br><span class="line"></span><br><span class="line">if result.interruptions:</span><br><span class="line">    state = result.to_state()</span><br><span class="line"></span><br><span class="line">    for interruption in result.interruptions:</span><br><span class="line">        print(f&quot;待审批工具: &#123;interruption.tool_name&#125;&quot;)</span><br><span class="line">        print(f&quot;参数: &#123;interruption.arguments&#125;&quot;)</span><br><span class="line"></span><br><span class="line">        decision = show_approval_ui(interruption)</span><br><span class="line"></span><br><span class="line">        if decision == &quot;approve&quot;:</span><br><span class="line">            state.approve(interruption)</span><br><span class="line">        elif decision == &quot;reject&quot;:</span><br><span class="line">            state.reject(interruption)</span><br><span class="line"></span><br><span class="line">    result = Runner.run_sync(agent, state)</span><br></pre></td></tr></table></figure>
+<p>核心点：</p>
+<ul>
+<li><code>needs_approval=True</code> 标记工具需要审批。</li>
+<li><code>interruptions</code> 包含待审批的工具调用列表。</li>
+<li><code>result.to_state()</code> 把暂停结果转换为可序列化的 RunState。</li>
+<li><code>state.approve()</code> 或 <code>state.reject()</code> 做决策。</li>
+<li><code>Runner.run_sync(agent, state)</code> 从暂停点继续。</li>
+</ul>
+<p>注意：API 字段名可能在 2026-07 后变化，需核对官方文档。</p>
+<h2 id="LangGraph-interrupt-resume-代码示例"><a href="#LangGraph-interrupt-resume-代码示例" class="headerlink" title="LangGraph interrupt/resume 代码示例"></a>LangGraph interrupt/resume 代码示例</h2><p>以下代码演示 LangGraph 的 interrupt 和 Command resume：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.graph import StateGraph, MessagesState</span><br><span class="line">from langgraph.checkpoint.memory import MemorySaver</span><br><span class="line">from langgraph.types import Command, interrupt</span><br><span class="line"></span><br><span class="line">def send_email_node(state: MessagesState):</span><br><span class="line">    approved = interrupt(&#123;</span><br><span class="line">        &quot;action&quot;: &quot;send_email&quot;,</span><br><span class="line">        &quot;summary&quot;: state[&quot;email_summary&quot;],</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    if approved != &quot;approved&quot;:</span><br><span class="line">        return &#123;&quot;messages&quot;: [&quot;邮件发送被拒绝，已保存为草稿&quot;]&#125;</span><br><span class="line"></span><br><span class="line">    email_result = send_email(state[&quot;email_params&quot;])</span><br><span class="line">    return &#123;&quot;messages&quot;: [email_result]&#125;</span><br><span class="line"></span><br><span class="line">graph = StateGraph(MessagesState)</span><br><span class="line">graph.add_node(&quot;send_email&quot;, send_email_node)</span><br><span class="line">graph.add_edge(&quot;draft_email&quot;, &quot;send_email&quot;)</span><br><span class="line"></span><br><span class="line">checkpointer = MemorySaver()</span><br><span class="line">app = graph.compile(checkpointer=checkpointer)</span><br><span class="line"></span><br><span class="line">thread_id = &quot;thread_123&quot;</span><br><span class="line">config = &#123;&quot;configurable&quot;: &#123;&quot;thread_id&quot;: thread_id&#125;&#125;</span><br><span class="line"></span><br><span class="line">result = app.invoke(</span><br><span class="line">    &#123;&quot;messages&quot;: [&quot;给客户写退款通知&quot;]&#125;,</span><br><span class="line">    config=config,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># graph 暂停后，interrupt payload 会返回给调用方；展示审批 UI，等待人工决策。</span><br><span class="line">decision = show_approval_ui(result[&quot;__interrupt__&quot;])</span><br><span class="line"></span><br><span class="line">if decision == &quot;approve&quot;:</span><br><span class="line">    app.invoke(Command(resume=&quot;approved&quot;), config=config)</span><br><span class="line">elif decision == &quot;reject&quot;:</span><br><span class="line">    app.invoke(Command(resume=&quot;rejected&quot;), config=config)</span><br><span class="line">elif decision == &quot;edit&quot;:</span><br><span class="line">    app.update_state(config, &#123;&quot;email_params&quot;: &#123;&quot;to&quot;: &quot;[email protected]&quot;&#125;&#125;)</span><br><span class="line">    app.invoke(Command(resume=&quot;approved&quot;), config=config)</span><br></pre></td></tr></table></figure>
+<p>核心点：</p>
+<ul>
+<li><code>interrupt()</code> 暂停 graph。</li>
+<li><code>Command(resume=...)</code> 恢复执行。</li>
+<li>checkpoint + thread_id 保证状态一致性。</li>
+<li>支持 approve/reject/edit 三种恢复方式。</li>
+</ul>
+<p>注意：API 可能变化，需核对 LangGraph 官方文档。</p>
+<h1 id="审批证据字段清单：保存什么信息，如何追溯"><a href="#审批证据字段清单：保存什么信息，如何追溯" class="headerlink" title="审批证据字段清单：保存什么信息，如何追溯"></a>审批证据字段清单：保存什么信息，如何追溯</h1><p>审批不是只做决策，还要记录决策。这套字段是审计日志的最小集：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段</th>
+<th style="text-align:center">说明</th>
+<th style="text-align:center">示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">tool_name</td>
+<td style="text-align:center">工具名 + 操作类型</td>
+<td style="text-align:center">send_email / delete_record</td>
+</tr>
+<tr>
+<td style="text-align:center">tool_arguments</td>
+<td style="text-align:center">完整参数 JSON</td>
+<td style="text-align:center">{“to”: “[email protected]”, “subject”: “退款通知”}</td>
+</tr>
+<tr>
+<td style="text-align:center">invoker_id</td>
+<td style="text-align:center">调用者身份（用户或系统）</td>
+<td style="text-align:center">[email protected] / agent_run_abc123</td>
+</tr>
+<tr>
+<td style="text-align:center">request_time</td>
+<td style="text-align:center">审批请求时间</td>
+<td style="text-align:center">2026-06-23T09:26:10Z</td>
+</tr>
+<tr>
+<td style="text-align:center">approver_id</td>
+<td style="text-align:center">审批人身份</td>
+<td style="text-align:center">[email protected]</td>
+</tr>
+<tr>
+<td style="text-align:center">decision_time</td>
+<td style="text-align:center">审批决策时间</td>
+<td style="text-align:center">2026-06-23T09:35:12Z</td>
+</tr>
+<tr>
+<td style="text-align:center">decision</td>
+<td style="text-align:center">决策结果</td>
+<td style="text-align:center">approved / rejected / timeout_auto_reject</td>
+</tr>
+<tr>
+<td style="text-align:center">evidence</td>
+<td style="text-align:center">审批证据（截图/摘要）</td>
+<td style="text-align:center">“收件人正确，内容无敏感信息”</td>
+</tr>
+<tr>
+<td style="text-align:center">audit_trail_id</td>
+<td style="text-align:center">可关联到运行日志</td>
+<td style="text-align:center">run_abc123_step_5_tool_3</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这套字段来自 MCP Tools 的审计建议和 OpenAI API 的 <code>mcp_approval_request</code> item（发布前需核验字段名）。审批日志是可观测性的一部分，具体实践见站内已发布的 Agent monitoring/recovery 文章。</p>
+<p>RunState 如何序列化？OpenAI Agents SDK 可通过 <code>result.to_state()</code> 把暂停结果转换为 RunState，LangGraph 使用 checkpoint + thread_id。序列化后保存到数据库或日志系统，关联 audit_trail_id。</p>
+<p>审计日志有几个关键用途：</p>
+<ul>
+<li>事故追溯：某天发现数据泄露，能查到是谁在什么时候审批了哪个操作。</li>
+<li>合规审计：企业环境需要证明”高风险操作有人审批”，日志是证据。</li>
+<li>策略改进：统计哪些动作审批频率高、哪些总是被拒绝，调整审批策略。</li>
+</ul>
+<p>字段不是死的，可以扩展。比如你的业务需要记录”审批时长”、“审批渠道”（邮件/Slack/飞书）、“是否双人复核”，都可以加进去。但最小集必须包含上述九个字段。</p>
+<h1 id="拒绝和超时：审批失败后怎么办"><a href="#拒绝和超时：审批失败后怎么办" class="headerlink" title="拒绝和超时：审批失败后怎么办"></a>拒绝和超时：审批失败后怎么办</h1><p>审批不是总是通过。拒绝和超时需要处理，不能让任务卡住。</p>
+<h2 id="拒绝后的三种路径"><a href="#拒绝后的三种路径" class="headerlink" title="拒绝后的三种路径"></a>拒绝后的三种路径</h2><p>路径1：continue with fallback。用降级动作继续。比如发送邮件被拒绝，改成保存草稿，继续后续步骤。适合可降级的动作。</p>
+<p>路径2：convert to draft。把动作改成草稿状态。比如 CMS 表单提交被拒绝，改成草稿保存，等待人工修改后重新提交。适合需要人工介入的场景。</p>
+<p>路径3：abort task。中断整个任务。比如删除生产数据库被拒绝，任务必须停止，不能继续。适合不可逆高风险动作。</p>
+<p>选择路径要看动作类型：</p>
+<ul>
+<li>可逆动作：fallback 或 convert to draft。</li>
+<li>不可逆高风险动作：abort task。</li>
+<li>需要人工介入的场景：escalate。</li>
+</ul>
+<h2 id="超时后的两种路径"><a href="#超时后的两种路径" class="headerlink" title="超时后的两种路径"></a>超时后的两种路径</h2><p>路径1：escalate to backup approver。超时后转给备用审批人。比如主审批人 30 分钟未响应，转给 on-call engineer。适合需要人工决策的场景。</p>
+<p>路径2：auto-reject。超时后自动拒绝。比如审批超时 1 小时，自动拒绝并中断任务。适合风险较低但时间敏感的场景。</p>
+<p>选择路径要看业务场景：</p>
+<ul>
+<li>高风险动作：escalate，不能 auto-reject。</li>
+<li>时间敏感动作：auto-reject，避免任务卡住。</li>
+<li>一般场景：escalate，给审批人更多时间。</li>
+</ul>
+<h2 id="如何回滚已执行步骤"><a href="#如何回滚已执行步骤" class="headerlink" title="如何回滚已执行步骤"></a>如何回滚已执行步骤</h2><p>如果任务在审批拒绝后中断，可能需要回滚已执行步骤。比如 Agent 已经创建了订单，但付款审批被拒绝，订单需要取消。</p>
+<p>回滚策略：</p>
+<ul>
+<li>checkpoint 回滚：从 checkpoint 恢复到审批前的状态，丢弃已执行步骤。</li>
+<li>补偿事务：调用补偿 API，比如取消订单、撤销邮件发送。</li>
+<li>人工介入：通知人工处理，比如手动取消订单。</li>
+</ul>
+<p>回滚不是总能成功。比如邮件已经发送出去，无法撤销。这种情况下只能记录审计日志，事后处理。</p>
+<h1 id="四层安全边界：Policy、Guardrail、Approval、Audit-如何组合"><a href="#四层安全边界：Policy、Guardrail、Approval、Audit-如何组合" class="headerlink" title="四层安全边界：Policy、Guardrail、Approval、Audit 如何组合"></a>四层安全边界：Policy、Guardrail、Approval、Audit 如何组合</h1><p>审批不是孤立的安全机制。Policy、Guardrail、Approval、Audit 四层需要组合使用，互不替代。</p>
+<h2 id="四层职责对照表"><a href="#四层职责对照表" class="headerlink" title="四层职责对照表"></a>四层职责对照表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">层级</th>
+<th style="text-align:center">职责</th>
+<th style="text-align:center">示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Policy</td>
+<td style="text-align:center">静态规则，限制工具范围</td>
+<td style="text-align:center">”禁止删除生产库”、“付款工具只能调用沙箱环境”</td>
+</tr>
+<tr>
+<td style="text-align:center">Guardrail</td>
+<td style="text-align:center">自动检查，拦截异常输入/输出</td>
+<td style="text-align:center">输入验证（参数格式校验）、输出清理（敏感信息过滤）、金额阈值检查</td>
+</tr>
+<tr>
+<td style="text-align:center">Approval</td>
+<td style="text-align:center">人工决策，高风险动作确认</td>
+<td style="text-align:center">发送邮件前展示收件人/内容、删除记录前确认、付款审批</td>
+</tr>
+<tr>
+<td style="text-align:center">Audit</td>
+<td style="text-align:center">事后追溯，记录决策和执行</td>
+<td style="text-align:center">审批日志、工具调用日志、状态变更日志</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>四层互不替代：</p>
+<ul>
+<li>Policy 不能替代 Guardrail：Policy 是静态规则，无法动态检查输入输出。</li>
+<li>Guardrail 不能替代 Approval：Guardrail 是自动检查，无法处理需要人工判断的场景。</li>
+<li>Approval 不能替代 Audit：Approval 是决策，Audit 是追溯，两者必须都存在。</li>
+<li>Audit 不能替代前三层：Audit 是事后追溯，无法阻止风险发生。</li>
+</ul>
+<p>组合使用示例：</p>
+<ul>
+<li>付款场景：Policy 限制金额上限、Guardrail 检查参数格式、Approval 双人复核、Audit 记录审批日志。</li>
+<li>发邮件场景：Policy 限制收件人范围、Guardrail 检查内容敏感度、Approval 展示摘要确认、Audit 记录发送日志。</li>
+</ul>
+<h2 id="MCP-工具安全边界"><a href="#MCP-工具安全边界" class="headerlink" title="MCP 工具安全边界"></a>MCP 工具安全边界</h2><p>MCP（Model Context Protocol）工具调用有自己的安全边界（spec 版本 2025-06-18，发布前需核验）：</p>
+<ul>
+<li>tools/list 展示所有可用工具：用户可以看到 Agent 能调用哪些工具，避免隐藏风险。</li>
+<li>tools/call 前确认：敏感操作需要用户确认，对应 Approval 层。</li>
+<li>inputSchema 校验：参数格式校验，对应 Guardrail 层。</li>
+<li>timeout：工具调用超时限制，避免卡住。</li>
+<li>audit logging：工具调用日志，对应 Audit 层。</li>
+</ul>
+<p>关键提醒：MCP approval 不能替代 OAuth scope 和 server-side authorization。MCP approval 是工具调用前的确认，OAuth scope 是 API 访问权限，server-side authorization 是业务逻辑权限检查。三者必须都存在。</p>
+<p>比如飞书 MCP server OAuth 通过了，scope 包含 <code>send_message</code>，但这不代表每条消息都安全。MCP approval 需要在发送前确认内容，server-side authorization 需要检查收件人是否在允许范围内。</p>
+<h2 id="审批-UI-设计要点"><a href="#审批-UI-设计要点" class="headerlink" title="审批 UI 设计要点"></a>审批 UI 设计要点</h2><p>审批 UI 不是简单的”确认/拒绝”按钮，要展示足够信息让人做决策。</p>
+<p>设计原则：</p>
+<ul>
+<li>展示工具名和参数：让审批人知道 Agent 要调用什么工具、用什么参数。</li>
+<li>展示预期影响：比如”发送邮件给 [email protected]，主题是退款通知”。</li>
+<li>展示可逆性：比如”发送后不可撤销”或”删除后可恢复”。</li>
+<li>展示数据敏感度：比如”涉及用户隐私”或”公开数据”。</li>
+<li>区分”取消”和”拒绝”：取消是放弃本次审批，拒绝是拒绝工具调用并记录审计日志。</li>
+</ul>
+<p>核心元素：</p>
+<ul>
+<li>工具名 + 操作类型</li>
+<li>完整参数（可折叠）</li>
+<li>预期影响摘要</li>
+<li>可逆性提示</li>
+<li>数据敏感度标签</li>
+<li>审批理由输入框（可选）</li>
+<li>确认/拒绝/取消按钮</li>
+</ul>
+<p>重要提醒：UI 不能替代 server-side authorization。审批 UI 是前端展示，server-side authorization 是后端权限检查。审批人确认了，后端仍然要检查权限。</p>
+<p>比如审批 UI 展示”删除记录 ID=123”，审批人点击确认，但后端仍然要检查记录是否属于当前用户、是否有删除权限。</p>
+<p>HITL 不是孤立弹窗，需放进工具网关、日志和权限系统。</p>
+<h1 id="OWASP-LLM01-LLM06-风险映射"><a href="#OWASP-LLM01-LLM06-风险映射" class="headerlink" title="OWASP LLM01/LLM06 风险映射"></a>OWASP LLM01/LLM06 风险映射</h1><p>OWASP LLM Top 10 定义了 LLM 和 Agent 的安全风险（编号随版本变化，发布前需核验）。其中两个风险与审批直接相关：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">风险编号</th>
+<th style="text-align:center">风险描述</th>
+<th style="text-align:center">审批对策</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">LLM01 Prompt Injection</td>
+<td style="text-align:center">外部输入诱导未授权函数调用、数据泄露、外部命令执行</td>
+<td style="text-align:center">高风险动作需人工审批，不能只靠 prompt 规则；审批 UI 展示参数和预期影响</td>
+</tr>
+<tr>
+<td style="text-align:center">LLM06 Excessive Agency</td>
+<td style="text-align:center">过度功能、过度权限、过度自主是 Agent 工具系统风险</td>
+<td style="text-align:center">限制工具范围（Policy）、限制自动级别（Approval）、审批按钮”本次会话总是允许”需设置范围限制</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>LLM01 说明 prompt injection 可以诱导模型绕过 prompt 规则，调用未授权工具。审批需要在高风险动作前停下来，展示参数和预期影响，让人工判断。</p>
+<p>LLM06 说明过度自主是 Agent 工具系统风险。审批不是万能药，需要配合 Policy（限制工具范围）和 Approval（限制自动级别）。审批按钮”本次会话总是允许”必须设置范围限制，否则 prompt injection 可以诱导滥用。</p>
+<h1 id="NIST-AI-RMF-Core-映射"><a href="#NIST-AI-RMF-Core-映射" class="headerlink" title="NIST AI RMF Core 映射"></a>NIST AI RMF Core 映射</h1><p>NIST AI RMF Core 定义了 AI 系统风险管理的四阶段框架（个人/小团队可以用轻量版，不必企业级合规）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">阶段</th>
+<th style="text-align:center">审批职责</th>
+<th style="text-align:center">示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Govern</td>
+<td style="text-align:center">定义角色和风险规则</td>
+<td style="text-align:center">定义审批人角色（owner/on-call engineer）、定义审批等级（L0-L3）、定义拒绝和超时处理策略</td>
+</tr>
+<tr>
+<td style="text-align:center">Map</td>
+<td style="text-align:center">识别高风险场景</td>
+<td style="text-align:center">用风险分级矩阵识别高风险动作（删除、付款、改权限）、识别 prompt injection 场景（外部输入诱导）</td>
+</tr>
+<tr>
+<td style="text-align:center">Measure</td>
+<td style="text-align:center">测量审批覆盖率、拒绝率</td>
+<td style="text-align:center">统计高风险动作审批覆盖率、统计拒绝率和超时率、优化审批策略</td>
+</tr>
+<tr>
+<td style="text-align:center">Manage</td>
+<td style="text-align:center">事故响应和恢复</td>
+<td style="text-align:center">审批日志用于事故追溯、回滚已执行步骤、补偿事务处理</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Govern 阶段定义审批规则，Map 阶段识别高风险场景，Measure 阶段测量审批效果：统计高风险动作审批覆盖率、统计拒绝率和超时率、调整审批策略。</p>
+<p>个人/小团队可以用轻量版：定义审批等级（L0-L3）、识别高风险动作、统计拒绝率、记录审计日志。不必企业级合规流程，但最小集必须有。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>风险分级是审批设计的第一步。不是所有动作都要审批，只读和写草稿可以自动执行，删除和付款必须停下来等人。用五个维度判断：外部影响、可逆性、数据敏感度、金额/权限阈值、自动程度。</p>
+<p>审批不是弹窗，是可序列化、可恢复、可审计的系统状态。RunState 被保存到 checkpoint，从暂停点恢复执行，审计日志记录决策和执行链。</p>
+<p>四层安全边界互不替代。Policy 限制工具范围，Guardrail 自动检查输入输出，Approval 人工决策高风险动作，Audit 事后追溯。组合使用才能覆盖完整风险。</p>
+<p>OWASP LLM01 和 LLM06 说明 prompt injection 和过度自主是 Agent 工具系统的核心风险。审批需要配合 Policy 和 Guardrail，不能孤立使用。</p>
+<p>NIST AI RMF Core 提供风险管理框架。个人/小团队可以用轻量版：定义审批等级、识别高风险动作、统计拒绝率、记录审计日志。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="AI-Agent-哪些操作必须人工审批？"><a href="#AI-Agent-哪些操作必须人工审批？" class="headerlink" title="AI Agent 哪些操作必须人工审批？"></a>AI Agent 哪些操作必须人工审批？</h2><p>外发消息、删除或覆盖数据、付款、权限变更、敏感数据读写、批量写入、不可逆提交，以及向远程工具共享上下文的操作，都应人工审批或强审批。</p>
+<h2 id="只要有-guardrail，还需要人工审批吗？"><a href="#只要有-guardrail，还需要人工审批吗？" class="headerlink" title="只要有 guardrail，还需要人工审批吗？"></a>只要有 guardrail，还需要人工审批吗？</h2><p>需要。Guardrail 是自动检查，人工审批是高风险动作前的人工决策点；前者适合拦截格式、阈值和敏感信息，后者适合判断业务动作是否应该发生。</p>
+<h2 id="OAuth-scope-通过后，为什么还要审批？"><a href="#OAuth-scope-通过后，为什么还要审批？" class="headerlink" title="OAuth scope 通过后，为什么还要审批？"></a>OAuth scope 通过后，为什么还要审批？</h2><p>OAuth scope 只说明调用身份具备技术权限，不代表某个业务动作在当前上下文中应该执行。发送哪封邮件、删除哪条记录、付款给谁，仍然需要业务审批和服务端授权。</p>
+<h2 id="审批按钮能不能本次会话总是允许？"><a href="#审批按钮能不能本次会话总是允许？" class="headerlink" title="审批按钮能不能本次会话总是允许？"></a>审批按钮能不能本次会话总是允许？</h2><p>可以，但必须限制有效期、工具范围和对象范围，并记录审计日志。不能把一次确认扩展成全工具、永久、无条件自动放行。</p>
+<h2 id="Agent-被拒绝后应该怎么办？"><a href="#Agent-被拒绝后应该怎么办？" class="headerlink" title="Agent 被拒绝后应该怎么办？"></a>Agent 被拒绝后应该怎么办？</h2><p>拒绝后应进入明确分支：保存草稿、请求补充信息、换低风险方案、升级人工处理、执行补偿动作或停止任务，不能静默重试同一高风险操作。</p>
+<h2 id="审批记录应该保存哪些字段？"><a href="#审批记录应该保存哪些字段？" class="headerlink" title="审批记录应该保存哪些字段？"></a>审批记录应该保存哪些字段？</h2><p>至少保存 taskId 或 runId、tool、参数摘要、影响对象、风险级别、审批人、决定、理由、时间、traceId、恢复动作和错误码。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/1bec/">https://jingluo23.github.io/posts/1bec/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/ae6e/" title="Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层</div></div><div class="info-2"><div class="info-item-1">把 Agent 上下文拆成 system prompt、developer rules、memory、files、retrieval、tool schema、runtime state 和 output contract，给你一套避免上下文膨胀和规则失效的工程分层方法。</div></div></div></a><a class="pagination-related" href="/posts/488b/" title="Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch/Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-02</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a><a class="pagination-related" href="/posts/69d1/" title="2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-14</div><div class="info-item-2">2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选</div></div><div class="info-2"><div class="info-item-1">用状态管理、工具调用、HITL、guardrails、eval、可观测性和部署复杂度比较 LangGraph、OpenAI Agents SDK、AutoGen、CrewAI 与 Temporal，帮你从 Agent demo 进入生产选型。</div></div></div></a><a class="pagination-related" href="/posts/89fe/" title="LangGraph 状态管理实战：Checkpoint、Thread State 与失败恢复"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-06</div><div class="info-item-2">LangGraph 状态管理实战：Checkpoint、Thread State 与失败恢复</div></div><div class="info-2"><div class="info-item-1">2026 LangGraph 状态管理实战指南：解释 checkpoint、thread state、failure recovery、AutoGen 对比和监控方案，帮助你设计可恢复的生产级 Agent 架构。</div></div></div></a><a class="pagination-related" href="/posts/f104/" title="Agent 记忆系统设计：从会话到长期记忆"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-31</div><div class="info-item-2">Agent 记忆系统设计：从会话到长期记忆</div></div><div class="info-2"><div class="info-item-1">从零构建 Agent 记忆系统：四种记忆类型选型、五阶段流水线实现、Mem0/Zep/LangMem 框架对比与生产级成本优化策略</div></div></div></a><a class="pagination-related" href="/posts/aa55/" title="Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南</div></div><div class="info-2"><div class="info-item-1">详解 Agent 评估基准与性能测试框架，对比 AgentBench、WebArena、τ-Bench 等五大基准，介绍 DeepEval 组件级评估方法，提供完整代码示例。</div></div></div></a><a class="pagination-related" href="/posts/c6f7/" title="Agent 规划能力怎么测？推理深度、任务分解与自我纠错的评估实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-11</div><div class="info-item-2">Agent 规划能力怎么测？推理深度、任务分解与自我纠错的评估实战</div></div><div class="info-2"><div class="info-item-1">Agent 规划能力怎么测？本文详解推理深度、任务分解、自我纠错的评测方法论，对比 AgentBench、ToolBench、ACPBench 等主流 benchmark，提供实战评测指南。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%A3%8E%E9%99%A9%E5%88%86%E7%BA%A7%E7%9F%A9%E9%98%B5%EF%BC%9A%E5%86%B3%E5%AE%9A%E5%93%AA%E4%BA%9B%E5%8A%A8%E4%BD%9C%E8%A6%81%E5%AE%A1%E6%89%B9"><span class="toc-number">1.</span> <span class="toc-text">风险分级矩阵：决定哪些动作要审批</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E4%B8%AA%E7%9C%9F%E5%AE%9E%E5%9C%BA%E6%99%AF%E7%9A%84%E5%88%86%E7%BA%A7%E6%A1%88%E4%BE%8B"><span class="toc-number">1.1.</span> <span class="toc-text">三个真实场景的分级案例</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E7%82%B9%E5%AE%9A%E4%B9%89%E6%B8%85%E5%8D%95%EF%BC%9A%E5%85%B7%E4%BD%93%E5%88%B0%E5%8A%A8%E4%BD%9C%E7%B1%BB%E5%9E%8B"><span class="toc-number">2.</span> <span class="toc-text">审批点定义清单：具体到动作类型</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E6%B5%81%E7%A8%8B%E7%8A%B6%E6%80%81%E6%9C%BA%EF%BC%9A%E5%A6%82%E4%BD%95%E6%9A%82%E5%81%9C%E3%80%81%E4%BF%9D%E5%AD%98%E7%8A%B6%E6%80%81%E3%80%81%E6%81%A2%E5%A4%8D%E6%89%A7%E8%A1%8C"><span class="toc-number">3.</span> <span class="toc-text">审批流程状态机：如何暂停、保存状态、恢复执行</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E6%B5%81%E8%BD%AC%E5%9B%BE"><span class="toc-number">3.1.</span> <span class="toc-text">状态流转图</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%81%A2%E5%A4%8D%E6%96%B9%E5%BC%8F"><span class="toc-number">3.2.</span> <span class="toc-text">恢复方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenAI-Agents-SDK-HITL-%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.3.</span> <span class="toc-text">OpenAI Agents SDK HITL 代码示例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#LangGraph-interrupt-resume-%E4%BB%A3%E7%A0%81%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.4.</span> <span class="toc-text">LangGraph interrupt&#x2F;resume 代码示例</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E8%AF%81%E6%8D%AE%E5%AD%97%E6%AE%B5%E6%B8%85%E5%8D%95%EF%BC%9A%E4%BF%9D%E5%AD%98%E4%BB%80%E4%B9%88%E4%BF%A1%E6%81%AF%EF%BC%8C%E5%A6%82%E4%BD%95%E8%BF%BD%E6%BA%AF"><span class="toc-number">4.</span> <span class="toc-text">审批证据字段清单：保存什么信息，如何追溯</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8B%92%E7%BB%9D%E5%92%8C%E8%B6%85%E6%97%B6%EF%BC%9A%E5%AE%A1%E6%89%B9%E5%A4%B1%E8%B4%A5%E5%90%8E%E6%80%8E%E4%B9%88%E5%8A%9E"><span class="toc-number">5.</span> <span class="toc-text">拒绝和超时：审批失败后怎么办</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8B%92%E7%BB%9D%E5%90%8E%E7%9A%84%E4%B8%89%E7%A7%8D%E8%B7%AF%E5%BE%84"><span class="toc-number">5.1.</span> <span class="toc-text">拒绝后的三种路径</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B6%85%E6%97%B6%E5%90%8E%E7%9A%84%E4%B8%A4%E7%A7%8D%E8%B7%AF%E5%BE%84"><span class="toc-number">5.2.</span> <span class="toc-text">超时后的两种路径</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%9B%9E%E6%BB%9A%E5%B7%B2%E6%89%A7%E8%A1%8C%E6%AD%A5%E9%AA%A4"><span class="toc-number">5.3.</span> <span class="toc-text">如何回滚已执行步骤</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%9B%E5%B1%82%E5%AE%89%E5%85%A8%E8%BE%B9%E7%95%8C%EF%BC%9APolicy%E3%80%81Guardrail%E3%80%81Approval%E3%80%81Audit-%E5%A6%82%E4%BD%95%E7%BB%84%E5%90%88"><span class="toc-number">6.</span> <span class="toc-text">四层安全边界：Policy、Guardrail、Approval、Audit 如何组合</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E5%B1%82%E8%81%8C%E8%B4%A3%E5%AF%B9%E7%85%A7%E8%A1%A8"><span class="toc-number">6.1.</span> <span class="toc-text">四层职责对照表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MCP-%E5%B7%A5%E5%85%B7%E5%AE%89%E5%85%A8%E8%BE%B9%E7%95%8C"><span class="toc-number">6.2.</span> <span class="toc-text">MCP 工具安全边界</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9-UI-%E8%AE%BE%E8%AE%A1%E8%A6%81%E7%82%B9"><span class="toc-number">6.3.</span> <span class="toc-text">审批 UI 设计要点</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#OWASP-LLM01-LLM06-%E9%A3%8E%E9%99%A9%E6%98%A0%E5%B0%84"><span class="toc-number">7.</span> <span class="toc-text">OWASP LLM01&#x2F;LLM06 风险映射</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#NIST-AI-RMF-Core-%E6%98%A0%E5%B0%84"><span class="toc-number">8.</span> <span class="toc-text">NIST AI RMF Core 映射</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">9.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">10.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-Agent-%E5%93%AA%E4%BA%9B%E6%93%8D%E4%BD%9C%E5%BF%85%E9%A1%BB%E4%BA%BA%E5%B7%A5%E5%AE%A1%E6%89%B9%EF%BC%9F"><span class="toc-number">10.1.</span> <span class="toc-text">AI Agent 哪些操作必须人工审批？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%AA%E8%A6%81%E6%9C%89-guardrail%EF%BC%8C%E8%BF%98%E9%9C%80%E8%A6%81%E4%BA%BA%E5%B7%A5%E5%AE%A1%E6%89%B9%E5%90%97%EF%BC%9F"><span class="toc-number">10.2.</span> <span class="toc-text">只要有 guardrail，还需要人工审批吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OAuth-scope-%E9%80%9A%E8%BF%87%E5%90%8E%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%98%E8%A6%81%E5%AE%A1%E6%89%B9%EF%BC%9F"><span class="toc-number">10.3.</span> <span class="toc-text">OAuth scope 通过后，为什么还要审批？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E6%8C%89%E9%92%AE%E8%83%BD%E4%B8%8D%E8%83%BD%E6%9C%AC%E6%AC%A1%E4%BC%9A%E8%AF%9D%E6%80%BB%E6%98%AF%E5%85%81%E8%AE%B8%EF%BC%9F"><span class="toc-number">10.4.</span> <span class="toc-text">审批按钮能不能本次会话总是允许？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E8%A2%AB%E6%8B%92%E7%BB%9D%E5%90%8E%E5%BA%94%E8%AF%A5%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">10.5.</span> <span class="toc-text">Agent 被拒绝后应该怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E8%AE%B0%E5%BD%95%E5%BA%94%E8%AF%A5%E4%BF%9D%E5%AD%98%E5%93%AA%E4%BA%9B%E5%AD%97%E6%AE%B5%EF%BC%9F"><span class="toc-number">10.6.</span> <span class="toc-text">审批记录应该保存哪些字段？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

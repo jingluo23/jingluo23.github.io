@@ -1,0 +1,688 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="深入解析 LangGraph Supervisor 模式架构原理，通过 Research + Writing 团队实战案例，掌握多 Agent 任务分发与协作的核心技巧，包含完整可运行代码示例">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发">
+<meta property="og:url" content="https://jingluo23.github.io/posts/361d/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="深入解析 LangGraph Supervisor 模式架构原理，通过 Research + Writing 团队实战案例，掌握多 Agent 任务分发与协作的核心技巧，包含完整可运行代码示例">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-07T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T08:15:22.969Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发",
+  "url": "https://jingluo23.github.io/posts/361d/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-07T07:12:21.000Z",
+  "dateModified": "2026-10-15T08:15:22.969Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/361d/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-07T07:12:21.000Z" title="发表于 2026-08-07 15:12:21">2026-08-07</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T08:15:22.969Z" title="更新于 2026-10-15 16:15:22">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.9k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>18分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 16:15:22&quot;}" hidden></div><p>上个月我帮团队重构一个 Agent 系统，原本单个 Agent 挂着 12 个工具：搜索、代码执行、文档生成、邮件发送… 结果呢？LLM 经常在工具之间纠结，把代码执行器用在了应该搜索的场景里。调试时看着日志，根本搞不清是哪个工具调用出了问题——整个系统就是个黑盒。</p>
+<p>后来我们把架构拆成了 Supervisor + Workers 模式：一个总控 Agent 负责路由，三个专家 Agent 各司其职。工具选择错误率直接降到了原来的三分之一，调试也清晰多了，每层都能逐级 trace。</p>
+<p>说白了，当你的 Agent 持有超过 10 个工具时，单 Agent 架构就有问题了。这篇文章带你从 Supervisor 模式的架构原理，到 <code>create_supervisor</code> API 的完整用法，再到一个 Research + Writing 团队的实战案例。代码都能直接跑，GitHub 仓库链接也放后面了。</p>
+<h1 id="为什么需要多-Agent-系统？"><a href="#为什么需要多-Agent-系统？" class="headerlink" title="为什么需要多 Agent 系统？"></a>为什么需要多 Agent 系统？</h1><h2 id="单-Agent-的三条死穴"><a href="#单-Agent-的三条死穴" class="headerlink" title="单 Agent 的三条死穴"></a>单 Agent 的三条死穴</h2><p>我踩过的坑，可能你也正在踩。单 Agent 系统看着简单，但实际上有三条致命问题：</p>
+<p><strong>第一条：工具太多，选择障碍。</strong></p>
+<p>这个不是夸张。当单个 Agent 持有工具超过 10 个时，LLM 的工具选择错误率会明显上升。你可能会说，现在模型不是越来越聪明吗？确实，但问题是——工具描述在 prompt 里堆成一团，模型需要在 10+ 个工具里挑对的那一个，这个认知负担不是小数目。</p>
+<p>我之前那个系统，搜索工具和代码执行工具的功能描述有点重叠（都能”查找信息”），结果模型经常在两者之间反复横跳，白白浪费了好几轮对话。</p>
+<p><strong>第二条：上下文积累，窗口爆炸。</strong></p>
+<p>所有子任务的对话历史都压在一个 context window 里。跑几轮下来，window 被历史 tool call 淹没，核心指令被稀释得不成样子。模型开始”忘事”，甚至把用户最初的请求都搞丢了。</p>
+<p>这个我深有体会。有次调试一个跑了 20 轮的 Agent，context 里塞满了各种函数调用记录，最后模型输出的内容跟用户最初的需求已经没啥关系了。</p>
+<p><strong>第三条：不可调试，排查困难。</strong></p>
+<p>出了问题，你根本不知道是哪个工具调用的锅。单 Agent 是个黑盒，日志里全是流水账式的 tool call 记录，想定位问题？得一行行翻。</p>
+<p>Supervisor 模式就能解决这些问题：用一个”总控 Agent”协调多个”专家 Agent”，职责分离，各司其职。</p>
+<h2 id="Supervisor-模式的核心理念"><a href="#Supervisor-模式的核心理念" class="headerlink" title="Supervisor 模式的核心理念"></a>Supervisor 模式的核心理念</h2><p>说起来也简单——就是分工。</p>
+<p>想象一个团队：有个项目经理负责统筹协调，底下有研究员专注调研，有工程师专注实现，有文档专家专注写报告。每个人都有自己的专长，项目经理不需要什么都懂，只需要知道”这个任务该派给谁”。</p>
+<p>Supervisor 模式就是这个思路：</p>
+<ul>
+<li><strong>Supervisor（总控 Agent）</strong>：不干具体活，只做路由、协调和结果整合</li>
+<li><strong>Worker Agents（专家 Agent）</strong>：每人专注一个领域，工具集精简，职责清晰</li>
+</ul>
+<p>这样有什么好处？</p>
+<p>工具数量被分散到各个 Worker 里，每个 Agent 只需要在自己的工具集里做选择。上下文也分散了，每个 Agent 只维护自己那一小部分对话历史。调试时能逐层 trace，Supervisor 分配任务给哪个 Worker、Worker 执行了什么操作，一目了然。</p>
+<h1 id="Supervisor-模式架构原理"><a href="#Supervisor-模式架构原理" class="headerlink" title="Supervisor 模式架构原理"></a>Supervisor 模式架构原理</h1><p>先看张架构图：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">             ┌─────────────────┐</span><br><span class="line">             │   用户请求       │</span><br><span class="line">             └────────┬────────┘</span><br><span class="line">                      │</span><br><span class="line">                      ▼</span><br><span class="line">             ┌─────────────────┐</span><br><span class="line">             │   Supervisor    │</span><br><span class="line">             │   (总控 Agent)   │</span><br><span class="line">             │                 │</span><br><span class="line">             │  路由 + 协调    │</span><br><span class="line">             │  + 结果整合     │</span><br><span class="line">             └────────┬────────┘</span><br><span class="line">                      │</span><br><span class="line">       ┌──────────────┼──────────────┐</span><br><span class="line">       │              │              │</span><br><span class="line">       ▼              ▼              ▼</span><br><span class="line">┌──────────┐   ┌──────────┐   ┌──────────┐</span><br><span class="line">│ Research │   │   Math   │   │ Writing  │</span><br><span class="line">│  Agent   │   │  Agent   │   │  Agent   │</span><br><span class="line">│          │   │          │   │          │</span><br><span class="line">│ 搜索工具 │   │ 计算工具 │   │ 生成工具 │</span><br><span class="line">└────┬─────┘   └────┬─────┘   └────┬─────┘</span><br><span class="line">     │              │              │</span><br><span class="line">     │   Worker     │   Worker     │   Worker</span><br><span class="line">     │   执行结果   │   执行结果   │   执行结果</span><br><span class="line">     │              │              │</span><br><span class="line">     └──────────────┴──────────────┘</span><br><span class="line">                    │</span><br><span class="line">                    ▼</span><br><span class="line">             ┌─────────────────┐</span><br><span class="line">             │   Supervisor    │</span><br><span class="line">             │   整合结果      │</span><br><span class="line">             └────────┬────────┘</span><br><span class="line">                      │</span><br><span class="line">                      ▼</span><br><span class="line">             ┌─────────────────┐</span><br><span class="line">             │   最终答案      │</span><br><span class="line">             └─────────────────┘</span><br></pre></td></tr></table></figure>
+<h2 id="核心组件职责"><a href="#核心组件职责" class="headerlink" title="核心组件职责"></a>核心组件职责</h2><p><strong>Supervisor 做三件事</strong>：</p>
+<ol>
+<li><strong>路由</strong>：分析用户请求，判断该派给哪个 Worker</li>
+<li><strong>协调</strong>：管理 Worker 之间的任务流转</li>
+<li><strong>整合</strong>：汇总各 Worker 的执行结果，输出最终答案</li>
+</ol>
+<p><strong>Worker Agent 各司其职</strong>：</p>
+<p>每个 Worker 只有自己的专属工具集。比如 Research Agent 可能只有搜索工具和网页抓取工具，Math Agent 只有加减乘除计算器。工具少了，选择准确率自然就上去了。</p>
+<h2 id="消息传递机制"><a href="#消息传递机制" class="headerlink" title="消息传递机制"></a>消息传递机制</h2><p>这里有个关键点：全局状态（Global Graph State）。</p>
+<p>所有 Agent 共享同一个状态对象，Worker 执行完任务后，把结果 append 到状态的 <code>messages</code> 字段里。Supervisor 看到新的 message，再决定下一步派给谁。</p>
+<p>这是个 append-only 的机制——消息只增不减，保证了对话历史的完整性。</p>
+<h2 id="Fan-out-Fan-in"><a href="#Fan-out-Fan-in" class="headerlink" title="Fan-out / Fan-in"></a>Fan-out / Fan-in</h2><p>复杂任务可能需要多个 Worker 并行执行。比如用户问”比较 A 和 B 两个产品的市场数据”，Supervisor 可以同时派发两个 Research 任务（一个查 A，一个查 B），这就是 fan-out。</p>
+<p>等两个 Worker 都返回结果了，Supervisor 再把它们整合，这就是 fan-in。</p>
+<p>LangGraph 支持这种并行模式，不过基础篇咱们先不展开，后面进阶技巧里再细说。</p>
+<blockquote>
+<p>“LangGraph 提供了一种构建多 Agent 系统的方式，其中每个 Agent 都有自己的工具集和职责范围，通过 Supervisor 进行协调和任务分发。”</p>
+</blockquote>
+<h1 id="create-supervisor-API-详解"><a href="#create-supervisor-API-详解" class="headerlink" title="create_supervisor API 详解"></a>create_supervisor API 详解</h1><p>理论讲完了，开始写代码。</p>
+<h2 id="安装和导入"><a href="#安装和导入" class="headerlink" title="安装和导入"></a>安装和导入</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install langgraph-supervisor langchain-openai</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">from langchain_openai import ChatOpenAI</span><br><span class="line">from langgraph_supervisor import create_supervisor</span><br><span class="line">from langgraph.prebuilt import create_react_agent</span><br></pre></td></tr></table></figure>
+<h2 id="定义工具"><a href="#定义工具" class="headerlink" title="定义工具"></a>定义工具</h2><p>先给各个 Worker 准备工具：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">from typing import Annotated</span><br><span class="line"></span><br><span class="line"># 数学计算工具</span><br><span class="line">def add(</span><br><span class="line">    a: Annotated[float, &quot;第一个数字&quot;],</span><br><span class="line">    b: Annotated[float, &quot;第二个数字&quot;]</span><br><span class="line">) -&gt; float:</span><br><span class="line">    &quot;&quot;&quot;Add two numbers together.&quot;&quot;&quot;</span><br><span class="line">    return a + b</span><br><span class="line"></span><br><span class="line">def multiply(</span><br><span class="line">    a: Annotated[float, &quot;第一个数字&quot;],</span><br><span class="line">    b: Annotated[float, &quot;第二个数字&quot;]</span><br><span class="line">) -&gt; float:</span><br><span class="line">    &quot;&quot;&quot;Multiply two numbers.&quot;&quot;&quot;</span><br><span class="line">    return a * b</span><br><span class="line"></span><br><span class="line"># 搜索工具（模拟）</span><br><span class="line">def web_search(query: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;Search the web for information.&quot;&quot;&quot;</span><br><span class="line">    # 实际项目中可以接入 Tavily、Serper 等</span><br><span class="line">    if &quot;population&quot; in query.lower():</span><br><span class="line">        return &quot;北京人口约 2189 万（2023 年数据）&quot;</span><br><span class="line">    elif &quot;weather&quot; in query.lower():</span><br><span class="line">        return &quot;北京今日晴，气温 15-25°C&quot;</span><br><span class="line">    else:</span><br><span class="line">        return f&quot;搜索结果：&#123;query&#125;&quot;</span><br></pre></td></tr></table></figure>
+<p>这里用了 Python 的 <code>Annotated</code> 类型提示，让模型更清楚每个参数的含义。工具函数的 docstring 也很重要——模型会通过它来理解工具的功能。</p>
+<h2 id="创建-Worker-Agents"><a href="#创建-Worker-Agents" class="headerlink" title="创建 Worker Agents"></a>创建 Worker Agents</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">model = ChatOpenAI(model=&quot;gpt-4o&quot;)</span><br><span class="line"></span><br><span class="line"># 数学专家 Agent</span><br><span class="line">math_agent = create_react_agent(</span><br><span class="line">    model=model,</span><br><span class="line">    tools=[add, multiply],</span><br><span class="line">    name=&quot;math_expert&quot;,</span><br><span class="line">    prompt=&quot;你是一个数学专家，专注于数值计算。当用户需要做数学运算时，使用你的工具来完成任务。&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 研究专家 Agent</span><br><span class="line">research_agent = create_react_agent(</span><br><span class="line">    model=model,</span><br><span class="line">    tools=[web_search],</span><br><span class="line">    name=&quot;research_expert&quot;,</span><br><span class="line">    prompt=&quot;你是一个资深研究员，擅长搜索和整理信息。当用户需要查询资料时，使用搜索工具来获取答案。&quot;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>这里有几个注意点：</p>
+<ol>
+<li><strong>name 字段很重要</strong>：Supervisor 会通过名字来识别和调用 Worker</li>
+<li><strong>prompt 定义角色</strong>：告诉这个 Agent 它的专长是什么</li>
+<li><strong>工具集精简</strong>：每个 Agent 只有必要工具，不多不少</li>
+</ol>
+<h2 id="创建-Supervisor"><a href="#创建-Supervisor" class="headerlink" title="创建 Supervisor"></a>创建 Supervisor</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># 创建 Supervisor 系统</span><br><span class="line">supervisor = create_supervisor(</span><br><span class="line">    agents=[math_agent, research_agent],</span><br><span class="line">    model=model,</span><br><span class="line">    prompt=&quot;&quot;&quot;你是一个团队 Leader，负责协调各个专家 Agent。</span><br><span class="line"></span><br><span class="line">根据用户请求，决定应该把任务派给谁：</span><br><span class="line">- 需要数学计算 → math_expert</span><br><span class="line">- 需要搜索资料 → research_expert</span><br><span class="line">- 任务完成 → 直接回答用户</span><br><span class="line"></span><br><span class="line">如果多个专家需要配合，按照合理的顺序依次调用。&quot;&quot;&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 编译成可执行的应用</span><br><span class="line">app = supervisor.compile()</span><br></pre></td></tr></table></figure>
+<p><code>create_supervisor</code> 接收三个核心参数：</p>
+<ul>
+<li><code>agents</code>：Worker Agent 列表</li>
+<li><code>model</code>：Supervisor 自己用的大模型</li>
+<li><code>prompt</code>：告诉 Supervisor 怎么分配任务</li>
+</ul>
+<h2 id="运行示例"><a href="#运行示例" class="headerlink" title="运行示例"></a>运行示例</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from langchain_core.messages import HumanMessage</span><br><span class="line"></span><br><span class="line"># 测试数学问题</span><br><span class="line">result = app.invoke(&#123;</span><br><span class="line">    &quot;messages&quot;: [HumanMessage(content=&quot;计算 123 加 456 等于多少&quot;)]</span><br><span class="line">&#125;)</span><br><span class="line">print(result[&quot;messages&quot;][-1].content)</span><br><span class="line"># 输出：123 加 456 等于 579</span><br><span class="line"></span><br><span class="line"># 测试搜索问题</span><br><span class="line">result = app.invoke(&#123;</span><br><span class="line">    &quot;messages&quot;: [HumanMessage(content=&quot;北京的人口是多少&quot;)]</span><br><span class="line">&#125;)</span><br><span class="line">print(result[&quot;messages&quot;][-1].content)</span><br><span class="line"># 输出：根据搜索结果，北京人口约 2189 万</span><br></pre></td></tr></table></figure>
+<p>Supervisor 会自动判断请求类型，然后路由到正确的 Worker。全程对用户透明，用户根本不需要知道后面有多个 Agent 在工作。</p>
+<h1 id="实战案例：构建-Research-Writing-团队"><a href="#实战案例：构建-Research-Writing-团队" class="headerlink" title="实战案例：构建 Research + Writing 团队"></a>实战案例：构建 Research + Writing 团队</h1><p>上面是最基础的示例。现在来构建一个更完整的系统：一个能自动调研并生成技术文章的团队。</p>
+<h2 id="场景说明"><a href="#场景说明" class="headerlink" title="场景说明"></a>场景说明</h2><p>用户输入一个技术主题，系统自动完成：</p>
+<ol>
+<li>调研相关资料</li>
+<li>生成文章大纲</li>
+<li>撰写完整内容</li>
+<li>审核校对</li>
+</ol>
+<p>这需要三个专业 Agent 配合工作。</p>
+<h2 id="定义完整工具集"><a href="#定义完整工具集" class="headerlink" title="定义完整工具集"></a>定义完整工具集</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line">from typing import TypedDict, List</span><br><span class="line">import json</span><br><span class="line"></span><br><span class="line"># 模拟搜索工具</span><br><span class="line">def tech_search(query: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;搜索技术资料和文档。&quot;&quot;&quot;</span><br><span class="line">    # 实际项目中接入 Tavily 或 Serper</span><br><span class="line">    database = &#123;</span><br><span class="line">        &quot;langgraph&quot;: &quot;LangGraph 是 LangChain 推出的 Agent 框架，支持状态管理和循环图结构。&quot;,</span><br><span class="line">        &quot;supervisor&quot;: &quot;Supervisor 模式是 Multi-Agent 系统的核心架构，由一个总控 Agent 协调多个专家 Agent。&quot;,</span><br><span class="line">        &quot;multi-agent&quot;: &quot;多 Agent 系统通过任务分发和协作，解决单 Agent 工具过多和上下文爆炸的问题。&quot;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    results = []</span><br><span class="line">    for key, value in database.items():</span><br><span class="line">        if key in query.lower():</span><br><span class="line">            results.append(value)</span><br><span class="line"></span><br><span class="line">    return json.dumps(results) if results else &quot;未找到相关资料，建议扩展搜索范围&quot;</span><br><span class="line"></span><br><span class="line"># 大纲生成工具</span><br><span class="line">def generate_outline(topic: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;根据主题生成文章大纲。&quot;&quot;&quot;</span><br><span class="line">    return json.dumps(&#123;</span><br><span class="line">        &quot;title&quot;: f&quot;&#123;topic&#125; 完全指南&quot;,</span><br><span class="line">        &quot;sections&quot;: [</span><br><span class="line">            &quot;1. 概述与背景&quot;,</span><br><span class="line">            &quot;2. 核心概念&quot;,</span><br><span class="line">            &quot;3. 实战案例&quot;,</span><br><span class="line">            &quot;4. 最佳实践&quot;,</span><br><span class="line">            &quot;5. 总结&quot;</span><br><span class="line">        ]</span><br><span class="line">    &#125;, ensure_ascii=False)</span><br><span class="line"></span><br><span class="line"># 内容生成工具</span><br><span class="line">def write_section(section_title: str, context: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;根据标题和上下文生成段落内容。&quot;&quot;&quot;</span><br><span class="line">    # 实际项目中这里可以调用大模型</span><br><span class="line">    return f&quot;## &#123;section_title&#125;\n\n基于调研资料，&#123;section_title&#125; 的核心要点如下...\n\n&quot;</span><br><span class="line"></span><br><span class="line"># 审核工具</span><br><span class="line">def review_content(content: str) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;审核内容的准确性和可读性。&quot;&quot;&quot;</span><br><span class="line">    issues = []</span><br><span class="line">    if len(content) &amp;lt; 100:</span><br><span class="line">        issues.append(&quot;内容过短，建议扩展&quot;)</span><br><span class="line">    if &quot;TODO&quot; in content:</span><br><span class="line">        issues.append(&quot;存在未完成的 TODO 标记&quot;)</span><br><span class="line"></span><br><span class="line">    return json.dumps(&#123;</span><br><span class="line">        &quot;passed&quot;: len(issues) == 0,</span><br><span class="line">        &quot;issues&quot;: issues,</span><br><span class="line">        &quot;suggestion&quot;: &quot;内容质量良好，可以发布&quot; if not issues else &quot;请根据问题修改后重新提交&quot;</span><br><span class="line">    &#125;, ensure_ascii=False)</span><br></pre></td></tr></table></figure>
+<h2 id="创建-Worker-Agents-1"><a href="#创建-Worker-Agents-1" class="headerlink" title="创建 Worker Agents"></a>创建 Worker Agents</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"># 研究员 Agent</span><br><span class="line">researcher = create_react_agent(</span><br><span class="line">    model=model,</span><br><span class="line">    tools=[tech_search],</span><br><span class="line">    name=&quot;researcher&quot;,</span><br><span class="line">    prompt=&quot;&quot;&quot;你是一位资深技术研究员，擅长快速调研和理解新技术。</span><br><span class="line"></span><br><span class="line">职责：</span><br><span class="line">1. 接收调研主题</span><br><span class="line">2. 使用搜索工具查找相关资料</span><br><span class="line">3. 整理成结构化的调研报告</span><br><span class="line"></span><br><span class="line">注意：只做调研，不做写作。把调研结果交给 writer。&quot;&quot;&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 作者 Agent</span><br><span class="line">writer = create_react_agent(</span><br><span class="line">    model=model,</span><br><span class="line">    tools=[generate_outline, write_section],</span><br><span class="line">    name=&quot;writer&quot;,</span><br><span class="line">    prompt=&quot;&quot;&quot;你是一位技术写作专家，擅长将复杂概念转化为清晰易懂的文章。</span><br><span class="line"></span><br><span class="line">职责：</span><br><span class="line">1. 接收调研报告</span><br><span class="line">2. 生成文章大纲</span><br><span class="line">3. 撰写各个章节的内容</span><br><span class="line"></span><br><span class="line">注意：完成初稿后交给 reviewer 审核。&quot;&quot;&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 审稿人 Agent</span><br><span class="line">reviewer = create_react_agent(</span><br><span class="line">    model=model,</span><br><span class="line">    tools=[review_content],</span><br><span class="line">    name=&quot;reviewer&quot;,</span><br><span class="line">    prompt=&quot;&quot;&quot;你是一位严格的审稿人，确保文章的质量和准确性。</span><br><span class="line"></span><br><span class="line">职责：</span><br><span class="line">1. 检查内容的完整性和准确性</span><br><span class="line">2. 评估文章的可读性和逻辑性</span><br><span class="line">3. 提出修改建议或确认发布</span><br><span class="line"></span><br><span class="line">注意：如果发现问题，退回给 writer 修改。&quot;&quot;&quot;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="构建-Supervisor-逻辑"><a href="#构建-Supervisor-逻辑" class="headerlink" title="构建 Supervisor 逻辑"></a>构建 Supervisor 逻辑</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"># 使用 StateGraph 构建自定义 Supervisor</span><br><span class="line">from langgraph.graph import StateGraph, END</span><br><span class="line">from typing import Annotated, Sequence</span><br><span class="line">from langchain_core.messages import BaseMessage</span><br><span class="line">from langgraph.graph.message import add_messages</span><br><span class="line"></span><br><span class="line"># 定义状态</span><br><span class="line">class AgentState(TypedDict):</span><br><span class="line">    messages: Annotated[Sequence[BaseMessage], add_messages]</span><br><span class="line">    next_agent: str</span><br><span class="line"></span><br><span class="line"># Supervisor 决策逻辑</span><br><span class="line">def supervisor_node(state: AgentState) -&gt; dict:</span><br><span class="line">    &quot;&quot;&quot;根据当前进度决定下一步执行哪个 Agent。&quot;&quot;&quot;</span><br><span class="line">    messages = state[&quot;messages&quot;]</span><br><span class="line"></span><br><span class="line">    # 调用大模型做决策</span><br><span class="line">    decision = model.invoke([</span><br><span class="line">        &#123;&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;&quot;&quot;你是团队 Leader，根据对话历史决定下一步：</span><br><span class="line"></span><br><span class="line">- 如果还没有调研资料 → 返回 &#x27;researcher&#x27;</span><br><span class="line">- 如果有调研资料但还没有文章 → 返回 &#x27;writer&#x27;</span><br><span class="line">- 如果有文章但还没审核 → 返回 &#x27;reviewer&#x27;</span><br><span class="line">- 如果审核通过 → 返回 &#x27;FINISH&#x27;</span><br><span class="line"></span><br><span class="line">只返回 Agent 名称，不要其他内容。&quot;&quot;&quot;&#125;,</span><br><span class="line">        *messages</span><br><span class="line">    ])</span><br><span class="line"></span><br><span class="line">    next_agent = decision.content.strip()</span><br><span class="line"></span><br><span class="line">    # 映射到正确的 Agent 名称</span><br><span class="line">    agent_map = &#123;</span><br><span class="line">        &quot;researcher&quot;: &quot;researcher&quot;,</span><br><span class="line">        &quot;writer&quot;: &quot;writer&quot;,</span><br><span class="line">        &quot;reviewer&quot;: &quot;reviewer&quot;,</span><br><span class="line">        &quot;FINISH&quot;: END</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    return &#123;&quot;next_agent&quot;: agent_map.get(next_agent, &quot;researcher&quot;)&#125;</span><br><span class="line"></span><br><span class="line"># 构建图</span><br><span class="line">workflow = StateGraph(AgentState)</span><br><span class="line"></span><br><span class="line"># 添加节点</span><br><span class="line">workflow.add_node(&quot;supervisor&quot;, supervisor_node)</span><br><span class="line">workflow.add_node(&quot;researcher&quot;, researcher)</span><br><span class="line">workflow.add_node(&quot;writer&quot;, writer)</span><br><span class="line">workflow.add_node(&quot;reviewer&quot;, reviewer)</span><br><span class="line"></span><br><span class="line"># 添加条件边（Supervisor 的路由逻辑）</span><br><span class="line">workflow.add_conditional_edges(</span><br><span class="line">    &quot;supervisor&quot;,</span><br><span class="line">    lambda state: state[&quot;next_agent&quot;],</span><br><span class="line">    &#123;</span><br><span class="line">        &quot;researcher&quot;: &quot;researcher&quot;,</span><br><span class="line">        &quot;writer&quot;: &quot;writer&quot;,</span><br><span class="line">        &quot;reviewer&quot;: &quot;reviewer&quot;,</span><br><span class="line">        END: END</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 所有 Agent 完成后都回到 Supervisor</span><br><span class="line">for agent in [&quot;researcher&quot;, &quot;writer&quot;, &quot;reviewer&quot;]:</span><br><span class="line">    workflow.add_edge(agent, &quot;supervisor&quot;)</span><br><span class="line"></span><br><span class="line"># 设置入口点</span><br><span class="line">workflow.set_entry_point(&quot;supervisor&quot;)</span><br><span class="line"></span><br><span class="line"># 编译</span><br><span class="line">app = workflow.compile()</span><br></pre></td></tr></table></figure>
+<p>这个架构有个循环机制：所有 Worker 完成任务后都回到 Supervisor，Supervisor 再决定下一步是派给另一个 Worker 还是结束。</p>
+<h2 id="执行流程"><a href="#执行流程" class="headerlink" title="执行流程"></a>执行流程</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">result = app.invoke(&#123;</span><br><span class="line">    &quot;messages&quot;: [HumanMessage(content=&quot;写一篇关于 LangGraph Supervisor 模式的技术文章&quot;)]</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"># 查看最终结果</span><br><span class="line">print(result[&quot;messages&quot;][-1].content)</span><br><span class="line"></span><br><span class="line"># 查看执行轨迹</span><br><span class="line">for i, msg in enumerate(result[&quot;messages&quot;]):</span><br><span class="line">    print(f&quot;&#123;i+1&#125;. &#123;msg.__class__.__name__&#125;: &#123;msg.content[:100]&#125;...&quot;)</span><br></pre></td></tr></table></figure>
+<p>执行流程大致是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">用户请求 → Supervisor 分析 → 派给 Researcher →</span><br><span class="line">Researcher 调研 → 返回 Supervisor → 派给 Writer →</span><br><span class="line">Writer 写作 → 返回 Supervisor → 派给 Reviewer →</span><br><span class="line">Reviewer 审核 → 返回 Supervisor → 确认完成 → 输出结果</span><br></pre></td></tr></table></figure>
+<p>每一层都能 trace，调试起来清晰多了。</p>
+<h1 id="进阶技巧"><a href="#进阶技巧" class="headerlink" title="进阶技巧"></a>进阶技巧</h1><h2 id="消息转发优化：create-forward-message-tool"><a href="#消息转发优化：create-forward-message-tool" class="headerlink" title="消息转发优化：create_forward_message_tool"></a>消息转发优化：create_forward_message_tool</h2><p>有个问题你可能已经发现了：Worker 执行完任务后，返回的消息会被 Supervisor 接收并可能被重述一遍。这浪费 Token，而且信息可能被稀释。</p>
+<p>LangGraph 提供了 <code>create_forward_message_tool</code> 来解决这个问题：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">from langgraph_supervisor.handoff import create_forward_message_tool</span><br><span class="line"></span><br><span class="line"># 创建转发工具</span><br><span class="line">forward_tool = create_forward_message_tool(&quot;supervisor&quot;)</span><br><span class="line"></span><br><span class="line"># 在创建 Supervisor 时传入</span><br><span class="line">supervisor = create_supervisor(</span><br><span class="line">    agents=[researcher, writer, reviewer],</span><br><span class="line">    model=model,</span><br><span class="line">    tools=[forward_tool]  # 添加转发工具</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>这个工具让 Supervisor 可以直接把 Worker 的响应转发给用户，而不需要重新总结。省 Token，效率也更高。</p>
+<h2 id="层级团队架构"><a href="#层级团队架构" class="headerlink" title="层级团队架构"></a>层级团队架构</h2><p>如果项目更复杂，还可以构建多层 Supervisor：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">                   ┌──────────────┐</span><br><span class="line">                   │ Top Supervisor│</span><br><span class="line">                   └──────┬───────┘</span><br><span class="line">                          │</span><br><span class="line">          ┌───────────────┼───────────────┐</span><br><span class="line">          │               │               │</span><br><span class="line">          ▼               ▼               ▼</span><br><span class="line">   ┌────────────┐  ┌────────────┐  ┌────────────┐</span><br><span class="line">   │Research    │  │ Writing    │  │ QA         │</span><br><span class="line">   │Team        │  │ Team       │  │ Team       │</span><br><span class="line">   │Supervisor  │  │ Supervisor │  │ Supervisor │</span><br><span class="line">   └─────┬──────┘  └─────┬──────┘  └─────┬──────┘</span><br><span class="line">         │               │               │</span><br><span class="line">    ┌────┼────┐    ┌────┼────┐    ┌────┼────┐</span><br><span class="line">    │    │    │    │    │    │    │    │    │</span><br><span class="line">  Web  Doc  API   Out  Cont Rev   Test Code Audit</span><br><span class="line">Search Scrp Parse line ent  iew</span><br></pre></td></tr></table></figure>
+<p>每个子团队有自己的 Supervisor，上面再有一个总 Supervisor 协调。这种架构适合大型项目，职责划分更细。</p>
+<h2 id="错误处理"><a href="#错误处理" class="headerlink" title="错误处理"></a>错误处理</h2><p>Worker 执行失败怎么办？</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.pregel import RetryPolicy</span><br><span class="line"></span><br><span class="line"># 配置重试策略</span><br><span class="line">retry_policy = RetryPolicy(</span><br><span class="line">    max_attempts=3,</span><br><span class="line">    initial_interval=1.0,</span><br><span class="line">    backoff_factor=2.0</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">app = workflow.compile(retry_policy=retry_policy)</span><br></pre></td></tr></table></figure>
+<p>还可以在 Supervisor 的 prompt 里加入错误处理逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">如果某个 Agent 执行失败：</span><br><span class="line">1. 记录错误信息</span><br><span class="line">2. 尝试调用备用 Agent</span><br><span class="line">3. 如果多次失败，向用户报告问题</span><br></pre></td></tr></table></figure>
+<h2 id="状态持久化"><a href="#状态持久化" class="headerlink" title="状态持久化"></a>状态持久化</h2><p>多轮对话需要保存状态。LangGraph 提供了 Checkpointer 机制：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from langgraph.checkpoint.memory import MemorySaver</span><br><span class="line"></span><br><span class="line"># 使用内存存储（开发环境）</span><br><span class="line">memory = MemorySaver()</span><br><span class="line">app = workflow.compile(checkpointer=memory)</span><br><span class="line"></span><br><span class="line"># 执行时指定 thread_id</span><br><span class="line">config = &#123;&quot;configurable&quot;: &#123;&quot;thread_id&quot;: &quot;user-123&quot;&#125;&#125;</span><br><span class="line">result = app.invoke(&#123;&quot;messages&quot;: [HumanMessage(content=&quot;...&quot;)]&#125;, config=config)</span><br><span class="line"></span><br><span class="line"># 后续对话会保留上下文</span><br><span class="line">result2 = app.invoke(&#123;&quot;messages&quot;: [HumanMessage(content=&quot;继续上次的任务&quot;)]&#125;, config=config)</span><br></pre></td></tr></table></figure>
+<p>生产环境可以用 Redis 或 PostgreSQL 作为 Checkpointer。</p>
+<blockquote>
+<p>“Hierarchical Agent Teams 展示了如何构建多层 Supervisor 架构，实现更复杂的多 Agent 协作系统。”</p>
+</blockquote>
+<h1 id="生产部署建议"><a href="#生产部署建议" class="headerlink" title="生产部署建议"></a>生产部署建议</h1><h2 id="监控和调试"><a href="#监控和调试" class="headerlink" title="监控和调试"></a>监控和调试</h2><p>LangSmith 是 LangChain 官方的监控平台，能帮你追踪每一步的执行细节：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">import os</span><br><span class="line"></span><br><span class="line">os.environ[&quot;LANGSMITH_API_KEY&quot;] = &quot;your-api-key&quot;</span><br><span class="line">os.environ[&quot;LANGSMITH_TRACING&quot;] = &quot;true&quot;</span><br><span class="line">os.environ[&quot;LANGSMITH_PROJECT&quot;] = &quot;multi-agent-project&quot;</span><br></pre></td></tr></table></figure>
+<p>配置好之后，每次执行都会在 LangSmith 上留下完整轨迹，包括：</p>
+<ul>
+<li>每个 Agent 的输入输出</li>
+<li>工具调用的参数和返回值</li>
+<li>Token 消耗统计</li>
+<li>执行耗时分析</li>
+</ul>
+<p>调试时特别有用，不用再对着日志一行行翻。</p>
+<h2 id="Token-成本控制"><a href="#Token-成本控制" class="headerlink" title="Token 成本控制"></a>Token 成本控制</h2><p>Supervisor 模式虽然好，但多 Agent 会增加 Token 消耗。几个优化建议：</p>
+<ol>
+<li><strong>精简 Supervisor 的 prompt</strong>：只包含必要的路由逻辑</li>
+<li><strong>使用 forward_message_tool</strong>：避免重复总结</li>
+<li><strong>合理分配工具</strong>：每个 Worker 只有必要工具</li>
+<li><strong>控制对话轮数</strong>：设置最大轮数限制</li>
+</ol>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 设置最大轮数</span><br><span class="line">app = workflow.compile(</span><br><span class="line">    checkpointer=memory,</span><br><span class="line">    interrupt_after=20  # 最多执行 20 步</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="与-AWS-Bedrock-集成"><a href="#与-AWS-Bedrock-集成" class="headerlink" title="与 AWS Bedrock 集成"></a>与 AWS Bedrock 集成</h2><p>如果你的项目在 AWS 上，可以用 Bedrock 的模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from langchain_aws import ChatBedrock</span><br><span class="line"></span><br><span class="line">model = ChatBedrock(</span><br><span class="line">    model_id=&quot;anthropic.claude-3-sonnet-20240229-v1:0&quot;,</span><br><span class="line">    region_name=&quot;us-east-1&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 其他代码不变，直接替换 model 即可</span><br><span class="line">supervisor = create_supervisor(</span><br><span class="line">    agents=[math_agent, research_agent],</span><br><span class="line">    model=model</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="最佳实践总结"><a href="#最佳实践总结" class="headerlink" title="最佳实践总结"></a>最佳实践总结</h2><p>说了这么多，总结几条实战经验：</p>
+<ol>
+<li><strong>从小规模开始</strong>：先从 2-3 个 Agent 开始，逐步增加</li>
+<li><strong>职责要清晰</strong>：每个 Worker 的领域要明确，避免重叠</li>
+<li><strong>用 LangSmith 监控</strong>：开发阶段就接入，方便调试</li>
+<li><strong>关注 Token 成本</strong>：多 Agent 会放大消耗，需要优化</li>
+<li><strong>善用 forward_message_tool</strong>：能省不少 Token</li>
+<li><strong>参考官方仓库</strong>：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/langchain-ai/langgraph-supervisor-py">langgraph-supervisor-py</a> 有完整示例</li>
+</ol>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>Supervisor 模式本质上就是分工协作——把大任务拆小，让每个 Agent 专注做自己擅长的事。</p>
+<p>从单 Agent 的三条死穴（工具选择障碍、上下文爆炸、不可调试），到 Supervisor 模式的优雅解决方案，这篇文章带你走了完整的一遍。<code>create_supervisor</code> API 用起来其实不复杂，关键是理解背后的架构思想。</p>
+<p>建议你从小项目开始练手。先搭建一个两 Agent 的系统（比如一个搜索 + 一个总结），跑通之后再逐步扩展。LangSmith 的监控一定要配上，调试时你会感谢它的。</p>
+<p>完整代码示例在 GitHub 仓库里：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/langchain-ai/langgraph-supervisor-py">langgraph-supervisor-py</a>。官方教程也值得一读：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://langchain-ai.github.io/langgraph/tutorials/multi_agent/hierarchical_agent_teams/">Hierarchical Agent Teams</a>。</p>
+<p>有问题评论区留言，我看到都会回。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://reference.langchain.com/python/langgraph-supervisor">LangGraph Supervisor Reference</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://langchain-ai.github.io/langgraph/tutorials/multi_agent/hierarchical_agent_teams/">Hierarchical Agent Teams Tutorial</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://blog.langchain.com/langgraph-multi-agent-workflows/">LangGraph Multi-Agent Workflows Blog</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/langchain-ai/langgraph-supervisor-py">GitHub - langgraph-supervisor-py</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://aws.amazon.com/blogs/machine-learning/build-multi-agent-systems-with-langgraph-and-amazon-bedrock/">Build Multi-Agent Systems with AWS Bedrock</a></li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Supervisor-模式和普通-Multi-Agent-有什么区别？"><a href="#Supervisor-模式和普通-Multi-Agent-有什么区别？" class="headerlink" title="Supervisor 模式和普通 Multi-Agent 有什么区别？"></a>Supervisor 模式和普通 Multi-Agent 有什么区别？</h2><p>普通 Multi-Agent 可能每个 Agent 都能直接响应用户，导致职责混乱。Supervisor 模式引入一个总控 Agent 专门做路由和协调，Worker Agent 只负责执行具体任务，职责更清晰。</p>
+<h2 id="什么时候应该用-Supervisor-模式？"><a href="#什么时候应该用-Supervisor-模式？" class="headerlink" title="什么时候应该用 Supervisor 模式？"></a>什么时候应该用 Supervisor 模式？</h2><p>当你的 Agent 工具超过 10 个、或者任务需要多个领域协作、或者调试困难时，就该考虑 Supervisor 模式了。简单任务单 Agent 足够。</p>
+<h2 id="Supervisor-模式会增加-Token-消耗吗？"><a href="#Supervisor-模式会增加-Token-消耗吗？" class="headerlink" title="Supervisor 模式会增加 Token 消耗吗？"></a>Supervisor 模式会增加 Token 消耗吗？</h2><p>会。多 Agent 意味着多次模型调用。但可以通过 forward_message_tool、精简 prompt、控制轮数来优化。总体上，职责分离带来的调试便利和准确性提升，通常比额外 Token 更有价值。</p>
+<h2 id="如何调试多-Agent-系统？"><a href="#如何调试多-Agent-系统？" class="headerlink" title="如何调试多 Agent 系统？"></a>如何调试多 Agent 系统？</h2><p>LangSmith 是首选。它能追踪每一步的输入输出、工具调用、Token 消耗。开发阶段就接入，比事后翻日志效率高很多。</p>
+<h2 id="create-supervisor-和-StateGraph-有什么关系？"><a href="#create-supervisor-和-StateGraph-有什么关系？" class="headerlink" title="create_supervisor 和 StateGraph 有什么关系？"></a>create_supervisor 和 StateGraph 有什么关系？</h2><p>create_supervisor 是高层 API，快速搭建简单 Supervisor 系统。StateGraph 是底层 API，适合构建自定义路由逻辑和复杂层级架构。两者可以组合使用。</p>
+<h2 id="Worker-Agent-可以是另一个-Supervisor-吗？"><a href="#Worker-Agent-可以是另一个-Supervisor-吗？" class="headerlink" title="Worker Agent 可以是另一个 Supervisor 吗？"></a>Worker Agent 可以是另一个 Supervisor 吗？</h2><p>可以。这就是层级团队架构。子团队有自己的 Supervisor，上面再有一个总 Supervisor 协调。适合大型复杂项目。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/361d/">https://jingluo23.github.io/posts/361d/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/89fe/" title="LangGraph 状态管理实战：Checkpoint、Thread State 与失败恢复"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">LangGraph 状态管理实战：Checkpoint、Thread State 与失败恢复</div></div><div class="info-2"><div class="info-item-1">2026 LangGraph 状态管理实战指南：解释 checkpoint、thread state、failure recovery、AutoGen 对比和监控方案，帮助你设计可恢复的生产级 Agent 架构。</div></div></div></a><a class="pagination-related" href="/posts/d883/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint机制、超时恢复与选型决策"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">LangGraph vs AutoGen 状态追踪对比：checkpoint机制、超时恢复与选型决策</div></div><div class="info-2"><div class="info-item-1">从 checkpoint、超时恢复和分布式状态等 12 个维度比较 LangGraph 与 AutoGen，结合代码与选型树判断哪套 Agent 框架更适合生产项目。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/1bec/" title="Human-in-the-loop Agent 设计：哪些步骤必须人工审批"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-16</div><div class="info-item-2">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</div></div><div class="info-2"><div class="info-item-1">用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve/reject/resume、超时、补偿和审计记录怎么做。</div></div></div></a><a class="pagination-related" href="/posts/2125/" title="AI Agent 记忆管理：长期记忆与知识治理实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-01</div><div class="info-item-2">AI Agent 记忆管理：长期记忆与知识治理实战</div></div><div class="info-2"><div class="info-item-1">深度解析 AI Agent 记忆系统：三种记忆类型、四层认知架构、六大框架对比选型。从 Mem0 到 Letta，从向量库到知识图谱，解决 Agent 失忆与上下文腐烂问题。</div></div></div></a><a class="pagination-related" href="/posts/f104/" title="Agent 记忆系统设计：从会话到长期记忆"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-31</div><div class="info-item-2">Agent 记忆系统设计：从会话到长期记忆</div></div><div class="info-2"><div class="info-item-1">从零构建 Agent 记忆系统：四种记忆类型选型、五阶段流水线实现、Mem0/Zep/LangMem 框架对比与生产级成本优化策略</div></div></div></a><a class="pagination-related" href="/posts/392d/" title="Computer-Use Agent：让 AI 操作你的电脑"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-03</div><div class="info-item-2">Computer-Use Agent：让 AI 操作你的电脑</div></div><div class="info-2"><div class="info-item-1">深入解析 Claude Computer Use 技术，从原理到实践完整指南。包含 Docker 部署、代码示例、竞品分析和安全最佳实践，助你掌握 AI 桌面自动化的前沿技术</div></div></div></a><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-02</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a><a class="pagination-related" href="/posts/a6e0/" title="AI Agent 监控告警与失败恢复：从日志到状态机的设计实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-12</div><div class="info-item-2">AI Agent 监控告警与失败恢复：从日志到状态机的设计实践</div></div><div class="info-2"><div class="info-item-1">AI Agent 上线后失败无从排查？本文从日志到状态机的完整设计实践，教你构建生产级监控告警体系，让每个失败可观测、可恢复</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E5%A4%9A-Agent-%E7%B3%BB%E7%BB%9F%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">为什么需要多 Agent 系统？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%95-Agent-%E7%9A%84%E4%B8%89%E6%9D%A1%E6%AD%BB%E7%A9%B4"><span class="toc-number">1.1.</span> <span class="toc-text">单 Agent 的三条死穴</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Supervisor-%E6%A8%A1%E5%BC%8F%E7%9A%84%E6%A0%B8%E5%BF%83%E7%90%86%E5%BF%B5"><span class="toc-number">1.2.</span> <span class="toc-text">Supervisor 模式的核心理念</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Supervisor-%E6%A8%A1%E5%BC%8F%E6%9E%B6%E6%9E%84%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">Supervisor 模式架构原理</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6%E8%81%8C%E8%B4%A3"><span class="toc-number">2.1.</span> <span class="toc-text">核心组件职责</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B6%88%E6%81%AF%E4%BC%A0%E9%80%92%E6%9C%BA%E5%88%B6"><span class="toc-number">2.2.</span> <span class="toc-text">消息传递机制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Fan-out-Fan-in"><span class="toc-number">2.3.</span> <span class="toc-text">Fan-out &#x2F; Fan-in</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#create-supervisor-API-%E8%AF%A6%E8%A7%A3"><span class="toc-number">3.</span> <span class="toc-text">create_supervisor API 详解</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85%E5%92%8C%E5%AF%BC%E5%85%A5"><span class="toc-number">3.1.</span> <span class="toc-text">安装和导入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9A%E4%B9%89%E5%B7%A5%E5%85%B7"><span class="toc-number">3.2.</span> <span class="toc-text">定义工具</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-Worker-Agents"><span class="toc-number">3.3.</span> <span class="toc-text">创建 Worker Agents</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-Supervisor"><span class="toc-number">3.4.</span> <span class="toc-text">创建 Supervisor</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%90%E8%A1%8C%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.5.</span> <span class="toc-text">运行示例</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%EF%BC%9A%E6%9E%84%E5%BB%BA-Research-Writing-%E5%9B%A2%E9%98%9F"><span class="toc-number">4.</span> <span class="toc-text">实战案例：构建 Research + Writing 团队</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF%E8%AF%B4%E6%98%8E"><span class="toc-number">4.1.</span> <span class="toc-text">场景说明</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9A%E4%B9%89%E5%AE%8C%E6%95%B4%E5%B7%A5%E5%85%B7%E9%9B%86"><span class="toc-number">4.2.</span> <span class="toc-text">定义完整工具集</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-Worker-Agents-1"><span class="toc-number">4.3.</span> <span class="toc-text">创建 Worker Agents</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%84%E5%BB%BA-Supervisor-%E9%80%BB%E8%BE%91"><span class="toc-number">4.4.</span> <span class="toc-text">构建 Supervisor 逻辑</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E6%B5%81%E7%A8%8B"><span class="toc-number">4.5.</span> <span class="toc-text">执行流程</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7"><span class="toc-number">5.</span> <span class="toc-text">进阶技巧</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B6%88%E6%81%AF%E8%BD%AC%E5%8F%91%E4%BC%98%E5%8C%96%EF%BC%9Acreate-forward-message-tool"><span class="toc-number">5.1.</span> <span class="toc-text">消息转发优化：create_forward_message_tool</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B1%82%E7%BA%A7%E5%9B%A2%E9%98%9F%E6%9E%B6%E6%9E%84"><span class="toc-number">5.2.</span> <span class="toc-text">层级团队架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86"><span class="toc-number">5.3.</span> <span class="toc-text">错误处理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E6%8C%81%E4%B9%85%E5%8C%96"><span class="toc-number">5.4.</span> <span class="toc-text">状态持久化</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E9%83%A8%E7%BD%B2%E5%BB%BA%E8%AE%AE"><span class="toc-number">6.</span> <span class="toc-text">生产部署建议</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%91%E6%8E%A7%E5%92%8C%E8%B0%83%E8%AF%95"><span class="toc-number">6.1.</span> <span class="toc-text">监控和调试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Token-%E6%88%90%E6%9C%AC%E6%8E%A7%E5%88%B6"><span class="toc-number">6.2.</span> <span class="toc-text">Token 成本控制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8E-AWS-Bedrock-%E9%9B%86%E6%88%90"><span class="toc-number">6.3.</span> <span class="toc-text">与 AWS Bedrock 集成</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E6%80%BB%E7%BB%93"><span class="toc-number">6.4.</span> <span class="toc-text">最佳实践总结</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">8.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Supervisor-%E6%A8%A1%E5%BC%8F%E5%92%8C%E6%99%AE%E9%80%9A-Multi-Agent-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">Supervisor 模式和普通 Multi-Agent 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%BA%94%E8%AF%A5%E7%94%A8-Supervisor-%E6%A8%A1%E5%BC%8F%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">什么时候应该用 Supervisor 模式？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Supervisor-%E6%A8%A1%E5%BC%8F%E4%BC%9A%E5%A2%9E%E5%8A%A0-Token-%E6%B6%88%E8%80%97%E5%90%97%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">Supervisor 模式会增加 Token 消耗吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E8%B0%83%E8%AF%95%E5%A4%9A-Agent-%E7%B3%BB%E7%BB%9F%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">如何调试多 Agent 系统？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#create-supervisor-%E5%92%8C-StateGraph-%E6%9C%89%E4%BB%80%E4%B9%88%E5%85%B3%E7%B3%BB%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">create_supervisor 和 StateGraph 有什么关系？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Worker-Agent-%E5%8F%AF%E4%BB%A5%E6%98%AF%E5%8F%A6%E4%B8%80%E4%B8%AA-Supervisor-%E5%90%97%EF%BC%9F"><span class="toc-number">9.6.</span> <span class="toc-text">Worker Agent 可以是另一个 Supervisor 吗？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(undefined);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
