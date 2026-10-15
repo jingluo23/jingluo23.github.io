@@ -1,0 +1,944 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP） | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="手把手教你用Docker Compose一键部署DNMP（Docker+Nginx+MySQL+PHP）开发环境，10分钟搞定，彻底解决团队环境不一致问题，附完整配置文件和踩坑指南">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）">
+<meta property="og:url" content="https://jingluo23.github.io/posts/7e11/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="手把手教你用Docker Compose一键部署DNMP（Docker+Nginx+MySQL+PHP）开发环境，10分钟搞定，彻底解决团队环境不一致问题，附完整配置文件和踩坑指南">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-18T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.692Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）",
+  "url": "https://jingluo23.github.io/posts/7e11/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-18T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.692Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/7e11/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-18T07:06:23.000Z" title="发表于 2026-09-18 15:06:23">2026-09-18</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.692Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>21分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>终端里滚动的报错信息——“Nginx找不到PHP-FPM的socket文件”。今晚第8个报错。手动装LNMP环境，改了nginx.conf、php-fpm.conf、my.cnf三个配置文件，重启了十几次服务，环境还是跑不起来。</p>
+<p>隔壁工位同事说：“我电脑上跑得好好的啊，你是不是PHP版本不对？”</p>
+<p>他用PHP 7.4，我装的是8.1。MySQL他是5.7，我手滑装成了8.0。难怪代码跑不起来。</p>
+<p>团队里每个人的开发环境都不一样，新人入职光配环境就要半天，老员工还得一对一指导。代码在A电脑上正常，到B电脑就炸了。部署到服务器更是碰运气。</p>
+<p>试了Docker Compose一键部署DNMP环境，这些问题才彻底消失。10分钟搞定Nginx、MySQL、PHP全家桶，团队所有人用同一份配置文件，再也没人说”我电脑上能跑”了。</p>
+<h1 id="为什么选择Docker-Compose部署PHP环境"><a href="#为什么选择Docker-Compose部署PHP环境" class="headerlink" title="为什么选择Docker Compose部署PHP环境"></a>为什么选择Docker Compose部署PHP环境</h1><h2 id="传统LNMP部署的三大痛点"><a href="#传统LNMP部署的三大痛点" class="headerlink" title="传统LNMP部署的三大痛点"></a>传统LNMP部署的三大痛点</h2><p><strong>痛点1：手动安装配置繁琐,一步错步步错</strong></p>
+<p>还记得第一次装LNMP的场景吗?先<code>apt-get install nginx</code>,再装<code>php-fpm</code>,然后装MySQL。装完还得改配置文件,nginx.conf要配location规则,php.ini要开扩展,my.cnf要调参数。</p>
+<p>三个配置文件散落在不同目录:<code>/etc/nginx/</code>、<code>/etc/php/</code>、<code>/etc/mysql/</code>。一个配置写错了,服务就启动不了。排查问题得翻日志,Nginx日志、PHP-FPM日志、MySQL日志,看到头晕。</p>
+<p>我见过有人因为php-fpm.conf里的<code>listen = 127.0.0.1:9000</code>写成了<code>listen = /run/php/php7.4-fpm.sock</code>,Nginx找不到PHP,排查了三个小时。</p>
+<p><strong>痛点2：版本兼容性问题让人头秃</strong></p>
+<p>团队里总有那么几个”版本钉子户”。老项目跑在PHP 5.6上,新项目要用PHP 8.1。MySQL 5.7的<code>GROUP BY</code>语法到MySQL 8.0就报错,因为8.0默认启用了<code>ONLY_FULL_GROUP_BY</code>模式。</p>
+<p>更可怕的是,不同成员电脑上的版本五花八门:</p>
+<ul>
+<li>小李的Mac装的是PHP 7.4 + MySQL 5.7</li>
+<li>老王的Ubuntu是PHP 8.0 + MySQL 8.0</li>
+<li>新来的实习生Windows装的是PHP 8.1 + MariaDB 10.6</li>
+</ul>
+<p>代码在小李电脑上跑得好好的,推到Git上,老王拉下来就报错。测试环境又是另一套版本,线上生产环境版本还不一样。这不是找死吗?</p>
+<p><strong>痛点3：团队协作效率低到怀疑人生</strong></p>
+<p>新人入职第一天,老员工得花半天时间手把手教他装环境:</p>
+<ol>
+<li>安装Nginx(20分钟)</li>
+<li>安装PHP和扩展(30分钟,还得编译)</li>
+<li>安装MySQL(15分钟)</li>
+<li>配置三个服务互相通信(1小时,各种踩坑)</li>
+<li>导入测试数据(10分钟)</li>
+</ol>
+<p>运气好的话,下午能开始写代码。运气不好?那就明天再说吧。</p>
+<p>我之前在一家创业公司,因为环境不一致,一个简单的用户注册功能,开发环境测试通过,上线后报”数据库连接失败”。原因是开发环境MySQL用户名root没密码,生产环境有密码,配置文件忘了改。凌晨紧急回滚,老板差点骂娘。</p>
+<h2 id="Docker-Compose的三大优势"><a href="#Docker-Compose的三大优势" class="headerlink" title="Docker Compose的三大优势"></a>Docker Compose的三大优势</h2><p><strong>优势1：配置即代码,一份文件全团队共享</strong></p>
+<p>Docker Compose把所有配置都写进一个<code>docker-compose.yml</code>文件:</p>
+<ul>
+<li>用什么版本的Nginx?(nginx:1.25-alpine)</li>
+<li>PHP装哪些扩展?(mysqli、pdo_mysql、redis)</li>
+<li>MySQL配置参数是啥?(my.cnf统一管理)</li>
+<li>服务之间怎么通信?(自动DNS解析)</li>
+</ul>
+<p>这个文件往Git一扔,团队所有人拉下来都是同一套环境。新人入职?clone项目,<code>docker-compose up -d</code>一行命令,喝杯咖啡回来环境就跑起来了。</p>
+<p>不用再问”你MySQL密码是多少?””你php.ini在哪?””你Nginx配置给我看看”。一个文件搞定所有问题。</p>
+<p><strong>优势2：一键启动/销毁,干净利落</strong></p>
+<p>启动所有服务:</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p>停止并删除所有容器:</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down</span><br></pre></td></tr></table></figure>
+<p>想切换PHP版本?改一行配置<code>image: php:7.4-fpm</code>变成<code>image: php:8.1-fpm</code>,重新up一下,搞定。</p>
+<p>不会像传统方式那样,卸载旧版本PHP还得清理一堆残留文件,生怕删错东西导致系统炸掉。Docker容器之间完全隔离,删了就删了,干干净净。</p>
+<p><strong>优势3：环境隔离和多版本共存</strong></p>
+<p>想同时跑PHP 7.4和PHP 8.1?传统方式得装两套PHP,配置两个不同端口,改Nginx配置指定不同的fastcgi_pass。麻烦死了。</p>
+<p>用Docker Compose?在配置文件里定义两个PHP服务:</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">php74</span>:</span><br><span class="line">  image: php:7.4-fpm</span><br><span class="line"></span><br><span class="line"><span class="attribute">php81</span>:</span><br><span class="line">  image: php:8.1-fpm</span><br></pre></td></tr></table></figure>
+<p>Nginx配置里想用哪个版本,就指向哪个服务名。老项目继续用php74,新项目用php81,互不干扰。</p>
+<p>GitHub上star最多的DNMP项目(imeepo/dnmp)有5000+star,说明这套方案已经被大量团队验证过了。不是什么新鲜玩意儿,是成熟可靠的解决方案。</p>
+<h1 id="DNMP架构设计详解"><a href="#DNMP架构设计详解" class="headerlink" title="DNMP架构设计详解"></a>DNMP架构设计详解</h1><h2 id="什么是DNMP"><a href="#什么是DNMP" class="headerlink" title="什么是DNMP"></a>什么是DNMP</h2><p>DNMP其实就是LNMP的Docker版本,四个字母各代表一个组件:</p>
+<ul>
+<li><strong>D = Docker</strong>：容器化平台,把每个服务装进独立的”集装箱”</li>
+<li><strong>N = Nginx</strong>：Web服务器,接收HTTP请求,转发给PHP处理</li>
+<li><strong>M = MySQL</strong>：关系型数据库,存储数据(也可以换成MariaDB、PostgreSQL)</li>
+<li><strong>P = PHP</strong>：PHP-FPM运行环境,执行PHP代码</li>
+</ul>
+<p>除了这四个核心组件,一般还会加上:</p>
+<ul>
+<li><strong>Redis</strong>：缓存服务,加速数据读取</li>
+<li><strong>PHPMyAdmin</strong>：数据库管理工具,可视化操作MySQL</li>
+</ul>
+<p>这些服务在传统LNMP里是直接装在系统上的,混在一起。DNMP把它们分别装进Docker容器,就像把不同的软件装进不同的虚拟机里,但比虚拟机轻量得多。</p>
+<h2 id="服务编排架构"><a href="#服务编排架构" class="headerlink" title="服务编排架构"></a>服务编排架构</h2><p>想象一下,你要组装一套音响系统:功放、音箱、播放器。每个设备独立工作,但需要线缆连接才能协同发声。</p>
+<p>DNMP也是这个道理。Nginx、PHP、MySQL是三个独立的容器,但需要通过Docker网络连接:</p>
+<p><strong>请求处理流程</strong>:</p>
+<ol>
+<li>浏览器发送HTTP请求到 <code>localhost:80</code></li>
+<li>Nginx容器接收请求,发现是PHP文件</li>
+<li>Nginx通过9000端口转发给PHP容器(通过服务名<code>php</code>)</li>
+<li>PHP容器执行代码,需要查数据库时连接MySQL容器(通过服务名<code>mysql</code>)</li>
+<li>PHP返回结果给Nginx</li>
+<li>Nginx把HTML返回给浏览器</li>
+</ol>
+<p><strong>通信机制</strong>:</p>
+<p>Docker Compose会自动创建一个桥接网络(bridge network),把所有服务连进去。每个服务都有自己的服务名,Docker自动做DNS解析。</p>
+<p>比如PHP要连MySQL,不用写<code>127.0.0.1:3306</code>,直接写<code>mysql:3306</code>就行。Docker会自动把<code>mysql</code>解析成MySQL容器的IP地址。超方便。</p>
+<p><strong>端口映射</strong>:</p>
+<ul>
+<li>Nginx容器:80端口 → 宿主机80端口(访问 localhost就能看到网站)</li>
+<li>MySQL容器:3306端口 → 宿主机3306端口(可以用Navicat等工具连接)</li>
+<li>PHPMyAdmin容器:80端口 → 宿主机8080端口(访问 localhost:8080管理数据库)</li>
+<li>Redis容器:6379端口 → 宿主机6379端口</li>
+</ul>
+<p><strong>卷挂载(Volume)</strong>:</p>
+<p>容器删了,数据就没了?不会的。通过卷挂载,把容器里的重要目录映射到宿主机:</p>
+<ul>
+<li><code>./www</code> → Nginx和PHP容器的 <code>/var/www/html</code>(代码目录)</li>
+<li><code>./mysql/data</code> → MySQL容器的 <code>/var/lib/mysql</code>(数据库文件)</li>
+<li><code>./nginx/logs</code> → Nginx容器的 <code>/var/log/nginx</code>(访问日志)</li>
+</ul>
+<p>这样即使容器删了重建,数据还在宿主机上,不会丢。</p>
+<h2 id="目录结构设计"><a href="#目录结构设计" class="headerlink" title="目录结构设计"></a>目录结构设计</h2><p>标准的DNMP项目目录长这样:</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">dnmp/</span><br><span class="line">├── docker-compose.yml       # 核心编排文件,定义所有服务</span><br><span class="line">├── .env                     # 环境变量配置(密码、端口等)</span><br><span class="line">├── .gitignore               # Git忽略文件(.env不上传)</span><br><span class="line">├── nginx/</span><br><span class="line">│   ├── conf.d/</span><br><span class="line">│   │   └── default.conf    # 站点配置(根目录、PHP转发规则)</span><br><span class="line">│   └── logs/               # 访问日志和错误日志</span><br><span class="line">│       ├── access.log</span><br><span class="line">│       └── error.log</span><br><span class="line">├── php/</span><br><span class="line">│   ├── Dockerfile          # PHP镜像定制(安装扩展)</span><br><span class="line">│   ├── php.ini             # PHP配置(内存限制、上传大小)</span><br><span class="line">│   └── php-fpm.conf        # PHP-FPM配置(进程数)</span><br><span class="line">├── mysql/</span><br><span class="line">│   ├── data/               # 数据库文件持久化目录</span><br><span class="line">│   └── my.cnf              # MySQL配置(字符集、最大连接数)</span><br><span class="line">└── www/                    # 项目代码目录</span><br><span class="line">    └── index.php           # 测试文件</span><br></pre></td></tr></table></figure>
+<p><strong>关键文件说明</strong>:</p>
+<ul>
+<li><code>docker-compose.yml</code>：最核心的文件,定义用哪个镜像、挂载哪些目录、映射哪些端口</li>
+<li><code>.env</code>：环境变量,比如<code>MYSQL_ROOT_PASSWORD=123456</code>,敏感信息单独管理</li>
+<li><code>nginx/conf.d/default.conf</code>：Nginx站点配置,设置网站根目录、PHP转发规则</li>
+<li><code>php/Dockerfile</code>：基于官方PHP镜像,额外安装mysqli、redis等扩展</li>
+<li><code>mysql/data/</code>：数据库文件存这里,容器删了重建,数据还在</li>
+</ul>
+<p>这套结构看起来文件挺多,但每个文件职责清晰。不像传统LNMP配置散落各处,找起来头疼。</p>
+<h1 id="10分钟实战：从零搭建DNMP环境"><a href="#10分钟实战：从零搭建DNMP环境" class="headerlink" title="10分钟实战：从零搭建DNMP环境"></a>10分钟实战：从零搭建DNMP环境</h1><h2 id="前置准备"><a href="#前置准备" class="headerlink" title="前置准备"></a>前置准备</h2><ol>
+<li><p><strong>安装Docker</strong></p>
+<ul>
+<li>Mac/Windows：下载Docker Desktop,安装就完事了,自带docker-compose</li>
+<li><p>Linux(Ubuntu示例)：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">sudo apt update</span><br><span class="line">sudo apt install docker.io docker-compose -y</span><br><span class="line">sudo systemctl start docker</span><br><span class="line">sudo systemctl enable docker</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p><strong>验证安装</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">docker --version</span><br><span class="line"># 输出：Docker version 24.0.6, build xxx</span><br><span class="line"></span><br><span class="line">docker-compose --version</span><br><span class="line"># 输出：Docker Compose version v2.21.0</span><br></pre></td></tr></table></figure>
+<p> 看到版本号就说明装好了。</p>
+</li>
+<li><p><strong>推荐配置</strong></p>
+<ul>
+<li>内存:至少4GB(Docker Desktop可以在设置里调)</li>
+<li>磁盘:至少20GB空闲空间(镜像会占用一些空间)</li>
+<li>网络:能访问Docker Hub(如果网速慢,可以配置国内镜像源)</li>
+</ul>
+</li>
+</ol>
+<h2 id="快速部署方案一：使用成熟开源项目-推荐"><a href="#快速部署方案一：使用成熟开源项目-推荐" class="headerlink" title="快速部署方案一：使用成熟开源项目(推荐)"></a>快速部署方案一：使用成熟开源项目(推荐)</h2><p>不想折腾?直接用开源项目,10分钟搞定。</p>
+<ol>
+<li><p><strong>克隆项目</strong></p>
+<p> 我推荐<code>imeepo/dnmp</code>,支持Arm CPU(Apple M系列芯片也能用)：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/imeepo/dnmp.git</span><br><span class="line">cd dnmp</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>配置环境变量</strong></p>
+<p> 复制示例配置文件：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cp .env.example .env</span><br></pre></td></tr></table></figure>
+<p> 打开<code>.env</code>文件,改几个关键配置：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># MySQL root密码(别用123456,太弱了)</span><br><span class="line">MYSQL_ROOT_PASSWORD=your_strong_password</span><br><span class="line"></span><br><span class="line"># 时区设置</span><br><span class="line">TZ=Asia/Shanghai</span><br><span class="line"></span><br><span class="line"># 端口映射(如果80端口被占用,改成8080)</span><br><span class="line">NGINX_HTTP_PORT=80</span><br><span class="line">MYSQL_PORT=3306</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>一键启动</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p> <code>-d</code>参数表示后台运行。第一次启动会拉取镜像,可能需要几分钟。看到这样的输出就成功了：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Creating network &quot;dnmp_default&quot; with the default driver</span><br><span class="line">Creating dnmp_mysql_1 ... done</span><br><span class="line">Creating dnmp_php_1   ... done</span><br><span class="line">Creating dnmp_nginx_1 ... done</span><br><span class="line">Creating dnmp_redis_1 ... done</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>验证安装</strong></p>
+<p> 打开浏览器,访问<code>http://localhost</code>,应该能看到phpinfo页面,显示PHP版本、已安装扩展等信息。</p>
+<p> 看到这个页面,就说明Nginx和PHP都跑起来了。</p>
+<p> 再访问<code>http://localhost:8080</code>,应该能看到PHPMyAdmin登录界面:</p>
+<ul>
+<li>服务器:<code>mysql</code>(注意不是localhost)</li>
+<li>用户名:<code>root</code></li>
+<li><p>密码:你在.env里设置的密码</p>
+<p>登录成功,说明MySQL也正常了。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>查看容器状态</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose ps</span><br></pre></td></tr></table></figure>
+<p> 输出应该类似这样：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Name               Command              State           Ports</span><br><span class="line">--------------------------------------------------------------------</span><br><span class="line">dnmp_nginx_1   nginx -g daemon off;   Up      0.0.0.0:80-超过80/tcp</span><br><span class="line">dnmp_php_1     php-fpm                Up      9000/tcp</span><br><span class="line">dnmp_mysql_1   docker-entrypoint...   Up      0.0.0.0:3306-超过3306/tcp</span><br><span class="line">dnmp_redis_1   redis-server           Up      6379/tcp</span><br></pre></td></tr></table></figure>
+<p> <code>State</code>显示<code>Up</code>就说明容器在运行。</p>
+</li>
+</ol>
+<h2 id="自定义方案二：手写docker-compose-yml-进阶"><a href="#自定义方案二：手写docker-compose-yml-进阶" class="headerlink" title="自定义方案二：手写docker-compose.yml(进阶)"></a>自定义方案二：手写docker-compose.yml(进阶)</h2><p>想深入理解原理?自己写配置文件。</p>
+<ol>
+<li><p><strong>创建项目目录</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir my-dnmp &amp;&amp; cd my-dnmp</span><br><span class="line">mkdir -p nginx/conf.d php mysql/data www</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>编写docker-compose.yml</strong></p>
+<p> 创建docker-compose.yml,内容如下：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">version</span><span class="punctuation">: </span>&#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line"><span class="attribute">services</span>:</span><br><span class="line">  # Nginx服务</span><br><span class="line">  nginx:</span><br><span class="line">    image: nginx:1.25-alpine  # 使用alpine版本,镜像更小</span><br><span class="line">    container_name: dnmp-nginx</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;80:80&quot;  # 映射80端口到宿主机</span><br><span class="line">    volumes:</span><br><span class="line">      - ./www:/var/www/html  # 代码目录</span><br><span class="line">      - ./nginx/conf.d:/etc/nginx/conf.d  # 站点配置</span><br><span class="line">      - ./nginx/logs:/var/log/nginx  # 日志目录</span><br><span class="line">    depends_on:</span><br><span class="line">      - php  # 依赖PHP服务,会先启动PHP再启动Nginx</span><br><span class="line">    networks:</span><br><span class="line">      - dnmp-network</span><br><span class="line"></span><br><span class="line">  # PHP服务</span><br><span class="line">  php:</span><br><span class="line">    build: ./php  # 使用Dockerfile构建镜像</span><br><span class="line">    container_name: dnmp-php</span><br><span class="line">    volumes:</span><br><span class="line">      - ./www:/var/www/html  # 代码目录(和Nginx保持一致)</span><br><span class="line">    networks:</span><br><span class="line">      - dnmp-network</span><br><span class="line"></span><br><span class="line">  # MySQL服务</span><br><span class="line">  mysql:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    container_name: dnmp-mysql</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3306:3306&quot;</span><br><span class="line">    environment:</span><br><span class="line">      MYSQL_ROOT_PASSWORD: root123456  # root密码</span><br><span class="line">      MYSQL_DATABASE: test_db  # 默认创建的数据库</span><br><span class="line">      TZ: Asia/Shanghai  # 时区</span><br><span class="line">    volumes:</span><br><span class="line">      - ./mysql/data:/var/lib/mysql  # 数据持久化</span><br><span class="line">    networks:</span><br><span class="line">      - dnmp-network</span><br><span class="line"></span><br><span class="line">  # Redis服务(可选)</span><br><span class="line">  redis:</span><br><span class="line">    image: redis:7-alpine</span><br><span class="line">    container_name: dnmp-redis</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;6379:6379&quot;</span><br><span class="line">    networks:</span><br><span class="line">      - dnmp-network</span><br><span class="line"></span><br><span class="line"><span class="attribute">networks</span>:</span><br><span class="line">  dnmp-network:</span><br><span class="line">    driver: bridge  # 桥接网络,容器间可以互相访问</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>创建PHP Dockerfile</strong></p>
+<p> 创建<strong>php/Dockerfile</strong>,安装常用扩展：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">FROM php:8.1-fpm</span><br><span class="line"></span><br><span class="line"># 安装系统依赖</span><br><span class="line">RUN apt-get update &amp;&amp; apt-get install -y \</span><br><span class="line">    libzip-dev \</span><br><span class="line">    zip \</span><br><span class="line">    unzip</span><br><span class="line"></span><br><span class="line"># 安装PHP扩展</span><br><span class="line">RUN docker-php-ext-install \</span><br><span class="line">    mysqli \</span><br><span class="line">    pdo_mysql \</span><br><span class="line">    zip \</span><br><span class="line">    opcache</span><br><span class="line"></span><br><span class="line"># 安装Redis扩展</span><br><span class="line">RUN pecl install redis &amp;&amp; docker-php-ext-enable redis</span><br><span class="line"></span><br><span class="line"># 设置工作目录</span><br><span class="line">WORKDIR /var/www/html</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>创建Nginx站点配置</strong></p>
+<p> 创建<strong>nginx/conf.d/default.conf</strong>：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line">    server_name localhost;</span><br><span class="line">    root /var/www/html;</span><br><span class="line">    index index.php index.html;</span><br><span class="line"></span><br><span class="line">    # 访问日志</span><br><span class="line">    access_log /var/log/nginx/access.log;</span><br><span class="line">    error_log /var/log/nginx/error.log;</span><br><span class="line"></span><br><span class="line">    # PHP文件转发给PHP-FPM处理</span><br><span class="line">    location ~ \.php$ &#123;</span><br><span class="line">        fastcgi_pass php:9000;  # php是服务名,Docker自动解析IP</span><br><span class="line">        fastcgi_index index.php;</span><br><span class="line">        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;</span><br><span class="line">        include fastcgi_params;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    # 静态文件直接返回</span><br><span class="line">    location ~ \.(js|css|png|jpg|gif|ico)$ &#123;</span><br><span class="line">        expires 7d;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>创建测试文件</strong></p>
+<p> 创建<code>www/index.php</code>：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&lt;?php</span><br><span class="line">phpinfo();</span><br></pre></td></tr></table></figure>
+<p> 创建<code>www/db_test.php</code>测试数据库连接：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&lt;?php</span><br><span class="line">$host = &#x27;mysql&#x27;;  // 服务名,不是localhost</span><br><span class="line">$user = &#x27;root&#x27;;</span><br><span class="line">$pass = &#x27;root123456&#x27;;</span><br><span class="line">$db = &#x27;test_db&#x27;;</span><br><span class="line"></span><br><span class="line">try &#123;</span><br><span class="line">    $pdo = new PDO(&quot;mysql:host=$host;dbname=$db&quot;, $user, $pass);</span><br><span class="line">    echo &quot;数据库连接成功!&lt;br /&gt;&quot;;</span><br><span class="line">    echo &quot;MySQL版本: &quot; . $pdo-&gt;getAttribute(PDO::ATTR_SERVER_VERSION);</span><br><span class="line">&#125; catch(PDOException $e) &#123;</span><br><span class="line">    echo &quot;连接失败: &quot; . $e-&gt;getMessage();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>启动服务</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up --build -d</span><br></pre></td></tr></table></figure>
+<p> <code>--build</code>参数表示重新构建PHP镜像。第一次启动会比较慢,因为要下载基础镜像和安装扩展。</p>
+</li>
+</ol>
+<h2 id="验证和测试"><a href="#验证和测试" class="headerlink" title="验证和测试"></a>验证和测试</h2><ol>
+<li><p><strong>测试PHP</strong></p>
+<p> 访问<code>http://localhost</code>,应该能看到phpinfo页面,检查一下:</p>
+<ul>
+<li>PHP版本是8.1</li>
+<li>mysqli、pdo_mysql、redis扩展都显示enabled</li>
+</ul>
+</li>
+<li><p><strong>测试数据库连接</strong></p>
+<p> 访问<code>http://localhost/db_test.php</code>,应该看到”数据库连接成功”和MySQL版本号。</p>
+<p> 如果报连接失败,检查:</p>
+<ul>
+<li>MySQL容器是否启动：<code>docker-compose ps</code></li>
+<li>host是否写成了<code>localhost</code>(应该是<code>mysql</code>)</li>
+<li>密码是否正确</li>
+</ul>
+</li>
+<li><p><strong>检查容器状态</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose ps</span><br></pre></td></tr></table></figure>
+<p> 所有容器的State都应该是Up。</p>
+</li>
+<li><p><strong>查看日志排错</strong></p>
+<p> 如果某个容器启动失败,查看日志：</p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose logs php  # 查看PHP容器日志</span><br><span class="line">docker-compose logs -f nginx  # 实时查看Nginx日志(-f参数)</span><br></pre></td></tr></table></figure>
+<p> 日志会告诉你具体哪里出错了,比如配置文件语法错误、端口被占用等。</p>
+</li>
+</ol>
+<h1 id="团队协作最佳实践"><a href="#团队协作最佳实践" class="headerlink" title="团队协作最佳实践"></a>团队协作最佳实践</h1><h2 id="版本控制策略"><a href="#版本控制策略" class="headerlink" title="版本控制策略"></a>版本控制策略</h2><p><strong>关键原则：配置上传,敏感信息不上传</strong></p>
+<p>创建<code>.gitignore</code>文件：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># 敏感信息不上传</span><br><span class="line">.env</span><br><span class="line"></span><br><span class="line"># 数据库文件不上传(太大)</span><br><span class="line">mysql/data/</span><br><span class="line"></span><br><span class="line"># 日志文件不上传</span><br><span class="line">nginx/logs/*.log</span><br><span class="line">php/logs/*.log</span><br><span class="line"></span><br><span class="line"># 代码目录由业务项目管理,不在DNMP里</span><br><span class="line">www/*</span><br><span class="line">!www/.gitkeep  # 保留目录结构</span><br></pre></td></tr></table></figure>
+<p><strong>提交到Git的文件</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">git add docker-compose.yml</span><br><span class="line">git add .env.example  # 示例配置,不含真实密码</span><br><span class="line">git add nginx/conf.d/</span><br><span class="line">git add php/Dockerfile</span><br><span class="line">git add php/php.ini</span><br><span class="line">git add mysql/my.cnf</span><br><span class="line">git commit -m &quot;feat: add DNMP environment config&quot;</span><br><span class="line">git push</span><br></pre></td></tr></table></figure>
+<p><strong>新成员入职流程(3分钟)</strong>：</p>
+<ul>
+<li>克隆项目：<code>git clone xxx</code></li>
+<li>复制配置：<code>cp .env.example .env</code></li>
+<li>修改密码：编辑<code>.env</code>,改<code>MYSQL_ROOT_PASSWORD</code></li>
+<li>启动环境：<code>docker-compose up -d</code></li>
+<li>导入数据：<code>docker exec -i dnmp-mysql mysql -uroot -p &lt; backup.sql</code></li>
+</ul>
+<p>完事。不用问老员工”你Nginx配在哪?””你PHP装了啥扩展?”全都在配置文件里。</p>
+<h2 id="多PHP版本共存方案"><a href="#多PHP版本共存方案" class="headerlink" title="多PHP版本共存方案"></a>多PHP版本共存方案</h2><p><strong>场景</strong>：老项目跑PHP 7.4,新项目要PHP 8.1,怎么办?</p>
+<p><strong>方案一：在docker-compose.yml定义多个PHP服务</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">services</span>:</span><br><span class="line">  php74:</span><br><span class="line">    image: php:7.4-fpm</span><br><span class="line">    container_name: dnmp-php74</span><br><span class="line">    volumes:</span><br><span class="line">      - ./www:/var/www/html</span><br><span class="line">    networks:</span><br><span class="line">      - dnmp-network</span><br><span class="line"></span><br><span class="line">  php81:</span><br><span class="line">    image: php:8.1-fpm</span><br><span class="line">    container_name: dnmp-php81</span><br><span class="line">    volumes:</span><br><span class="line">      - ./www:/var/www/html</span><br><span class="line">    networks:</span><br><span class="line">      - dnmp-network</span><br></pre></td></tr></table></figure>
+<p><strong>Nginx配置不同项目指向不同PHP版本</strong>：</p>
+<p><code>nginx/conf.d/old-project.conf</code>(老项目):</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line">    server_name old.local;</span><br><span class="line">    root /var/www/html/old-project;</span><br><span class="line"></span><br><span class="line">    location ~ \.php$ &#123;</span><br><span class="line">        fastcgi_pass php74:9000;  # 指向PHP 7.4</span><br><span class="line">        fastcgi_index index.php;</span><br><span class="line">        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;</span><br><span class="line">        include fastcgi_params;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>nginx/conf.d/new-project.conf</code>(新项目):</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">server &#123;</span><br><span class="line">    listen 80;</span><br><span class="line">    server_name new.local;</span><br><span class="line">    root /var/www/html/new-project;</span><br><span class="line"></span><br><span class="line">    location ~ \.php$ &#123;</span><br><span class="line">        fastcgi_pass php81:9000;  # 指向PHP 8.1</span><br><span class="line">        fastcgi_index index.php;</span><br><span class="line">        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;</span><br><span class="line">        include fastcgi_params;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>配置hosts文件</strong>:</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1 old.local</span><br><span class="line">127.0.0.1 new.local</span><br></pre></td></tr></table></figure>
+<p>访问<code>http://old.local</code>走PHP 7.4,访问<code>http://new.local</code>走PHP 8.1。互不干扰。</p>
+<h2 id="数据持久化和备份"><a href="#数据持久化和备份" class="headerlink" title="数据持久化和备份"></a>数据持久化和备份</h2><p><strong>数据持久化</strong>已经通过卷挂载实现了,<code>./mysql/data</code>映射到容器的<code>/var/lib/mysql</code>,容器删了数据还在。</p>
+<p><strong>数据库备份脚本</strong>：</p>
+<p>创建<code>scripts/backup.sh</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">BACKUP_DIR=&quot;./backups&quot;</span><br><span class="line">DATE=$(date +%Y%m%d_%H%M%S)</span><br><span class="line">MYSQL_CONTAINER=&quot;dnmp-mysql&quot;</span><br><span class="line">MYSQL_USER=&quot;root&quot;</span><br><span class="line">MYSQL_PASSWORD=&quot;root123456&quot;</span><br><span class="line">DATABASE=&quot;test_db&quot;</span><br><span class="line"></span><br><span class="line">mkdir -p $BACKUP_DIR</span><br><span class="line"></span><br><span class="line">echo &quot;开始备份数据库 $DATABASE...&quot;</span><br><span class="line">docker exec $MYSQL_CONTAINER mysqldump -u$MYSQL_USER -p$MYSQL_PASSWORD $DATABASE &gt; $BACKUP_DIR/$&#123;DATABASE&#125;_$&#123;DATE&#125;.sql</span><br><span class="line"></span><br><span class="line">echo &quot;备份完成: $BACKUP_DIR/$&#123;DATABASE&#125;_$&#123;DATE&#125;.sql&quot;</span><br></pre></td></tr></table></figure>
+<p><strong>定期备份(使用cron)</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 编辑crontab</span><br><span class="line">crontab -e</span><br><span class="line"></span><br><span class="line"># 每天凌晨2点备份</span><br><span class="line">0 2 * * * /path/to/scripts/backup.sh</span><br></pre></td></tr></table></figure>
+<p><strong>恢复数据库</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -i dnmp-mysql mysql -uroot -proot123456 test_db &lt; ./backups/test_db_20251218.sql</span><br></pre></td></tr></table></figure>
+<h1 id="常见问题和踩坑指南"><a href="#常见问题和踩坑指南" class="headerlink" title="常见问题和踩坑指南"></a>常见问题和踩坑指南</h1><h2 id="问题1：端口被占用-容器启动失败"><a href="#问题1：端口被占用-容器启动失败" class="headerlink" title="问题1：端口被占用,容器启动失败"></a>问题1：端口被占用,容器启动失败</h2><p><strong>现象</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Error starting userland proxy: listen tcp4 0.0.0.0:80: bind: address already in use</span><br></pre></td></tr></table></figure>
+<p><strong>排查</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># Mac/Linux</span><br><span class="line">lsof -i :80</span><br><span class="line"></span><br><span class="line"># Windows</span><br><span class="line">netstat -ano | findstr :80</span><br></pre></td></tr></table></figure>
+<p><strong>解决方案</strong>：</p>
+<ul>
+<li>方案1：停掉占用80端口的程序(比如Apache、IIS)</li>
+<li>方案2：改端口映射,在<code>.env</code>里改<code>NGINX_HTTP_PORT=8080</code>,访问<code>localhost:8080</code></li>
+</ul>
+<h2 id="问题2：文件权限问题-Linux-Mac"><a href="#问题2：文件权限问题-Linux-Mac" class="headerlink" title="问题2：文件权限问题(Linux/Mac)"></a>问题2：文件权限问题(Linux/Mac)</h2><p><strong>现象</strong>：</p>
+<ul>
+<li>Nginx报403 Forbidden</li>
+<li>PHP无法写入文件,报Permission denied</li>
+</ul>
+<p><strong>原因</strong>：</p>
+<p>容器内www-data用户(UID 33)和宿主机用户(UID 1000)不一致,导致无法访问挂载的文件。</p>
+<p><strong>临时方案(开发环境)</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">chmod -R 777 ./www</span><br></pre></td></tr></table></figure>
+<p><strong>正确方案(修改容器用户UID)</strong>：</p>
+<p>修改<code>php/Dockerfile</code>,让容器用户UID匹配宿主机：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">FROM php:8.1-fpm</span><br><span class="line"></span><br><span class="line"># 修改www-data用户的UID为宿主机用户的UID(比如1000)</span><br><span class="line">RUN usermod -u 1000 www-data &amp;&amp; groupmod -g 1000 www-data</span><br><span class="line"></span><br><span class="line"># 其他配置...</span><br></pre></td></tr></table></figure>
+<p>重新构建镜像：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose build php</span><br><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<h2 id="问题3：PHP扩展缺失"><a href="#问题3：PHP扩展缺失" class="headerlink" title="问题3：PHP扩展缺失"></a>问题3：PHP扩展缺失</h2><p><strong>现象</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Fatal error: Call to undefined function mysqli_connect()</span><br></pre></td></tr></table></figure>
+<p><strong>排查</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec dnmp-php php -m  # 查看已安装扩展</span><br></pre></td></tr></table></figure>
+<p>如果没看到mysqli,说明扩展没装。</p>
+<p><strong>解决方案</strong>：</p>
+<p>修改<code>php/Dockerfile</code>,添加扩展：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">RUN docker-php-ext-install mysqli pdo_mysql</span><br></pre></td></tr></table></figure>
+<p><strong>重新构建</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose build php</span><br><span class="line">docker-compose restart php</span><br></pre></td></tr></table></figure>
+<h2 id="问题4：数据库连接失败"><a href="#问题4：数据库连接失败" class="headerlink" title="问题4：数据库连接失败"></a>问题4：数据库连接失败</h2><p><strong>现象</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SQLSTATE[HY000] [2002] Connection refused</span><br></pre></td></tr></table></figure>
+<p><strong>常见错误</strong>：</p>
+<ul>
+<li>错误1：host写成了<code>localhost</code>或<code>127.0.0.1</code></li>
+<li>错误2：MySQL容器还没启动完成就连接了</li>
+<li>错误3：密码错了</li>
+</ul>
+<p><strong>正确姿势</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$host = &#x27;mysql&#x27;;  // 必须用服务名,不是localhost</span><br><span class="line">$user = &#x27;root&#x27;;</span><br><span class="line">$pass = &#x27;root123456&#x27;;  // 检查是否和.env里一致</span><br><span class="line"></span><br><span class="line">try &#123;</span><br><span class="line">    $pdo = new PDO(&quot;mysql:host=$host;dbname=test_db&quot;, $user, $pass);</span><br><span class="line">    echo &quot;连接成功&quot;;</span><br><span class="line">&#125; catch(PDOException $e) &#123;</span><br><span class="line">    echo &quot;失败: &quot; . $e-&gt;getMessage();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果还是连不上,检查MySQL是否启动完成：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose logs mysql</span><br></pre></td></tr></table></figure>
+<p>看到<code>mysqld: ready for connections</code>就说明启动好了。</p>
+<h2 id="问题5：容器启动后立即退出"><a href="#问题5：容器启动后立即退出" class="headerlink" title="问题5：容器启动后立即退出"></a>问题5：容器启动后立即退出</h2><p><strong>现象</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose ps</span><br><span class="line"># 某个容器Status显示Exit 1或Exit 127</span><br></pre></td></tr></table></figure>
+<p><strong>排查命令</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose logs 服务名</span><br></pre></td></tr></table></figure>
+<p><strong>常见原因</strong>：</p>
+<ol>
+<li><strong>配置文件语法错误</strong>：<ul>
+<li>Nginx配置少了分号<code>;</code></li>
+<li>docker-compose.yml缩进不对(必须用空格,不能用Tab)</li>
+</ul>
+</li>
+<li><strong>环境变量缺失</strong>：<ul>
+<li>MySQL没设置<strong>MYSQL_ROOT_PASSWORD</strong>,启动失败</li>
+</ul>
+</li>
+<li><strong>依赖服务未启动</strong>：<ul>
+<li>Nginx依赖PHP,但PHP容器起不来</li>
+</ul>
+</li>
+</ol>
+<p><strong>解决方法</strong>：</p>
+<p>根据日志提示修改配置文件,然后重新启动：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down  # 删除所有容器</span><br><span class="line">docker-compose up -d  # 重新创建并启动</span><br></pre></td></tr></table></figure>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多,Docker Compose部署DNMP环境的核心价值其实就三点：</p>
+<ol>
+<li><strong>省时间</strong>：10分钟搞定,省下的时间可以多喝两杯咖啡</li>
+<li><strong>少踩坑</strong>：团队环境统一,再也不用半夜紧急排查”我电脑上能跑”的bug</li>
+<li><strong>易维护</strong>：配置文件就是文档,新人看一眼就懂,不用老员工手把手教</li>
+</ol>
+<p>我之前手动装LNMP,经常搞到凌晨两点还跑不起来。自从用了Docker Compose,真的是”up一下,喝杯咖啡,环境就好了”。</p>
+<p>别犹豫了,下班前花10分钟试一试。先clone个开源项目(<code>imeepo/dnmp</code>)跑起来,感受一下一键启动的爽感。等熟悉了,再自己写配置文件深入学习。</p>
+<p>对了,如果遇到问题,别慌:</p>
+<ol>
+<li>先看<code>docker-compose logs</code>查日志</li>
+<li>搜一下GitHub Issues,大概率别人也遇到过</li>
+<li>实在不行,到项目仓库提Issue,社区很活跃的</li>
+</ol>
+<p>最后说一句,Docker Compose不只能部署PHP环境,Node.js、Python、Go都可以。学会了这套思路,以后换技术栈也不怕环境配置了。</p>
+<p><strong>下一步行动</strong>：</p>
+<ul>
+<li>立即行动：<code>git clone https://github.com/imeepo/dnmp.git,</code>跑起第一个DNMP环境</li>
+<li>深入学习：看Docker Compose官方文档,学学更高级的用法(比如docker-compose.override.yml)</li>
+<li>分享传播：如果这篇文章帮到你了,分享给还在手动装环境的同事,让他们也解放一下</li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么需要Docker-Compose部署PHP环境？"><a href="#为什么需要Docker-Compose部署PHP环境？" class="headerlink" title="为什么需要Docker Compose部署PHP环境？"></a>为什么需要Docker Compose部署PHP环境？</h2><p>问题背景：</p>
+<ul>
+<li>团队里每个人的开发环境都不一样</li>
+<li>新人入职光配环境就要半天，老员工还得一对一指导</li>
+<li>代码在A电脑上正常，到B电脑就炸了</li>
+<li>部署到服务器更是碰运气</li>
+<li>PHP版本不一致（7.4 vs 8.1）</li>
+<li>MySQL版本不一致（5.7 vs 8.0）</li>
+</ul>
+<p>解决方案：使用Docker Compose一键部署DNMP（Docker+Nginx+MySQL+PHP）开发环境，10分钟搞定，彻底解决团队环境不一致问题，所有团队成员使用相同的环境配置。</p>
+<h2 id="如何用Docker-Compose部署DNMP环境？"><a href="#如何用Docker-Compose部署DNMP环境？" class="headerlink" title="如何用Docker Compose部署DNMP环境？"></a>如何用Docker Compose部署DNMP环境？</h2><p>完整配置：</p>
+<ul>
+<li><code>docker-compose.yml</code>配置Nginx、MySQL、PHP三个服务</li>
+<li>配置网络连接</li>
+<li>配置数据持久化</li>
+<li>配置环境变量</li>
+<li>配置健康检查，确保服务正常启动</li>
+</ul>
+<p>10分钟部署流程：</p>
+<ol>
+<li>创建<code>docker-compose.yml</code>文件</li>
+<li>配置Nginx、MySQL、PHP服务</li>
+<li>启动服务：<code>docker-compose up -d</code></li>
+<li>验证服务运行状态：<code>docker-compose ps</code></li>
+<li>测试PHP应用：访问<code>http://localhost</code></li>
+</ol>
+<h2 id="DNMP环境部署常见问题有哪些？"><a href="#DNMP环境部署常见问题有哪些？" class="headerlink" title="DNMP环境部署常见问题有哪些？"></a>DNMP环境部署常见问题有哪些？</h2><p>常见问题：</p>
+<ul>
+<li>Nginx找不到PHP-FPM的socket文件</li>
+<li>MySQL连接失败</li>
+<li>PHP扩展缺失</li>
+<li>配置文件不生效</li>
+</ul>
+<p>解决方法：</p>
+<ul>
+<li>根据日志提示修改配置文件</li>
+<li>然后重新启动：<code>docker-compose down，docker-compose up -d</code></li>
+</ul>
+<p>排查步骤：</p>
+<ul>
+<li>查看容器日志：<code>docker-compose logs</code></li>
+<li>检查服务状态：<code>docker-compose ps</code></li>
+<li>检查网络连接：<code>docker network inspect</code></li>
+<li>检查配置文件是否正确</li>
+</ul>
+<h2 id="Docker-Compose-PHP环境的最佳实践是什么？"><a href="#Docker-Compose-PHP环境的最佳实践是什么？" class="headerlink" title="Docker Compose PHP环境的最佳实践是什么？"></a>Docker Compose PHP环境的最佳实践是什么？</h2><p>最佳实践：</p>
+<ul>
+<li>使用版本标签固定镜像版本</li>
+<li>配置数据持久化</li>
+<li>配置健康检查</li>
+<li>使用环境变量管理配置</li>
+<li>定期更新镜像版本</li>
+<li>文档化配置说明</li>
+</ul>
+<p>下一步行动：</p>
+<ul>
+<li>立即行动：<code>git clone [https://github.com/imeepo/dnmp.git](https://github.com/imeepo/dnmp.git)</code>，跑起第一个DNMP环境</li>
+<li>深入学习：看Docker Compose官方文档，学学更高级的用法</li>
+<li>分享传播：分享给还在手动装环境的同事，让他们也解放一下</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/7e11/">https://jingluo23.github.io/posts/7e11/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/2b73/" title="Docker Compose 生产部署三要素：健康检查、重启策略与资源限制"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker Compose 生产部署三要素：健康检查、重启策略与资源限制</div></div><div class="info-2"><div class="info-item-1">详解 Docker Compose 生产部署三要素：健康检查判断服务就绪、重启策略实现自愈、资源限制防止失控。附完整 YAML 配置模板，助你构建稳定可靠的容器化应用。</div></div></div></a><a class="pagination-related" href="/posts/8180/" title="Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题</div></div><div class="info-2"><div class="info-item-1">通过5个实战案例手把手教你使用Docker Volume，从基础概念到MySQL、Redis持久化，让容器数据不再随删除而消失，适合Docker初学者和开发者。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/38f9/" title="Docker容器互联实战：让Web容器和数据库容器能相互访问的正确方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-24</div><div class="info-item-2">Docker容器互联实战：让Web容器和数据库容器能相互访问的正确方法</div></div><div class="info-2"><div class="info-item-1">Docker容器之间如何互相访问？本文通过实战案例，教你用自定义网络解决容器名解析失败和IP变化问题，让Web容器和数据库容器稳定通信。包含完整命令和故障排查技巧。</div></div></div></a><a class="pagination-related" href="/posts/89f5/" title="Docker容器访问宿主机：host.docker.internal完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-26</div><div class="info-item-2">Docker容器访问宿主机：host.docker.internal完全指南</div></div><div class="info-2"><div class="info-item-1">容器内用localhost连不上宿主机服务？本文详解host.docker.internal用法，涵盖Mac/Windows/Linux三平台配置方法，附完整排查清单，让你快速解决容器访问宿主机问题</div></div></div></a><a class="pagination-related" href="/posts/1820/" title="2026年国内 Docker 镜像源指南：5分钟解决 pull 超时"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-28</div><div class="info-item-2">2026年国内 Docker 镜像源指南：5分钟解决 pull 超时</div></div><div class="info-2"><div class="info-item-1">2026 年 Docker mirror China 最新可用性判断：配置 daemon.json、测速镜像源、处理企业代理和 pull-through cache，并区分 Docker Hub 限速（429）与镜像源失效，5 分钟定位 docker pull timeout。</div></div></div></a><a class="pagination-related" href="/posts/64d8/" title="Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）</div></div><div class="info-2"><div class="info-item-1">手把手教你写Dockerfile，详解FROM、RUN、COPY等核心指令，避开初学者常踩的坑，附Node.js实战案例。看完就能给自己项目写Dockerfile！</div></div></div></a><a class="pagination-related" href="/posts/d4c3/" title="Docker Compose 多服务编排：本地开发环境一键启动"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-13</div><div class="info-item-2">Docker Compose 多服务编排：本地开发环境一键启动</div></div><div class="info-2"><div class="info-item-1">用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。</div></div></div></a><a class="pagination-related" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-13</div><div class="info-item-2">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</div></div><div class="info-2"><div class="info-item-1">想给 AI Agent、内部工具或 SaaS demo 提供自托管 Dev Sandbox？这篇文章用 Docker、Go 和 Traefik 拆解预览 URL、资源限制、安全边界和生产前检查清单。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%89%E6%8B%A9Docker-Compose%E9%83%A8%E7%BD%B2PHP%E7%8E%AF%E5%A2%83"><span class="toc-number">1.</span> <span class="toc-text">为什么选择Docker Compose部署PHP环境</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%A0%E7%BB%9FLNMP%E9%83%A8%E7%BD%B2%E7%9A%84%E4%B8%89%E5%A4%A7%E7%97%9B%E7%82%B9"><span class="toc-number">1.1.</span> <span class="toc-text">传统LNMP部署的三大痛点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Compose%E7%9A%84%E4%B8%89%E5%A4%A7%E4%BC%98%E5%8A%BF"><span class="toc-number">1.2.</span> <span class="toc-text">Docker Compose的三大优势</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#DNMP%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E8%AF%A6%E8%A7%A3"><span class="toc-number">2.</span> <span class="toc-text">DNMP架构设计详解</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AFDNMP"><span class="toc-number">2.1.</span> <span class="toc-text">什么是DNMP</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%8D%E5%8A%A1%E7%BC%96%E6%8E%92%E6%9E%B6%E6%9E%84"><span class="toc-number">2.2.</span> <span class="toc-text">服务编排架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">2.3.</span> <span class="toc-text">目录结构设计</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#10%E5%88%86%E9%92%9F%E5%AE%9E%E6%88%98%EF%BC%9A%E4%BB%8E%E9%9B%B6%E6%90%AD%E5%BB%BADNMP%E7%8E%AF%E5%A2%83"><span class="toc-number">3.</span> <span class="toc-text">10分钟实战：从零搭建DNMP环境</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E7%BD%AE%E5%87%86%E5%A4%87"><span class="toc-number">3.1.</span> <span class="toc-text">前置准备</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BF%AB%E9%80%9F%E9%83%A8%E7%BD%B2%E6%96%B9%E6%A1%88%E4%B8%80%EF%BC%9A%E4%BD%BF%E7%94%A8%E6%88%90%E7%86%9F%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE-%E6%8E%A8%E8%8D%90"><span class="toc-number">3.2.</span> <span class="toc-text">快速部署方案一：使用成熟开源项目(推荐)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E6%96%B9%E6%A1%88%E4%BA%8C%EF%BC%9A%E6%89%8B%E5%86%99docker-compose-yml-%E8%BF%9B%E9%98%B6"><span class="toc-number">3.3.</span> <span class="toc-text">自定义方案二：手写docker-compose.yml(进阶)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AA%8C%E8%AF%81%E5%92%8C%E6%B5%8B%E8%AF%95"><span class="toc-number">3.4.</span> <span class="toc-text">验证和测试</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9C%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">4.</span> <span class="toc-text">团队协作最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%89%88%E6%9C%AC%E6%8E%A7%E5%88%B6%E7%AD%96%E7%95%A5"><span class="toc-number">4.1.</span> <span class="toc-text">版本控制策略</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9APHP%E7%89%88%E6%9C%AC%E5%85%B1%E5%AD%98%E6%96%B9%E6%A1%88"><span class="toc-number">4.2.</span> <span class="toc-text">多PHP版本共存方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E6%8C%81%E4%B9%85%E5%8C%96%E5%92%8C%E5%A4%87%E4%BB%BD"><span class="toc-number">4.3.</span> <span class="toc-text">数据持久化和备份</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E5%92%8C%E8%B8%A9%E5%9D%91%E6%8C%87%E5%8D%97"><span class="toc-number">5.</span> <span class="toc-text">常见问题和踩坑指南</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%981%EF%BC%9A%E7%AB%AF%E5%8F%A3%E8%A2%AB%E5%8D%A0%E7%94%A8-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%A4%B1%E8%B4%A5"><span class="toc-number">5.1.</span> <span class="toc-text">问题1：端口被占用,容器启动失败</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%982%EF%BC%9A%E6%96%87%E4%BB%B6%E6%9D%83%E9%99%90%E9%97%AE%E9%A2%98-Linux-Mac"><span class="toc-number">5.2.</span> <span class="toc-text">问题2：文件权限问题(Linux&#x2F;Mac)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%983%EF%BC%9APHP%E6%89%A9%E5%B1%95%E7%BC%BA%E5%A4%B1"><span class="toc-number">5.3.</span> <span class="toc-text">问题3：PHP扩展缺失</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%984%EF%BC%9A%E6%95%B0%E6%8D%AE%E5%BA%93%E8%BF%9E%E6%8E%A5%E5%A4%B1%E8%B4%A5"><span class="toc-number">5.4.</span> <span class="toc-text">问题4：数据库连接失败</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%97%AE%E9%A2%985%EF%BC%9A%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%90%8E%E7%AB%8B%E5%8D%B3%E9%80%80%E5%87%BA"><span class="toc-number">5.5.</span> <span class="toc-text">问题5：容器启动后立即退出</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81Docker-Compose%E9%83%A8%E7%BD%B2PHP%E7%8E%AF%E5%A2%83%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">为什么需要Docker Compose部署PHP环境？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E7%94%A8Docker-Compose%E9%83%A8%E7%BD%B2DNMP%E7%8E%AF%E5%A2%83%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">如何用Docker Compose部署DNMP环境？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DNMP%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E6%9C%89%E5%93%AA%E4%BA%9B%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">DNMP环境部署常见问题有哪些？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Compose-PHP%E7%8E%AF%E5%A2%83%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">Docker Compose PHP环境的最佳实践是什么？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

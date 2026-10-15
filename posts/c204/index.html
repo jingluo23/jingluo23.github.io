@@ -1,0 +1,941 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Ollama 模型量化实战：GGUF 格式与精度损失完全解析 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解 Ollama GGUF 量化原理，引用 Red Hat 500K+ 评估数据揭示精度损失真相，提供不同硬件配置的量化选择建议，帮助你在消费级显卡上运行大模型。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">
+<meta property="og:url" content="https://jingluo23.github.io/posts/c204/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解 Ollama GGUF 量化原理，引用 Red Hat 500K+ 评估数据揭示精度损失真相，提供不同硬件配置的量化选择建议，帮助你在消费级显卡上运行大模型。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-29T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.779Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Ollama">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Ollama 模型量化实战：GGUF 格式与精度损失完全解析",
+  "url": "https://jingluo23.github.io/posts/c204/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-29T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.779Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/c204/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Ollama 模型量化实战：GGUF 格式与精度损失完全解析',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.779Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Ollama-%E6%9C%AC%E5%9C%B0-LLM-%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/">Ollama 本地 LLM 实战指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>15分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>RTX 3060，12GB 显存，想跑 Llama 3 70B？<code>CUDA out of memory</code>——连 14B 都跑不动。量化把 70B 模型从 140GB 压缩到 40GB，但精度损失有多大？</p>
+<p>Red Hat 的 50 万次评估给出了答案：8-bit 量化恢复 &gt;99% 精度，4-bit 量化恢复 98.9%。日常使用几乎感觉不到差异，只有极端学术基准才能测出细微差距。</p>
+<p>这篇文章详解 GGUF 量化原理、不同量化级别的精度对比、消费级显卡的选型建议。如果你在为显存不够发愁，或对量化后的模型质量有疑虑，这里有你需要的答案。</p>
+<h1 id="量化是什么：让大模型”瘦身”的技术"><a href="#量化是什么：让大模型”瘦身”的技术" class="headerlink" title="量化是什么：让大模型”瘦身”的技术"></a>量化是什么：让大模型”瘦身”的技术</h1><p>先说个事儿，你可能遇到过：一张高清照片十几 MB，发微信直接被压缩成几百 KB。画质有损失吗？有。但你能看清楚吗？能。</p>
+<p>模型量化差不多就是这个道理。</p>
+<h2 id="量化的本质"><a href="#量化的本质" class="headerlink" title="量化的本质"></a>量化的本质</h2><p>大模型的权重参数，存储时用的是 FP16（16位浮点数）。一个 7B 参数的模型，FP16 格式大约需要 14GB 内存——因为每个参数占 2 字节。</p>
+<p>量化做的事情很简单：把这些高精度数值，转换成低精度格式。比如 INT4（4位整数），每个参数只占 0.5 字节。这样一来，14GB 的模型就能压缩到 3.5GB 左右。</p>
+<p>打个比方：FP16 就像是用”非常精确的小数”记录每个参数，比如 0.12345678；量化后变成 INT4，就只记一个”大概的整数”，比如 3。精度丢了，但信息还在。</p>
+<h2 id="压缩效果有多显著？"><a href="#压缩效果有多显著？" class="headerlink" title="压缩效果有多显著？"></a>压缩效果有多显著？</h2><p>我整理了一组数据（来源：Will It Run AI 的实测），看看 7B 模型在不同量化级别下的内存占用：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">量化级别</th>
+<th style="text-align:center">VRAM 需求</th>
+<th style="text-align:center">内存节省</th>
+<th style="text-align:center">质量评级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">F16（原版）</td>
+<td style="text-align:center">14.0 GB</td>
+<td style="text-align:center">基准</td>
+<td style="text-align:center">最佳</td>
+</tr>
+<tr>
+<td style="text-align:center">Q8_0</td>
+<td style="text-align:center">7.4 GB</td>
+<td style="text-align:center">47%</td>
+<td style="text-align:center">Excellent</td>
+</tr>
+<tr>
+<td style="text-align:center">Q5_K_M</td>
+<td style="text-align:center">4.8 GB</td>
+<td style="text-align:center">65%</td>
+<td style="text-align:center">Good</td>
+</tr>
+<tr>
+<td style="text-align:center">Q4_K_M</td>
+<td style="text-align:center">3.9 GB</td>
+<td style="text-align:center">72%</td>
+<td style="text-align:center">Acceptable</td>
+</tr>
+<tr>
+<td style="text-align:center">Q3_K_M</td>
+<td style="text-align:center">3.1 GB</td>
+<td style="text-align:center">78%</td>
+<td style="text-align:center">Poor</td>
+</tr>
+<tr>
+<td style="text-align:center">Q2_K</td>
+<td style="text-align:center">2.6 GB</td>
+<td style="text-align:center">81%</td>
+<td style="text-align:center">Very Poor</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>看到了吗？Q4_K_M 能把内存占用砍掉 72%。这意味着什么？原本要 14GB 显存的模型，现在 4GB 显存的显卡就能跑。</p>
+<p>我第一次在 RTX 3060 上成功运行 7B 模型时，那种感觉——像是给一台老破车换上了涡轮增压。原本只能跑 3B 小模型，现在能跑 7B 中型模型了。</p>
+<h2 id="量化的代价是什么？"><a href="#量化的代价是什么？" class="headerlink" title="量化的代价是什么？"></a>量化的代价是什么？</h2><p>压缩有代价，这在照片压缩里也一样明显。过度压缩的照片会模糊、出现噪点。模型量化也一样：</p>
+<ul>
+<li>精度损失：低精度数值无法精确表达原值，会引入误差</li>
+<li>接续性丢失：INT4 是离散的整数，FP16 是连续的小数，某些细微变化可能丢失</li>
+</ul>
+<p>但核心问题是：这个损失有多大？值得吗？</p>
+<p>这就是后面我要重点讨论的内容——用 50 万次评估的数据告诉你答案。先别急着担心，我们继续往下看。</p>
+<h1 id="GGUF-格式：为什么它是量化模型的标配"><a href="#GGUF-格式：为什么它是量化模型的标配" class="headerlink" title="GGUF 格式：为什么它是量化模型的标配"></a>GGUF 格式：为什么它是量化模型的标配</h1><p>下载量化模型的时候，你可能注意到文件后缀都是 <code>.gguf</code>。这个格式到底有什么特别之处？</p>
+<h2 id="GGUF-是什么？"><a href="#GGUF-是什么？" class="headerlink" title="GGUF 是什么？"></a>GGUF 是什么？</h2><p>GGUF 全称是 GPT-Generated Unified Format。名字听着有点绕，说白了就是一种专门为推理设计的模型封装格式。</p>
+<p>llama.cpp 团队搞出来的。他们的想法很务实：训练好的模型要跑起来，需要一个方便的格式。于是就有了 GGUF。</p>
+<p>这个格式的核心优势有三个：</p>
+<p><strong>单文件封装</strong>。以前下载模型，得从 Hugging Face 拉一堆文件——权重文件、tokenizer、config.json…… GGUF 把所有东西打包成一个文件。下载一个 <code>.gguf</code> 文件就够了，不用再操心缺什么。</p>
+<p><strong>内存映射加载（mmap）</strong>。这技术听着高大上，其实原理简单：把文件直接映射到内存地址，系统按需读取。好处是什么？不用先把整个模型加载到内存，而是用到哪部分就读哪部分。对于大模型来说，这个特性太重要了——70B 模型全加载要几十秒，用 mmap 可能几秒就能开始推理。</p>
+<p><strong>跨平台通用</strong>。同一个 GGUF 文件，能在 Ollama、LM Studio、llama.cpp、KoboldCPP 等多个工具里跑。换来换去不用重新下载模型，省事儿。</p>
+<h2 id="GGUF-vs-其他格式"><a href="#GGUF-vs-其他格式" class="headerlink" title="GGUF vs 其他格式"></a>GGUF vs 其他格式</h2><p>模型格式有好几种，容易搞混。我画个简单的对比：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">格式</th>
+<th style="text-align:center">用途</th>
+<th style="text-align:center">特点</th>
+<th style="text-align:center">工具支持</th>
+<th style="text-align:center">GGUF</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">推理</td>
+<td style="text-align:center">单文件、量化友好</td>
+<td style="text-align:center">Ollama、LM Studio、llama.cpp</td>
+<td style="text-align:center">Safetensors</td>
+<td style="text-align:center">训练/微调</td>
+</tr>
+<tr>
+<td style="text-align:center">安全、无pickle风险</td>
+<td style="text-align:center">PyTorch、Hugging Face</td>
+<td style="text-align:center">GGML</td>
+<td style="text-align:center">推理（旧）</td>
+<td style="text-align:center">已废弃</td>
+</tr>
+<tr>
+<td style="text-align:center">llama.cpp（旧版本）</td>
+<td style="text-align:center">PyTorch (.pt/.bin)</td>
+<td style="text-align:center">训练</td>
+<td style="text-align:center">灵活但不安全</td>
+<td style="text-align:center">PyTorch</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>简单说：GGML 是 GGUF 的前身，已经废弃了。Safetensors 是训练用的格式，推理时还需要转换。GGUF 是专门为推理优化的格式，Ollama 默认就用它。</p>
+<p>如果你只是想跑模型做推理，不用纠结选哪个——GGUF 就是正确答案。</p>
+<h2 id="Ollama-和-GGUF-的关系"><a href="#Ollama-和-GGUF-的关系" class="headerlink" title="Ollama 和 GGUF 的关系"></a>Ollama 和 GGUF 的关系</h2><p>Ollama 在后台用 llama.cpp 运行模型。llama.cpp 只认 GGUF 格式。所以 Ollama 所有模型本质上都是 GGUF 格式的。</p>
+<p>当你用 <code>ollama pull llama3</code> 的时候，Ollama 实际上是从模型仓库下载 GGUF 文件。官方模型库里的模型，已经预先量化好了——默认是 Q4_K_M。</p>
+<p>后面我会讲怎么从 Hugging Face 拉取其他量化级别的模型。先搞清楚格式的事儿，后面操作才能理解得更透彻。</p>
+<h1 id="量化级别详解：Q2-到-Q8，哪个适合你"><a href="#量化级别详解：Q2-到-Q8，哪个适合你" class="headerlink" title="量化级别详解：Q2 到 Q8，哪个适合你"></a>量化级别详解：Q2 到 Q8，哪个适合你</h1><p>这部分是重点。量化级别怎么选？Q4_K_M 还是 Q5_K_M？S、M、L 后缀有什么区别？我一个个说清楚。</p>
+<h2 id="量化级别对比表"><a href="#量化级别对比表" class="headerlink" title="量化级别对比表"></a>量化级别对比表</h2><p>先看这张表（数据来源：Will It Run AI，实测 Llama 3 8B 模型）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">量化级别</th>
+<th style="text-align:center">VRAM 需求</th>
+<th style="text-align:center">质量评级</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Q8_0</td>
+<td style="text-align:center">~8.5 GB</td>
+<td style="text-align:center">Excellent</td>
+<td style="text-align:center">显存充裕，追求最高质量</td>
+</tr>
+<tr>
+<td style="text-align:center">Q6_K</td>
+<td style="text-align:center">~6.1 GB</td>
+<td style="text-align:center">Very Good</td>
+<td style="text-align:center">平衡选择，质量接近原版</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Q5_K_M</strong></td>
+<td style="text-align:center">~5.3 GB</td>
+<td style="text-align:center"><strong>Good</strong></td>
+<td style="text-align:center"><strong>甜点位，推荐首选</strong></td>
+</tr>
+<tr>
+<td style="text-align:center">Q5_K_S</td>
+<td style="text-align:center">~5.0 GB</td>
+<td style="text-align:center">Good</td>
+<td style="text-align:center">比 Q5_K_M 略激进，节省内存</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Q4_K_M</strong></td>
+<td style="text-align:center">~4.4 GB</td>
+<td style="text-align:center"><strong>Acceptable</strong></td>
+<td style="text-align:center"><strong>主流选择，性价比高</strong></td>
+</tr>
+<tr>
+<td style="text-align:center">Q4_K_S</td>
+<td style="text-align:center">~4.1 GB</td>
+<td style="text-align:center">Acceptable</td>
+<td style="text-align:center">更激进，质量略降</td>
+</tr>
+<tr>
+<td style="text-align:center">Q3_K_M</td>
+<td style="text-align:center">~3.5 GB</td>
+<td style="text-align:center">Poor</td>
+<td style="text-align:center">最后手段，明显质量损失</td>
+</tr>
+<tr>
+<td style="text-align:center">Q3_K_S</td>
+<td style="text-align:center">~3.2 GB</td>
+<td style="text-align:center">Poor</td>
+<td style="text-align:center">不推荐，除非显存真的不够</td>
+</tr>
+<tr>
+<td style="text-align:center">Q2_K</td>
+<td style="text-align:center">~2.7 GB</td>
+<td style="text-align:center">Very Poor</td>
+<td style="text-align:center">基本不推荐，质量损失明显</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>标粗的两个级别是我重点推荐的：Q5_K_M 和 Q4_K_M。后面我会解释为什么。</p>
+<h2 id="K-quant-是什么？S-M-L-后缀怎么选？"><a href="#K-quant-是什么？S-M-L-后缀怎么选？" class="headerlink" title="K-quant 是什么？S/M/L 后缀怎么选？"></a>K-quant 是什么？S/M/L 后缀怎么选？</h2><p>你可能注意到量化级别里有 K 这个字母。K 代表 k-quant，是一种混合精度量化策略。</p>
+<p>原理听着有点复杂，但核心思想简单：不是所有参数都用同样的精度量化。有些层对精度敏感（比如 attention 层），就用稍高的精度；有些层不那么敏感（比如 FFN 层），就用低精度压缩。</p>
+<p>后缀 S、M、L 代表三种不同的激进程度：</p>
+<ul>
+<li><strong>S（Small）</strong>：最激进，压缩最多，质量损失最大</li>
+<li><strong>M（Medium）</strong>：平衡，推荐使用</li>
+<li><strong>L（Large）</strong>：保守，质量最好，但文件更大</li>
+</ul>
+<p>所以 Q5_K_M 和 Q5_K_S，都是 Q5 级别，但 Q5_K_M 质量更好、文件更大。</p>
+<p>怎么选？我的建议：</p>
+<p><strong>大部分情况用 M 后缀</strong>。S 太激进容易出问题，L 太保守浪费内存。M 是平衡点，质量够用、内存也不多占。</p>
+<h2 id="不同任务对量化的敏感度"><a href="#不同任务对量化的敏感度" class="headerlink" title="不同任务对量化的敏感度"></a>不同任务对量化的敏感度</h2><p>还有一个因素要考虑：你用模型做什么任务？</p>
+<p>不同任务对模型精度的敏感度不一样。Will It Run AI 做了个排序（从最敏感到最不敏感）：</p>
+<ol>
+<li><strong>Coding（编程）</strong>：最敏感。写代码要求逻辑严谨，一个参数出错可能导致整个代码跑不通。建议 Q5_K_M 以上。</li>
+<li><strong>Reasoning/Math（推理/数学）</strong>：很敏感。逻辑推理和数学计算对精度要求高。建议 Q5_K_M 以上。</li>
+<li><strong>Creative writing（创意写作）</strong>：中等敏感。创意写作有一定容错空间，Q4_K_M 可接受。</li>
+<li><strong>Chat（聊天对话）</strong>：最不敏感。日常对话对精度要求最低，Q4_K_M 完全没问题。</li>
+<li><strong>Summarization（总结）</strong>：最不敏感。总结任务主要是理解能力，对精度不敏感，Q4_K_M 可用。</li>
+</ol>
+<p>简单说：<strong>写代码、做数学推理，用高精度（Q5+）；聊天、总结，用低精度（Q4）也没关系</strong>。</p>
+<p>我自己的经验：用 Q4_K_M 的模型写代码，偶尔会出些奇怪的错误——比如函数名拼错、逻辑混乱。换到 Q5_K_M 后，这类问题明显少了。但聊天的话，Q4 和 Q5 感觉不出太大区别。</p>
+<h1 id="精度损失真相：500K-评估数据告诉你答案"><a href="#精度损失真相：500K-评估数据告诉你答案" class="headerlink" title="精度损失真相：500K+ 评估数据告诉你答案"></a>精度损失真相：500K+ 评估数据告诉你答案</h1><p>这部分我要放硬核数据了。很多人担心量化会让模型”变傻”，我之前也有这个顾虑。但看到 Red Hat 的评估报告后，这个顾虑基本消除了。</p>
+<h2 id="Red-Hat-做了什么？"><a href="#Red-Hat-做了什么？" class="headerlink" title="Red Hat 做了什么？"></a>Red Hat 做了什么？</h2><p>Red Hat 在 2024 年 10 月发表了一篇报告：《We ran over half a million evaluations on quantized LLMs》。他们用了超过 50 万次评估，对比量化模型和原始模型的表现。</p>
+<blockquote>
+<p>“We ran over half a million evaluations on quantized LLMs to determine the impact of quantization on model quality across multiple benchmarks and real-world tasks.”</p>
+</blockquote>
+<p>这不是随便跑几个测试就下结论，而是系统性的大规模评估。他们用了多种评估框架：</p>
+<ul>
+<li><strong>学术基准</strong>：OpenLLM Leaderboard v1/v2（MMLU、HellaSwag、ARC 等）</li>
+<li><strong>真实任务</strong>：Arena-Hard（模拟真实用户对话）、HumanEval（代码生成）、HumanEval+（代码测试）</li>
+<li><strong>文本相似度</strong>：ROUGE、BERTScore、STS（语义相似度）</li>
+</ul>
+<p>测试的模型覆盖从小到大：Llama 2 7B、13B、70B；Mixtral 8x7B MoE；Qwen 系列……</p>
+<h2 id="核心发现：精度恢复率"><a href="#核心发现：精度恢复率" class="headerlink" title="核心发现：精度恢复率"></a>核心发现：精度恢复率</h2><p>结论很清晰。看这组数字（针对 llama.cpp 量化方法）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">量化级别</th>
+<th style="text-align:center">平均精度恢复</th>
+<th style="text-align:center">评估置信度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">8-bit</td>
+<td style="text-align:center">&gt;99%</td>
+<td style="text-align:center">95% CI 与 BF16 重叠</td>
+</tr>
+<tr>
+<td style="text-align:center">4-bit</td>
+<td style="text-align:center">98.9%</td>
+<td style="text-align:center">略低于基线但差距很小</td>
+</tr>
+<tr>
+<td style="text-align:center">3-bit</td>
+<td style="text-align:center">~96%</td>
+<td style="text-align:center">明显下降，但仍有可用性</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>核心结论：<strong>8-bit 量化几乎无损，4-bit 量化平均恢复 98.9% 的精度</strong>。</p>
+<p>什么是”95% CI 与 BF16 重叠”？意思是：在统计意义上，8-bit 量化模型的表现和原始 BF16 模型没有显著差异。你跑很多次测试，结果分布几乎一样。</p>
+<h2 id="大模型-vs-小模型：量化的影响不一样"><a href="#大模型-vs-小模型：量化的影响不一样" class="headerlink" title="大模型 vs 小模型：量化的影响不一样"></a>大模型 vs 小模型：量化的影响不一样</h2><p>报告里有个有意思的发现：模型越大，量化对精度的影响越小。</p>
+<p>70B 参数的大模型，4-bit 量化后的表现几乎和原版一样好。但 7B 模型，4-bit 量化会有可感知的下降。</p>
+<p>原因很简单：大模型参数多，冗余度高。压缩掉一部分精度，还有足够的参数去”补”这个损失。小模型参数本来就少，压缩后更容易出问题。</p>
+<p>这给我们的启示：</p>
+<ul>
+<li><strong>跑大模型用 Q4 没问题</strong>：70B 的 Q4_K_M 和原版差距很小</li>
+<li><strong>跑小模型建议用 Q5+</strong>：7B 模型如果显存够，选 Q5_K_M 或 Q6_K 更稳</li>
+</ul>
+<h2 id="社区误解：为什么很多人说量化”变傻”？"><a href="#社区误解：为什么很多人说量化”变傻”？" class="headerlink" title="社区误解：为什么很多人说量化”变傻”？"></a>社区误解：为什么很多人说量化”变傻”？</h2><p>网上不少人说量化后模型质量明显下降。Red Hat 的报告分析了这个现象，结论是：<strong>问题不在量化本身，在于评估方法</strong>。</p>
+<p>很多人用单一的学术基准（比如 MMLU）测试，然后说”量化后 MMLU 分数下降了 5%，模型变傻了”。但单一基准不能代表真实使用场景。</p>
+<p>Red Hat 用了多种评估框架，包括真实任务（Arena-Hard、HumanEval）。在这些真实任务上，量化模型的表现和原版几乎一样好。</p>
+<p>换句话说：你在日常使用中（聊天、写代码、总结），几乎感觉不到量化带来的质量损失。只有在某些极端的学术基准上，才能测出差异。</p>
+<p>我个人测试的感觉也差不多：Q4_K_M 的模型聊天、总结都很流畅，偶尔写代码会出点问题。但不是”变傻”那种问题，而是更细节的逻辑错误。换到 Q5_K_M 后就好多了。</p>
+<h1 id="Ollama-实战：如何选择和运行量化模型"><a href="#Ollama-实战：如何选择和运行量化模型" class="headerlink" title="Ollama 实战：如何选择和运行量化模型"></a>Ollama 实战：如何选择和运行量化模型</h1><p>理论讲完了，现在说实操。怎么在 Ollama 里选择不同量化级别的模型？</p>
+<h2 id="Ollama-的默认行为"><a href="#Ollama-的默认行为" class="headerlink" title="Ollama 的默认行为"></a>Ollama 的默认行为</h2><p>直接用 <code>ollama pull</code> 或 <code>ollama run</code> 拉取官方模型，默认是 Q4_K_M 量化。</p>
+<p>比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama pull llama3</span><br></pre></td></tr></table></figure>
+<p>这行命令下载的是 Llama 3 8B 的 Q4_K_M 版本。Ollama 官方认为 Q4_K_M 是性价比最高的选择——内存占用合理，质量可接受。</p>
+<p>如果你对默认的 Q4_K_M 不满意，想换其他量化级别，怎么办？</p>
+<h2 id="从-Hugging-Face-拉取指定量化模型"><a href="#从-Hugging-Face-拉取指定量化模型" class="headerlink" title="从 Hugging Face 拉取指定量化模型"></a>从 Hugging Face 拉取指定量化模型</h2><p>Ollama 支持直接从 Hugging Face 拉取 GGUF 格式的模型。语法是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama run hf.co/&#123;用户名&#125;/&#123;仓库&#125;:&#123;量化级别&#125;</span><br></pre></td></tr></table></figure>
+<p>举个例子，我想拉取 Q8_0 版本的 Llama 3.2 3B：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama run hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0</span><br></pre></td></tr></table></figure>
+<p>这个命令从 bartowski 的 Hugging Face 仓库下载 Q8_0 量化版本。bartowski 是 Hugging Face 上很活跃的量化模型发布者，他的仓库里有各种模型、各种量化级别。</p>
+<p>Hugging Face 上找 GGUF 模型，关键词是 <code>GGUF</code>。比如搜 <code>Llama-3 GGUF</code>，能找到很多量化版本。</p>
+<p>常用的量化模型仓库：</p>
+<ul>
+<li><strong>bartowski</strong>：更新快、模型多</li>
+<li><strong>MaziyarPanahi</strong>：大型模型多（70B+）</li>
+<li><strong>TheBloke</strong>：老牌量化发布者（部分模型已停止更新）</li>
+</ul>
+<h2 id="硬件配置建议"><a href="#硬件配置建议" class="headerlink" title="硬件配置建议"></a>硬件配置建议</h2><p>显存大小是决定量化级别的核心因素。我按显存容量给个参考（针对 NVIDIA 显卡）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">显存容量</th>
+<th style="text-align:center">推荐模型</th>
+<th style="text-align:center">推荐量化</th>
+<th style="text-align:center">备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">4 GB</td>
+<td style="text-align:center">3B 模型</td>
+<td style="text-align:center">Q4_K_M</td>
+<td style="text-align:center">小模型低量化，勉强够用</td>
+</tr>
+<tr>
+<td style="text-align:center">6 GB</td>
+<td style="text-align:center">7B 模型</td>
+<td style="text-align:center">Q4_K_M（紧）</td>
+<td style="text-align:center">3B 用 Q5_K_M 更稳</td>
+</tr>
+<tr>
+<td style="text-align:center">8 GB</td>
+<td style="text-align:center">7B 模型</td>
+<td style="text-align:center">Q5_K_M</td>
+<td style="text-align:center">8B 用 Q4_K_M，留点余量</td>
+</tr>
+<tr>
+<td style="text-align:center">12 GB</td>
+<td style="text-align:center">7B 模型</td>
+<td style="text-align:center">Q6_K / Q8_0</td>
+<td style="text-align:center">14B 用 Q5_K_M</td>
+</tr>
+<tr>
+<td style="text-align:center">16 GB</td>
+<td style="text-align:center">14B 模型</td>
+<td style="text-align:center">Q6_K</td>
+<td style="text-align:center">7B 用 Q8_0，30B MoE 用 Q4_K_M</td>
+</tr>
+<tr>
+<td style="text-align:center">24 GB</td>
+<td style="text-align:center">30B+ 模型</td>
+<td style="text-align:center">Q5_K_M</td>
+<td style="text-align:center">70B 用 Q4_K_M（需要量化）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>几个注意事项：</p>
+<ul>
+<li><strong>显存会上下浮动</strong>：推理时不只是模型本身，还有 KV cache、上下文 buffer。留 10-20% 余量比较稳妥。</li>
+<li><strong>上下文长度影响内存</strong>：长上下文需要更多 KV cache。如果经常用长上下文，显存预算要留大一点。</li>
+<li><strong>MoE 模型特殊</strong>：Mixtral 8x7B 这种 MoE 模型，虽然参数总量 47B，但每次推理只用部分参数，内存占用比同等参数的稠密模型小。</li>
+</ul>
+<h2 id="核心原则：小模型高量化优于大模型低量化"><a href="#核心原则：小模型高量化优于大模型低量化" class="headerlink" title="核心原则：小模型高量化优于大模型低量化"></a>核心原则：小模型高量化优于大模型低量化</h2><p>这个原则很重要。举个例子：</p>
+<p>假设你有 8GB 显存。能跑的配置有：</p>
+<ul>
+<li>7B 模型 Q5_K_M（~5.3 GB）</li>
+<li>13B 模型 Q2_K（~5.0 GB）</li>
+</ul>
+<p>哪个性能更好？</p>
+<p>答案是 <strong>7B Q5**</strong><em><strong><strong>K</strong></strong></em><strong><strong>M &gt; 13B Q2</strong></strong>_<strong>**K</strong>。</p>
+<p>原因：13B Q2_K 量化太激进，精度损失明显。虽然参数多，但质量已经被压缩”废”了。7B Q5_K_M 参数少，但精度保持得好，整体表现反而更优。</p>
+<p>所以我的建议是：<strong>优先保证量化级别，再考虑模型大小</strong>。能跑 Q5 就别降到 Q3，能跑 7B Q5 就别尝试 13B Q2。</p>
+<h2 id="实测：我的-RTX-3060-配置"><a href="#实测：我的-RTX-3060-配置" class="headerlink" title="实测：我的 RTX 3060 配置"></a>实测：我的 RTX 3060 配置</h2><p>我自己的显卡是 RTX 3060 12GB。常用的配置：</p>
+<ul>
+<li><strong>日常聊天</strong>：Llama 3.2 3B Q8_0（内存够，追求质量）</li>
+<li><strong>写代码</strong>：Llama 3 8B Q5_K_M（质量优先）</li>
+<li><strong>测试大模型</strong>：Mixtral 8x7B Q4_K_M（MoE 架构，12GB 刚好够）</li>
+</ul>
+<p>这个配置实测下来挺舒服的。Q8_0 的 3B 模型聊天流畅度比 Q4_K_M 的 8B 好一些（可能是小模型高量化的优势）。写代码用 Q5_K_M，错误率明显比 Q4 低。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，总结一下核心要点。</p>
+<p>量化的本质是让大模型在消费级硬件上跑起来。70B 模型原本需要 140GB 显存，量化后能压缩到 40GB 左右——这是让普通用户也能用大模型的核心技术。</p>
+<p>精度损失的担忧可以放下。Red Hat 的 50 万次评估告诉我们：8-bit 几乎无损（&gt;99% 精度恢复），4-bit 损失可控（98.9%）。日常使用场景里，你几乎感觉不到差异。</p>
+<p>选择量化级别的核心原则：</p>
+<ul>
+<li><strong>显存预算内优先选高量化</strong>：能跑 Q5 就别降 Q3</li>
+<li><strong>根据任务敏感度调整</strong>：写代码用 Q5+，聊天用 Q4 也行</li>
+<li><strong>大模型可以更低量化</strong>：70B 的 Q4 比 7B 的 Q4 稳多了</li>
+</ul>
+<p>我的建议：先试试 <strong>Q5**</strong><em><strong><strong>K</strong></strong></em><strong>**M</strong>。这是个甜点位——内存比 Q4 只多 20%，质量明显更好。体验一下量化的效果，再根据自己的实际需求调整。</p>
+<p>想深入学习的话，可以看看这个系列的其他文章：<code>Ollama 入门指南</code>和 <code>Modelfile 参数详解</code>。Modelfile 里也能自定义量化级别，配合这篇文章的知识，你能更灵活地配置模型。</p>
+<p>量化不是什么黑魔法，就是一门平衡的技术——在内存和质量之间找最优解。掌握这门技术，你的显卡就能跑更大的模型，做更多的事情。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="量化会让模型变傻吗？"><a href="#量化会让模型变傻吗？" class="headerlink" title="量化会让模型变傻吗？"></a>量化会让模型变傻吗？</h2><p>不会。Red Hat 的 500K+ 评估数据显示：8-bit 量化恢复 &gt;99% 精度，4-bit 量化恢复 98.9% 精度。日常使用中几乎感觉不到差异，只有在极端的学术基准上才能测出细微差距。</p>
+<h2 id="Q4-K-M-和-Q5-K-M-哪个更好？"><a href="#Q4-K-M-和-Q5-K-M-哪个更好？" class="headerlink" title="Q4_K_M 和 Q5_K_M 哪个更好？"></a>Q4_K_M 和 Q5_K_M 哪个更好？</h2><p>推荐 Q5_K_M 作为甜点位：</p>
+<ul>
+<li>内存只比 Q4 多约 20%</li>
+<li>质量明显更好，写代码错误率更低</li>
+<li>适合大部分场景，性价比高</li>
+</ul>
+<p>如果显存紧张，Q4_K_M 也可接受，聊天场景完全没问题。</p>
+<h2 id="不同显卡应该用什么量化级别？"><a href="#不同显卡应该用什么量化级别？" class="headerlink" title="不同显卡应该用什么量化级别？"></a>不同显卡应该用什么量化级别？</h2><p>根据显存容量选择：</p>
+<ul>
+<li>4-6GB：3B 模型 Q4_K_M 或 Q5_K_M</li>
+<li>8GB：7B 模型 Q5_K_M</li>
+<li>12GB：7B 模型 Q6_K/Q8_0，或 14B Q5_K_M</li>
+<li>24GB+：可以尝试 70B 模型 Q4_K_M</li>
+</ul>
+<p>留 10-20% 显存余量给 KV cache 和上下文。</p>
+<h2 id="小模型高量化和大模型低量化哪个更好？"><a href="#小模型高量化和大模型低量化哪个更好？" class="headerlink" title="小模型高量化和大模型低量化哪个更好？"></a>小模型高量化和大模型低量化哪个更好？</h2><p>小模型高量化通常更好。比如 7B Q5_K_M 性能优于 13B Q2_K——因为低量化（Q2）精度损失太大，虽然参数多但质量已经下降明显。优先保证量化级别，再考虑模型大小。</p>
+<h2 id="K-quant-的-S-M-L-后缀有什么区别？"><a href="#K-quant-的-S-M-L-后缀有什么区别？" class="headerlink" title="K-quant 的 S/M/L 后缀有什么区别？"></a>K-quant 的 S/M/L 后缀有什么区别？</h2><p>S/M/L 代表混合精度的激进程度：</p>
+<ul>
+<li>S（Small）：最激进，压缩最多，质量损失最大</li>
+<li>M（Medium）：平衡，推荐使用</li>
+<li>L（Large）：保守，质量最好但文件更大</li>
+</ul>
+<p>大部分情况用 M 后缀，质量够用、内存也不多占。</p>
+<h2 id="如何从-Hugging-Face-拉取特定量化级别的模型？"><a href="#如何从-Hugging-Face-拉取特定量化级别的模型？" class="headerlink" title="如何从 Hugging Face 拉取特定量化级别的模型？"></a>如何从 Hugging Face 拉取特定量化级别的模型？</h2><p>使用 Ollama 的 hf.co 语法：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama run hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q8_0</span><br></pre></td></tr></table></figure>
+<p>将 {量化级别} 替换为目标级别（Q4_K_M、Q5_K_M、Q8_0 等）。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/c204/">https://jingluo23.github.io/posts/c204/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Ollama/">Ollama</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/a88d/" title="Ollama Embedding 实战：本地向量检索与 RAG 搭建"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Ollama Embedding 实战：本地向量检索与 RAG 搭建</div></div><div class="info-2"><div class="info-item-1">用 Ollama 搭建本地 RAG 系统：mxbai-embed-large vs nomic-embed-text 模型对比，ChromaDB/FAISS/Milvus 向量数据库选型，完整 Python 代码实战</div></div></div></a><a class="pagination-related" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</div></div><div class="info-2"><div class="info-item-1">完整 Ollama 生产部署监控方案，包含日志配置、Prometheus 指标采集、AlertManager 告警规则和 Grafana Dashboard 实战配置，实现 GPU 多卡监控与自动故障恢复</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/aa53/" title="Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-26</div><div class="info-item-2">Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口</div></div><div class="info-2"><div class="info-item-1">详解 Ollama API 调用方法，涵盖 Python 与 Node.js SDK 原生调用、流式响应处理、工具调用 Agent Loop、thinking 模式及 OpenAI 兼容方案对比</div></div></div></a><a class="pagination-related" href="/posts/29a8/" title="LangChain + Ollama 集成实战：本地 LLM 应用开发完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-27</div><div class="info-item-2">LangChain + Ollama 集成实战：本地 LLM 应用开发完全指南</div></div><div class="info-2"><div class="info-item-1">详解 LangChain 与 Ollama 集成的完整方法，包含 Chat、RAG、Agent 三大实战场景的代码示例，对比 OpenAI 与 Ollama 切换策略，助你用本地模型打造企业级 LLM 应用。</div></div></div></a><a class="pagination-related" href="/posts/1d8b/" title="Ollama 版本回滚实战：90% 开发者忽略的 3 个关键步骤"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-16</div><div class="info-item-2">Ollama 版本回滚实战：90% 开发者忽略的 3 个关键步骤</div></div><div class="info-2"><div class="info-item-1">升级 Ollama 后系统不稳定？本文提供三种完整版本回滚方案（二进制替换、包管理器、Docker）、一键自动化脚本和多版本共存实战指南，帮你快速解决版本管理难题。</div></div></div></a><a class="pagination-related" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-30</div><div class="info-item-2">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</div></div><div class="info-2"><div class="info-item-1">完整 Ollama 生产部署监控方案，包含日志配置、Prometheus 指标采集、AlertManager 告警规则和 Grafana Dashboard 实战配置，实现 GPU 多卡监控与自动故障恢复</div></div></div></a><a class="pagination-related" href="/posts/fbb8/" title="Ollama 模型管理：下载、切换、删除与版本控制完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-15</div><div class="info-item-2">Ollama 模型管理：下载、切换、删除与版本控制完全指南</div></div><div class="info-2"><div class="info-item-1">详细讲解 Ollama 模型管理核心命令，包括下载指定版本、切换模型、批量删除脚本、版本控制最佳实践，帮助你高效管理本地 LLM 库，腾出磁盘空间，避免版本混乱。适合 AI 开发者和 OpenClaw 部署者。</div></div></div></a><a class="pagination-related" href="/posts/87b3/" title="Ollama 硬件选型表：显存、量化、GPU 对照指南（2026）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">Ollama 硬件选型表：显存、量化、GPU 对照指南（2026）</div></div><div class="info-2"><div class="info-item-1">一张完整的 Ollama 硬件选型对照表：7B/13B/70B 模型显存需求、Q4/Q8 量化对比、NVIDIA CUDA/AMD ROCm/Apple Metal 三大加速技术详解。RTX 3060 到 5090 分级推荐，帮你快速匹配显卡与模型。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9A%E8%AE%A9%E5%A4%A7%E6%A8%A1%E5%9E%8B%E2%80%9D%E7%98%A6%E8%BA%AB%E2%80%9D%E7%9A%84%E6%8A%80%E6%9C%AF"><span class="toc-number">1.</span> <span class="toc-text">量化是什么：让大模型”瘦身”的技术</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E7%9A%84%E6%9C%AC%E8%B4%A8"><span class="toc-number">1.1.</span> <span class="toc-text">量化的本质</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8E%8B%E7%BC%A9%E6%95%88%E6%9E%9C%E6%9C%89%E5%A4%9A%E6%98%BE%E8%91%97%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">压缩效果有多显著？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E7%9A%84%E4%BB%A3%E4%BB%B7%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">1.3.</span> <span class="toc-text">量化的代价是什么？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#GGUF-%E6%A0%BC%E5%BC%8F%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E5%AE%83%E6%98%AF%E9%87%8F%E5%8C%96%E6%A8%A1%E5%9E%8B%E7%9A%84%E6%A0%87%E9%85%8D"><span class="toc-number">2.</span> <span class="toc-text">GGUF 格式：为什么它是量化模型的标配</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#GGUF-%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">2.1.</span> <span class="toc-text">GGUF 是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GGUF-vs-%E5%85%B6%E4%BB%96%E6%A0%BC%E5%BC%8F"><span class="toc-number">2.2.</span> <span class="toc-text">GGUF vs 其他格式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Ollama-%E5%92%8C-GGUF-%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="toc-number">2.3.</span> <span class="toc-text">Ollama 和 GGUF 的关系</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E7%BA%A7%E5%88%AB%E8%AF%A6%E8%A7%A3%EF%BC%9AQ2-%E5%88%B0-Q8%EF%BC%8C%E5%93%AA%E4%B8%AA%E9%80%82%E5%90%88%E4%BD%A0"><span class="toc-number">3.</span> <span class="toc-text">量化级别详解：Q2 到 Q8，哪个适合你</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E7%BA%A7%E5%88%AB%E5%AF%B9%E6%AF%94%E8%A1%A8"><span class="toc-number">3.1.</span> <span class="toc-text">量化级别对比表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#K-quant-%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9FS-M-L-%E5%90%8E%E7%BC%80%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9F"><span class="toc-number">3.2.</span> <span class="toc-text">K-quant 是什么？S&#x2F;M&#x2F;L 后缀怎么选？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8D%E5%90%8C%E4%BB%BB%E5%8A%A1%E5%AF%B9%E9%87%8F%E5%8C%96%E7%9A%84%E6%95%8F%E6%84%9F%E5%BA%A6"><span class="toc-number">3.3.</span> <span class="toc-text">不同任务对量化的敏感度</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%B2%BE%E5%BA%A6%E6%8D%9F%E5%A4%B1%E7%9C%9F%E7%9B%B8%EF%BC%9A500K-%E8%AF%84%E4%BC%B0%E6%95%B0%E6%8D%AE%E5%91%8A%E8%AF%89%E4%BD%A0%E7%AD%94%E6%A1%88"><span class="toc-number">4.</span> <span class="toc-text">精度损失真相：500K+ 评估数据告诉你答案</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Red-Hat-%E5%81%9A%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">4.1.</span> <span class="toc-text">Red Hat 做了什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%8F%91%E7%8E%B0%EF%BC%9A%E7%B2%BE%E5%BA%A6%E6%81%A2%E5%A4%8D%E7%8E%87"><span class="toc-number">4.2.</span> <span class="toc-text">核心发现：精度恢复率</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%A7%E6%A8%A1%E5%9E%8B-vs-%E5%B0%8F%E6%A8%A1%E5%9E%8B%EF%BC%9A%E9%87%8F%E5%8C%96%E7%9A%84%E5%BD%B1%E5%93%8D%E4%B8%8D%E4%B8%80%E6%A0%B7"><span class="toc-number">4.3.</span> <span class="toc-text">大模型 vs 小模型：量化的影响不一样</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BE%E5%8C%BA%E8%AF%AF%E8%A7%A3%EF%BC%9A%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BE%88%E5%A4%9A%E4%BA%BA%E8%AF%B4%E9%87%8F%E5%8C%96%E2%80%9D%E5%8F%98%E5%82%BB%E2%80%9D%EF%BC%9F"><span class="toc-number">4.4.</span> <span class="toc-text">社区误解：为什么很多人说量化”变傻”？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Ollama-%E5%AE%9E%E6%88%98%EF%BC%9A%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%E5%92%8C%E8%BF%90%E8%A1%8C%E9%87%8F%E5%8C%96%E6%A8%A1%E5%9E%8B"><span class="toc-number">5.</span> <span class="toc-text">Ollama 实战：如何选择和运行量化模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Ollama-%E7%9A%84%E9%BB%98%E8%AE%A4%E8%A1%8C%E4%B8%BA"><span class="toc-number">5.1.</span> <span class="toc-text">Ollama 的默认行为</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E-Hugging-Face-%E6%8B%89%E5%8F%96%E6%8C%87%E5%AE%9A%E9%87%8F%E5%8C%96%E6%A8%A1%E5%9E%8B"><span class="toc-number">5.2.</span> <span class="toc-text">从 Hugging Face 拉取指定量化模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A1%AC%E4%BB%B6%E9%85%8D%E7%BD%AE%E5%BB%BA%E8%AE%AE"><span class="toc-number">5.3.</span> <span class="toc-text">硬件配置建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%8E%9F%E5%88%99%EF%BC%9A%E5%B0%8F%E6%A8%A1%E5%9E%8B%E9%AB%98%E9%87%8F%E5%8C%96%E4%BC%98%E4%BA%8E%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BD%8E%E9%87%8F%E5%8C%96"><span class="toc-number">5.4.</span> <span class="toc-text">核心原则：小模型高量化优于大模型低量化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E6%B5%8B%EF%BC%9A%E6%88%91%E7%9A%84-RTX-3060-%E9%85%8D%E7%BD%AE"><span class="toc-number">5.5.</span> <span class="toc-text">实测：我的 RTX 3060 配置</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8F%E5%8C%96%E4%BC%9A%E8%AE%A9%E6%A8%A1%E5%9E%8B%E5%8F%98%E5%82%BB%E5%90%97%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">量化会让模型变傻吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Q4-K-M-%E5%92%8C-Q5-K-M-%E5%93%AA%E4%B8%AA%E6%9B%B4%E5%A5%BD%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">Q4_K_M 和 Q5_K_M 哪个更好？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8D%E5%90%8C%E6%98%BE%E5%8D%A1%E5%BA%94%E8%AF%A5%E7%94%A8%E4%BB%80%E4%B9%88%E9%87%8F%E5%8C%96%E7%BA%A7%E5%88%AB%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">不同显卡应该用什么量化级别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%8F%E6%A8%A1%E5%9E%8B%E9%AB%98%E9%87%8F%E5%8C%96%E5%92%8C%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%BD%8E%E9%87%8F%E5%8C%96%E5%93%AA%E4%B8%AA%E6%9B%B4%E5%A5%BD%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">小模型高量化和大模型低量化哪个更好？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#K-quant-%E7%9A%84-S-M-L-%E5%90%8E%E7%BC%80%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">K-quant 的 S&#x2F;M&#x2F;L 后缀有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BB%8E-Hugging-Face-%E6%8B%89%E5%8F%96%E7%89%B9%E5%AE%9A%E9%87%8F%E5%8C%96%E7%BA%A7%E5%88%AB%E7%9A%84%E6%A8%A1%E5%9E%8B%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">如何从 Hugging Face 拉取特定量化级别的模型？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

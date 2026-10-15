@@ -1,0 +1,918 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="Docker日志文件不断增长导致磁盘满？本文教你如何清理json.log、配置日志轮转、选择合适的日志驱动，彻底解决Docker日志撑爆磁盘的问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法">
+<meta property="og:url" content="https://jingluo23.github.io/posts/ac96/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="Docker日志文件不断增长导致磁盘满？本文教你如何清理json.log、配置日志轮转、选择合适的日志驱动，彻底解决Docker日志撑爆磁盘的问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-09T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.731Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法",
+  "url": "https://jingluo23.github.io/posts/ac96/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-09T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.731Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/ac96/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-09T07:06:23.000Z" title="发表于 2026-10-09 15:06:23">2026-10-09</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.731Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.1k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>21分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><h1 id="快速结论（先止血再治理）"><a href="#快速结论（先止血再治理）" class="headerlink" title="快速结论（先止血再治理）"></a>快速结论（先止血再治理）</h1><p>遇到 Docker 日志撑盘，最有效的处理顺序是：</p>
+<p>先 <code>truncate</code> 止血释放空间，再配 <code>max-size + max-file</code> 做轮转，最后重建容器让配置生效。</p>
+<p>只清理不配置会复发；只配置不重建，旧容器同样会继续膨胀。</p>
+<ul>
+<li>问题严重性：生产服务器磁盘使用率100%，一个容器的json.log文件有82GB，Docker默认不会限制日志文件大小</li>
+<li>5种清理方法：应急清理大日志文件、配置日志轮转、使用日志驱动、限制日志大小、定期清理旧日志</li>
+<li>核心配置：在daemon.json中配置log-opts（max-size: 10m、max-file: 3），自动轮转日志文件</li>
+</ul>
+<p>凌晨3点17分，手机震动把我从浅睡中拽了出来。</p>
+<p>屏幕上跳着刺眼的红色告警：“生产服务器磁盘使用率100%，所有服务已停止响应”。那一刻我的心都凉了——这是一个承载着几十万用户的电商平台，每停1分钟都意味着真金白银的损失。</p>
+<p>我立刻SSH登录服务器，<code>df -h</code>显示根分区确实已经满了。跑了一圈检查，最后在<code>/var/lib/docker/containers/</code>目录下发现元凶：一个容器的<code>xxx-json.log</code>文件居然有<strong>82GB</strong>！</p>
+<p>说实话，我当时就懵了。这个容器运行得好好的，怎么日志就膨胀成这样了？</p>
+<p>后来我才知道，这不是个例。Docker默认不会限制日志文件大小，stdout和stderr的所有输出都会写到json.log文件里，然后一直增长、增长、再增长，直到把你的磁盘撑爆为止。</p>
+<p>如果你也被Docker日志搞得焦头烂额，别担心。这篇文章会教你：怎么应急清理大日志文件、怎么配置日志轮转防止复发、怎么选择适合你的日志驱动。我把踩过的坑都整理出来了，希望能帮你避开。</p>
+<h1 id="为什么Docker日志会撑爆磁盘"><a href="#为什么Docker日志会撑爆磁盘" class="headerlink" title="为什么Docker日志会撑爆磁盘"></a>为什么Docker日志会撑爆磁盘</h1><h2 id="Docker的日志存储机制"><a href="#Docker的日志存储机制" class="headerlink" title="Docker的日志存储机制"></a>Docker的日志存储机制</h2><p>先说说Docker是怎么处理日志的。</p>
+<p>当你的容器通过<code>console.log()</code>、<code>System.out.println()</code>或者任何方式往stdout和stderr输出内容时，Docker会把这些内容全部写到一个JSON格式的日志文件里。这个文件藏在<code>/var/lib/docker/containers/&lt;container-id&gt;/&lt;container-id&gt;-json.log</code>。</p>
+<p>听起来挺正常的对吧？问题就在于——<strong>Docker默认不会做任何日志轮转</strong>。</p>
+<p>什么意思呢？就是这个日志文件会一直增长、增长、再增长，永远不会自动分割或删除旧日志。你的容器跑一天是1GB，跑一周就是7GB，跑一个月就是30GB。如果应用特别话痨（比如日志级别设成了DEBUG），那增长速度更是快得吓人。</p>
+<p>我算过一笔账：一个中等流量的Web应用，如果每秒输出100条日志，每条日志平均100字节,那一天下来就是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">100条/秒 × 86400秒 × 100字节 ≈ 864MB/天 ≈ 25GB/月</span><br></pre></td></tr></table></figure>
+<p>如果你有10个这样的容器，不到一个月就能把100GB的磁盘撑满。而且这还是保守估计。</p>
+<h2 id="哪些场景最容易中招"><a href="#哪些场景最容易中招" class="headerlink" title="哪些场景最容易中招"></a>哪些场景最容易中招</h2><p>从我自己和身边朋友的经历来看，这几种情况最危险：</p>
+<ol>
+<li><p><strong>应用日志级别太低</strong></p>
+<p> 开发时为了debug方便，把日志级别设成INFO甚至DEBUG，然后部署到生产环境忘记改回来了。结果每个HTTP请求都打印一堆调试信息，日志疯狂增长。</p>
+<p> 我见过最夸张的，一个Node.js服务因为开启了请求体日志，每次用户上传图片都把整个base64字符串写进去，一个请求就是几MB的日志。三天不到，200GB磁盘就满了。</p>
+</li>
+<li><p><strong>程序出现循环报错</strong></p>
+<p> 这个更致命。如果你的应用因为某个bug陷入死循环，不断抛出异常和堆栈信息，那日志文件的增长速度能把你吓哭。</p>
+<p> 有次我们一个微服务因为数据库连接池配置问题，每秒钟重试几百次连接，每次都打印完整的异常堆栈。结果3小时内，一个容器的日志从2GB飙到了120GB，直接把磁盘搞挂了。</p>
+</li>
+<li><p><strong>长期运行的生产容器</strong></p>
+<p> 如果你的容器在生产环境连续运行几个月甚至几年，而且没配置日志轮转，那日志文件累积起来是相当可观的。</p>
+<p> 我曾接手过一个项目，有个运行了8个月的Nginx容器，日志文件已经到了150GB。每次用<code>docker logs</code>查看日志都要卡半天，因为Docker要读取这个巨大的文件。</p>
+</li>
+<li><p><strong>高流量应用</strong></p>
+<p> 访问量大的应用自然日志也多。一个日PV几百万的网站，即使每个请求只打印一行正常的访问日志，累积起来也是天文数字。</p>
+<p> 关键是很多人意识不到这个问题，直到某天凌晨磁盘满了系统崩溃，才发现原来Docker日志是这么大的坑。</p>
+</li>
+</ol>
+<h1 id="应急清理：立即释放磁盘空间"><a href="#应急清理：立即释放磁盘空间" class="headerlink" title="应急清理：立即释放磁盘空间"></a>应急清理：立即释放磁盘空间</h1><p>好了，现在磁盘已经满了，服务挂了，老板在群里疯狂@你。这时候别慌，先把空间腾出来再说。</p>
+<h2 id="第一步：找出罪魁祸首"><a href="#第一步：找出罪魁祸首" class="headerlink" title="第一步：找出罪魁祸首"></a>第一步：找出罪魁祸首</h2><p>你得先知道哪些日志文件最大。跑这个命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">find /var/lib/docker/ -name &quot;*.log&quot; -exec ls -sh &#123;&#125; \; | sort -h -r | head -20</span><br></pre></td></tr></table></figure>
+<p>这会列出最大的20个日志文件，按大小排序。你会看到类似这样的输出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">82G /var/lib/docker/containers/a1b2c3d4.../a1b2c3d4...-json.log</span><br><span class="line">35G /var/lib/docker/containers/e5f6g7h8.../e5f6g7h8...-json.log</span><br><span class="line">12G /var/lib/docker/containers/i9j0k1l2.../i9j0k1l2...-json.log</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>找到最大的几个，记下container ID（就是那一串长字符）。</p>
+<p>如果你想知道某个具体容器的日志在哪里，可以用这个命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect --format=&#x27;&#123;&#123;.LogPath&#125;&#125;&#x27; &lt;container_name_or_id&gt;</span><br></pre></td></tr></table></figure>
+<p>比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker inspect --format=&#x27;&#123;&#123;.LogPath&#125;&#125;&#x27; nginx</span><br><span class="line"># 输出：/var/lib/docker/containers/abc123.../abc123...-json.log</span><br></pre></td></tr></table></figure>
+<h2 id="第二步：安全地清空日志"><a href="#第二步：安全地清空日志" class="headerlink" title="第二步：安全地清空日志"></a>第二步：安全地清空日志</h2><p><strong>重点来了</strong>：千万别直接<code>rm</code>删除日志文件！</p>
+<p>我一开始也犯过这个错，直接<code>rm -f xxx-json.log</code>，结果Docker完全懵逼了。因为Docker进程一直持有这个文件的句柄，你删掉文件后，Docker还以为文件在那儿，继续往里写，但实际上那块磁盘空间并没有被释放。</p>
+<p>正确的做法是<strong>清空文件内容，而不是删除文件</strong>。</p>
+<p><strong>方法1：使用cat命令清空</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat /dev/null &gt; $(docker inspect --format=&#x27;&#123;&#123;.LogPath&#125;&#125;&#x27; &lt;container_id&gt;)</span><br></pre></td></tr></table></figure>
+<p>这个命令把空内容写进日志文件，文件还在，但大小变成了0。Docker进程不会有任何感知，继续正常工作。</p>
+<p>比如清空nginx容器的日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat /dev/null &gt; $(docker inspect --format=&#x27;&#123;&#123;.LogPath&#125;&#125;&#x27; nginx)</span><br></pre></td></tr></table></figure>
+<p><strong>方法2：使用truncate命令（推荐）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">truncate -s 0 $(docker inspect --format=&#x27;&#123;&#123;.LogPath&#125;&#125;&#x27; &lt;container_id&gt;)</span><br></pre></td></tr></table></figure>
+<p><code>truncate</code>更直接，专门用来截断文件。<code>-s 0</code>表示把文件大小设为0字节。</p>
+<p>清空nginx容器日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">truncate -s 0 $(docker inspect --format=&#x27;&#123;&#123;.LogPath&#125;&#125;&#x27; nginx)</span><br></pre></td></tr></table></figure>
+<p><strong>方法3：批量清空所有容器日志</strong></p>
+<p>如果你的所有容器日志都很大，想一次性全清了，可以用这个命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo sh -c &#x27;truncate -s 0 /var/lib/docker/containers/*/*-json.log&#x27;</span><br></pre></td></tr></table></figure>
+<p><strong>注意</strong>：这个命令会清空所有容器的所有日志！慎用！用之前最好确认一下你不需要保留任何历史日志。</p>
+<p>我一般只在应急情况下用，平时还是建议逐个清理，避免误删重要日志。</p>
+<h2 id="验证效果"><a href="#验证效果" class="headerlink" title="验证效果"></a>验证效果</h2><p>清理完后，跑一下<code>df -h</code>看看磁盘空间：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">df -h /var/lib/docker/</span><br></pre></td></tr></table></figure>
+<p>应该能看到使用率明显下降了。如果没下降，可能是因为某些容器还在疯狂写日志，你需要先解决那个应用的问题（比如关闭DEBUG日志、修复循环报错的bug）。</p>
+<p>我当时清理完那个82GB的日志文件后，磁盘使用率从100%一下子降到了60%，服务立刻恢复了。但心里很清楚：这只是治标不治本。要彻底解决问题，得配置日志轮转。</p>
+<h1 id="治本之策：配置日志轮转"><a href="#治本之策：配置日志轮转" class="headerlink" title="治本之策：配置日志轮转"></a>治本之策：配置日志轮转</h1><p>应急清理只能解燃眉之急。要彻底解决问题，你得让Docker自动管理日志大小，别让它无限增长。</p>
+<h2 id="全局配置：修改daemon-json"><a href="#全局配置：修改daemon-json" class="headerlink" title="全局配置：修改daemon.json"></a>全局配置：修改daemon.json</h2><p>最简单也最常用的方法，就是在Docker的全局配置文件里设置日志轮转参数。</p>
+<p><strong>配置文件位置</strong>：<code>/etc/docker/daemon.json</code></p>
+<p>如果文件不存在，就创建一个。然后加入这些内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;json-file&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;max-size&quot;: &quot;10m&quot;,</span><br><span class="line">    &quot;max-file&quot;: &quot;3&quot;,</span><br><span class="line">    &quot;compress&quot;: &quot;true&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>来解释一下这几个参数：</p>
+<ul>
+<li><strong>max-size</strong>：单个日志文件的最大大小。到了这个大小就会轮转（创建新文件）</li>
+<li><strong>max-file</strong>：最多保留几个日志文件。超过这个数量就删除最旧的</li>
+<li><strong>compress</strong>：轮转后是否压缩旧日志文件，省空间</li>
+</ul>
+<p>在这个配置下，每个容器最多占用 <code>10MB × 3 = 30MB</code> 的日志空间（不算压缩）。</p>
+<p><strong>生产环境建议值</strong>：</p>
+<p>根据我的经验和业界实践，生产环境可以这么设：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;json-file&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;max-size&quot;: &quot;100m&quot;,</span><br><span class="line">    &quot;max-file&quot;: &quot;3&quot;,</span><br><span class="line">    &quot;compress&quot;: &quot;true&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>max-size: &quot;100m&quot;</code>给了更多的日志保留空间，方便排查问题。<code>max-file: &quot;3&quot;</code>保留3个文件，相当于最近300MB的日志历史。</p>
+<p>你也可以根据实际情况调整：</p>
+<ul>
+<li>日志量小的应用：<code>max-size: &quot;10m&quot;</code>, <code>max-file: &quot;3&quot;</code></li>
+<li>日志量中等的应用：<code>max-size: &quot;50m&quot;</code>, <code>max-file: &quot;3&quot;</code></li>
+<li>日志量大的应用：<code>max-size: &quot;100m&quot;</code>, <code>max-file: &quot;5&quot;</code></li>
+</ul>
+<p><strong>重要提醒</strong>：所有的配置值都必须用引号括起来，因为Docker要求是字符串格式。写成<code>&quot;max-size&quot;: 10m</code>（没引号）会报错。</p>
+<h2 id="重启Docker使配置生效"><a href="#重启Docker使配置生效" class="headerlink" title="重启Docker使配置生效"></a>重启Docker使配置生效</h2><p>修改完<code>daemon.json</code>后，必须重启Docker服务：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo systemctl restart docker</span><br></pre></td></tr></table></figure>
+<p>重启后，Docker会加载新配置。但是——<strong>划重点</strong>——这个配置<strong>只对新创建的容器生效</strong>，已经在运行的容器不会受影响！</p>
+<p>那怎么办？你得重建容器。</p>
+<p>如果用的是<code>docker run</code>启动的容器：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker stop &lt;container_name&gt;</span><br><span class="line">docker rm &lt;container_name&gt;</span><br><span class="line">docker run [原来的参数] &lt;image&gt;</span><br></pre></td></tr></table></figure>
+<p>如果用的是<code>docker-compose</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down</span><br><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p><code>down</code>会停止并删除容器，<code>up -d</code>会用新配置重新创建。这时候新容器就会应用日志轮转配置了。</p>
+<h2 id="针对单个容器配置"><a href="#针对单个容器配置" class="headerlink" title="针对单个容器配置"></a>针对单个容器配置</h2><p>有时候你不想改全局配置，只想给某个特别话痨的容器限制日志。可以在启动容器时指定：</p>
+<p><strong>使用docker run</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">docker run -d \</span><br><span class="line">  --name my-app \</span><br><span class="line">  --log-opt max-size=10m \</span><br><span class="line">  --log-opt max-file=3 \</span><br><span class="line">  nginx:latest</span><br></pre></td></tr></table></figure>
+<p><strong>使用docker-compose.yml</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    image: nginx:latest</span><br><span class="line">    logging:</span><br><span class="line">      driver: &quot;json-file&quot;</span><br><span class="line">      options:</span><br><span class="line">        max-size: &quot;10m&quot;</span><br><span class="line">        max-file: &quot;3&quot;</span><br><span class="line">        compress: &quot;true&quot;</span><br></pre></td></tr></table></figure>
+<p>这种方式的好处是灵活，不同容器可以有不同的日志策略。比如：</p>
+<ul>
+<li>Nginx容器可以保留更多日志：<code>max-size: &quot;50m&quot;</code>, <code>max-file: &quot;5&quot;</code></li>
+<li>一个不太重要的定时任务容器：<code>max-size: &quot;5m&quot;</code>, <code>max-file: &quot;2&quot;</code></li>
+</ul>
+<h2 id="验证配置是否生效"><a href="#验证配置是否生效" class="headerlink" title="验证配置是否生效"></a>验证配置是否生效</h2><p>怎么确认配置真的生效了呢？用<code>docker inspect</code>查看容器的日志配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect &lt;container_name&gt; | grep -A 10 LogConfig</span><br></pre></td></tr></table></figure>
+<p>你会看到类似这样的输出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&quot;LogConfig&quot;: &#123;</span><br><span class="line">    &quot;Type&quot;: &quot;json-file&quot;,</span><br><span class="line">    &quot;Config&quot;: &#123;</span><br><span class="line">        &quot;max-file&quot;: &quot;3&quot;,</span><br><span class="line">        &quot;max-size&quot;: &quot;10m&quot;,</span><br><span class="line">        &quot;compress&quot;: &quot;true&quot;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果看到的是<code>{}</code>空对象，说明容器还是用的默认配置（无限增长），那你就得重建容器。</p>
+<p>我当时配置完之后专门写了个小脚本，检查所有容器的日志配置，确保没有漏网之鱼。后来再也没被日志撑爆磁盘的问题困扰过。</p>
+<h1 id="日志驱动选择指南"><a href="#日志驱动选择指南" class="headerlink" title="日志驱动选择指南"></a>日志驱动选择指南</h1><p>前面说的都是基于默认的<code>json-file</code>驱动。但Docker其实支持好几种日志驱动，各有各的用途。</p>
+<p>你可能会问：我该用哪个？</p>
+<h2 id="json-file（默认驱动）"><a href="#json-file（默认驱动）" class="headerlink" title="json-file（默认驱动）"></a>json-file（默认驱动）</h2><p>这是Docker的默认选择。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>支持<code>docker logs</code>命令，排查问题很方便</li>
+<li>配置简单，加上<code>max-size</code>和<code>max-file</code>就行</li>
+<li>本地存储，访问快</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>默认不轮转，容易撑爆磁盘（这也是我们今天讨论的主要问题）</li>
+<li>日志存在宿主机上，容器删了日志也没了</li>
+</ul>
+<p><strong>适用场景</strong>：大多数场景。只要配置好日志轮转，这个驱动足够用了。</p>
+<p><strong>推荐配置</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;json-file&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;max-size&quot;: &quot;50m&quot;,</span><br><span class="line">    &quot;max-file&quot;: &quot;3&quot;,</span><br><span class="line">    &quot;compress&quot;: &quot;true&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="local驱动（推荐）"><a href="#local驱动（推荐）" class="headerlink" title="local驱动（推荐）"></a>local驱动（推荐）</h2><p>如果你用的是Docker 18.09或更新版本，我更推荐这个。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li><strong>自动轮转</strong>，默认就会限制日志大小，不需要手动配置</li>
+<li>文件格式更高效，比json-file性能好</li>
+<li>也支持<code>docker logs</code>命令</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>需要Docker 18.09+</li>
+<li>日志格式是二进制的，不能直接<code>cat</code>查看（不过一般也不需要）</li>
+</ul>
+<p><strong>适用场景</strong>：生产环境强烈推荐。省心，性能好。</p>
+<p><strong>配置方法</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;local&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;max-size&quot;: &quot;100m&quot;,</span><br><span class="line">    &quot;max-file&quot;: &quot;3&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我现在新项目都用这个驱动，确实比json-file省事。</p>
+<h2 id="journald驱动"><a href="#journald驱动" class="headerlink" title="journald驱动"></a>journald驱动</h2><p>如果你的服务器用的是systemd（比如Ubuntu 16.04+、CentOS 7+），可以考虑这个。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>与系统日志集成，统一管理</li>
+<li>自动轮转，不会撑爆磁盘</li>
+<li>结构化日志，带元数据（容器ID、容器名等）</li>
+<li>支持<code>docker logs</code>和<code>journalctl</code>命令</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>只能在systemd系统上用</li>
+<li>如果不熟悉journald，可能有学习成本</li>
+</ul>
+<p><strong>适用场景</strong>：如果你的运维体系已经基于systemd和journald，用这个能保持一致性。</p>
+<p><strong>配置方法</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;journald&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>用<code>journalctl</code>查看容器日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">journalctl -u docker.service -f CONTAINER_NAME=my-app</span><br></pre></td></tr></table></figure>
+<h2 id="syslog驱动"><a href="#syslog驱动" class="headerlink" title="syslog驱动"></a>syslog驱动</h2><p>这个主要是把日志发到syslog服务器。</p>
+<p><strong>优点</strong>：</p>
+<ul>
+<li>可以发到远程syslog服务器，做集中式日志管理</li>
+<li>支持TCP和UDP，TCP更可靠</li>
+<li>如果已有syslog基础设施，可以无缝集成</li>
+</ul>
+<p><strong>缺点</strong>：</p>
+<ul>
+<li>不支持docker logs命令（这是个大问题，排查问题不方便）</li>
+<li>可能有网络延迟</li>
+<li>需要配置和维护syslog服务器</li>
+</ul>
+<p><strong>适用场景</strong>：大规模集群，已有成熟的syslog集中日志系统。</p>
+<p><strong>配置方法</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;syslog&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;syslog-address&quot;: &quot;tcp://192.168.1.100:514&quot;,</span><br><span class="line">    &quot;syslog-facility&quot;: &quot;daemon&quot;,</span><br><span class="line">    &quot;tag&quot;: &quot;&#123;&#123;.Name&#125;&#125;/&#123;&#123;.ID&#125;&#125;&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>老实讲，如果不是特别需要，我不太推荐用syslog。因为<code>docker logs</code>不能用了，排查问题真的很不方便。</p>
+<h2 id="我的建议"><a href="#我的建议" class="headerlink" title="我的建议"></a>我的建议</h2><p>根据你的场景选：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐驱动</th>
+<th style="text-align:center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">单机或小集群</td>
+<td style="text-align:center">local 或 json-file+轮转</td>
+<td style="text-align:center">简单可靠，支持docker logs</td>
+</tr>
+<tr>
+<td style="text-align:center">systemd环境</td>
+<td style="text-align:center">journald</td>
+<td style="text-align:center">与系统日志集成，统一管理</td>
+</tr>
+<tr>
+<td style="text-align:center">大规模集群</td>
+<td style="text-align:center">fluentd/loki + 本地驱动</td>
+<td style="text-align:center">集中式日志，但本地保留便于应急</td>
+</tr>
+<tr>
+<td style="text-align:center">已有syslog</td>
+<td style="text-align:center">syslog + 本地驱动</td>
+<td style="text-align:center">双保险，远程+本地都有</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>我自己的实践是：小项目用local驱动，大项目用json-file配合Loki做集中式日志，本地保留最近几百MB用于应急排查。</p>
+<p>不管选哪个驱动，记住一个原则：<strong>一定要限制本地日志大小</strong>。别让它无限增长，否则早晚会撑爆磁盘。</p>
+<h1 id="最佳实践与运维建议"><a href="#最佳实践与运维建议" class="headerlink" title="最佳实践与运维建议"></a>最佳实践与运维建议</h1><p>解决了眼前的问题，我们来聊聊长期运维的经验。</p>
+<h2 id="生产环境配置checklist"><a href="#生产环境配置checklist" class="headerlink" title="生产环境配置checklist"></a>生产环境配置checklist</h2><p>如果你负责生产环境，建议照着这个清单过一遍：</p>
+<ol>
+<li><p><strong>全局日志配置</strong></p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;local&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;max-size&quot;: &quot;100m&quot;,</span><br><span class="line">    &quot;max-file&quot;: &quot;3&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 或者用json-file：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;json-file&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">    &quot;max-size&quot;: &quot;100m&quot;,</span><br><span class="line">    &quot;max-file&quot;: &quot;3&quot;,</span><br><span class="line">    &quot;compress&quot;: &quot;true&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>检查所有容器配置</strong></p>
+<p> 写个脚本检查所有容器是否应用了日志轮转：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">for container in $(docker ps -q); do</span><br><span class="line">  name=$(docker inspect --format=&#x27;&#123;&#123;.Name&#125;&#125;&#x27; $container | sed &#x27;s/\///&#x27;)</span><br><span class="line">  logconfig=$(docker inspect --format=&#x27;&#123;&#123;json .HostConfig.LogConfig&#125;&#125;&#x27; $container)</span><br><span class="line">  echo &quot;容器: $name&quot;</span><br><span class="line">  echo &quot;日志配置: $logconfig&quot;</span><br><span class="line">  echo &quot;---&quot;</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+<p> 跑一遍，确保没有漏网之鱼。</p>
+</li>
+<li><p><strong>设置监控告警</strong></p>
+<p> 别等到磁盘满了才知道。提前设置告警：</p>
+<ul>
+<li>磁盘使用率 &gt; 80%：警告</li>
+<li>磁盘使用率 &gt; 90%：严重告警</li>
+<li><p><code>/var/lib/docker/containers/</code>目录大小超过阈值：警告</p>
+<p>我用的是Prometheus + Grafana + Alertmanager，配置很简单：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">- alert: HighDiskUsage</span><br><span class="line">  expr: (node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes &gt; 0.8</span><br><span class="line">  for: 5m</span><br><span class="line">  annotations:</span><br><span class="line">    summary: &quot;磁盘使用率超过80%&quot;</span><br></pre></td></tr></table></figure>
+</li>
+</ul>
+</li>
+<li><p><strong>定期巡检</strong></p>
+<p> 每周或每月跑一次日志检查脚本，看看哪些容器的日志增长最快：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 查看Docker目录总大小</span><br><span class="line">du -sh /var/lib/docker/</span><br><span class="line"></span><br><span class="line"># 查看日志目录大小</span><br><span class="line">du -sh /var/lib/docker/containers/</span><br><span class="line"></span><br><span class="line"># 找出最大的日志文件</span><br><span class="line">find /var/lib/docker/containers/ -name &quot;*-json.log&quot; -exec du -h &#123;&#125; \; | sort -h -r | head -10</span><br></pre></td></tr></table></figure>
+<p> 发现异常及时处理。</p>
+</li>
+</ol>
+<h2 id="应用层优化建议"><a href="#应用层优化建议" class="headerlink" title="应用层优化建议"></a>应用层优化建议</h2><p>Docker日志管理是基础设施层面的事，但应用层也要配合。</p>
+<ol>
+<li><p><strong>调整日志级别</strong></p>
+<p> 生产环境别用DEBUG或INFO级别，太话痨了。建议：</p>
+<ul>
+<li><strong>生产环境</strong>：WARN或ERROR</li>
+<li><strong>测试环境</strong>：INFO</li>
+<li><p><strong>开发环境</strong>：DEBUG</p>
+<p>这样能减少至少80%的日志量。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>使用专门的日志系统</strong></p>
+<p> 如果你的应用日志量特别大，别指望Docker日志能hold住。应该：</p>
+<ul>
+<li>应用直接写到ELK（Elasticsearch + Logstash + Kibana）</li>
+<li>或者用Loki + Grafana（更轻量）</li>
+<li><p>或者用云厂商的日志服务（阿里云SLS、腾讯云CLS等）</p>
+<p>Docker日志只保留最近的少量日志，用于应急排查。</p>
+</li>
+</ul>
+</li>
+<li><p><strong>结构化日志</strong></p>
+<p> 输出JSON格式的结构化日志，方便后续分析：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">// 不好的做法</span><br><span class="line">console.log(&quot;用户登录成功，用户ID: &quot; + userId);</span><br><span class="line"></span><br><span class="line">// 好的做法</span><br><span class="line">console.log(JSON.stringify(&#123;</span><br><span class="line">  level: &quot;info&quot;,</span><br><span class="line">  event: &quot;user_login&quot;,</span><br><span class="line">  userId: userId,</span><br><span class="line">  timestamp: new Date().toISOString()</span><br><span class="line">&#125;));</span><br></pre></td></tr></table></figure>
+<p> 结构化日志更容易检索和分析。</p>
+</li>
+<li><p><strong>日志采样</strong></p>
+<p> 如果某些日志量实在太大（比如每个HTTP请求都记录），可以考虑采样：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">// 只记录10%的请求日志</span><br><span class="line">if (Math.random() &lt; 0.1) &#123;</span><br><span class="line">  console.log(&quot;HTTP请求详情...&quot;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 或者只在出错时记录详细信息：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">if (error) &#123;</span><br><span class="line">  console.log(&quot;详细请求信息: &quot;, requestDetails);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+</ol>
+<h2 id="常见问题FAQ"><a href="#常见问题FAQ" class="headerlink" title="常见问题FAQ"></a>常见问题FAQ</h2><p><strong>Q1: daemon.json配置后重启Docker会影响运行中的容器吗？</strong></p>
+<p>A: 不会。重启Docker不会停止容器，容器会继续运行。但配置只对新容器生效，已有容器需要重建。</p>
+<p><strong>Q2: 清空日志文件会影响应用运行吗？</strong></p>
+<p>A: 不会。Docker进程一直持有文件句柄，你truncate文件后，Docker继续往里写，应用完全感知不到。</p>
+<p><strong>Q3: 如果用了log-driver=journald，还需要配置max-size吗？</strong></p>
+<p>A: 不需要。journald自己会管理日志大小，有自己的轮转机制。</p>
+<p><strong>Q4: 已经配置了日志轮转，为什么日志还是很大？</strong></p>
+<p>A: 检查两点：</p>
+<ul>
+<li>容器是否重建过？daemon.json只对新容器生效</li>
+<li>应用是否输出了超大的单行日志？日志轮转是按文件大小，不是按行数</li>
+</ul>
+<p><strong>Q5: 能直接删除/var/lib/docker/containers/目录下的旧日志文件吗？</strong></p>
+<p>A: 如果是已经轮转的旧文件（比如xxx-json.log.1.gz），可以删。但当前的xxx-json.log不要删，用truncate清空。</p>
+<h2 id="注意事项总结"><a href="#注意事项总结" class="headerlink" title="注意事项总结"></a>注意事项总结</h2><p>最后总结几个关键点，别踩坑：</p>
+<ol>
+<li><strong>daemon.json配置只对新容器生效</strong>，已有容器要重建</li>
+<li><strong>配置参数必须用引号</strong>，比如<code>&quot;max-size&quot;: &quot;10m&quot;</code>而不是<code>&quot;max-size&quot;: 10m</code></li>
+<li><strong>truncate安全，rm危险</strong>，清空日志用truncate，不要删除文件</li>
+<li><strong>不同日志驱动对docker logs支持不同</strong>，syslog不支持，json-file和journald支持</li>
+<li><strong>修改daemon.json后要重启Docker</strong>，用systemctl restart docker</li>
+<li><strong>定期检查日志配置</strong>，防止新部署的容器忘记配置</li>
+</ol>
+<p>说了这么多，其实核心就一句话：<strong>提前配置，定期检查，别等磁盘爆了再救火</strong>。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>回到文章开头那个凌晨3点的告警。</p>
+<p>当时我花了半小时清理日志，2小时配置日志轮转和监控，然后给所有容器都重建了一遍。折腾到早上6点，终于搞定。</p>
+<p>但这次事故也让我学到了一课：Docker日志管理绝对不能轻视。它就像定时炸弹，平时看不出来，一旦爆发就是大麻烦。</p>
+<p>总结一下这篇文章的核心要点：</p>
+<ul>
+<li><strong>应急时</strong>：用truncate清空大日志文件，立即释放空间，让服务恢复。</li>
+<li><strong>预防时</strong>：在daemon.json配置日志轮转（max-size + max-file），选择合适的日志驱动（推荐local或json-file），重建所有容器使配置生效。</li>
+<li><strong>长期运维</strong>：设置磁盘监控告警，定期检查日志配置，优化应用日志输出。</li>
+</ul>
+<p>如果你现在正在用Docker，不管是开发还是生产环境，我建议你立刻去检查一下：</p>
+<ol>
+<li>跑一遍<code>find /var/lib/docker/ -name &quot;*.log&quot; -exec ls -sh {} \; | sort -h -r | head -10</code>，看看有没有超大日志文件</li>
+<li>检查<code>/etc/docker/daemon.json</code>是否配置了日志轮转</li>
+<li>用<code>docker inspect</code>确认所有容器都应用了日志限制</li>
+</ol>
+<p>别等到凌晨被告警吵醒的那一刻，才意识到这个问题。</p>
+<p>如果这篇文章帮到了你，欢迎分享给更多可能踩坑的朋友。大家一起少踩点坑，多睡点觉。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么Docker日志文件会撑爆磁盘？"><a href="#为什么Docker日志文件会撑爆磁盘？" class="headerlink" title="为什么Docker日志文件会撑爆磁盘？"></a>为什么Docker日志文件会撑爆磁盘？</h2><p>问题严重性：</p>
+<ul>
+<li>生产服务器磁盘使用率100%，所有服务已停止响应</li>
+<li>一个容器的xxx-json.log文件居然有82GB</li>
+<li>Docker默认不会限制日志文件大小</li>
+<li>stdout和stderr的所有输出都会写到json.log文件里</li>
+<li>然后一直增长直到把磁盘撑爆</li>
+</ul>
+<p>日志文件位置：<code>/var/lib/docker/containers/&lt;container-id&gt;/&lt;container-id&gt;-json.log</code>，每个容器的日志都存储在这里，如果不配置日志轮转，日志文件会无限增长。</p>
+<h2 id="如何应急清理Docker日志文件？"><a href="#如何应急清理Docker日志文件？" class="headerlink" title="如何应急清理Docker日志文件？"></a>如何应急清理Docker日志文件？</h2><p>应急清理大日志文件：</p>
+<ul>
+<li>使用truncate命令清空日志文件：<code>truncate -s 0 /var/lib/docker/containers/&lt;container-id&gt;/&lt;container-id&gt;-json.log</code></li>
+<li>或删除日志文件后重启容器，快速释放磁盘空间</li>
+</ul>
+<p>查找大日志文件：</p>
+<ul>
+<li>使用find命令查找大文件：<code>find /var/lib/docker/containers -name &#39;*-json.log&#39; -size +1G</code></li>
+<li>使用du命令查看目录大小：<code>du -sh /var/lib/docker/containers/*</code></li>
+<li>定位占用空间大的日志文件</li>
+</ul>
+<h2 id="如何配置Docker日志轮转？"><a href="#如何配置Docker日志轮转？" class="headerlink" title="如何配置Docker日志轮转？"></a>如何配置Docker日志轮转？</h2><p>日志轮转配置：</p>
+<ul>
+<li>在daemon.json中配置log-opts（max-size: 10m、max-file: 3）</li>
+<li>限制单个日志文件大小和保留文件数量</li>
+<li>自动轮转日志文件，防止日志文件无限增长</li>
+</ul>
+<p>配置示例：</p>
+<p>在/etc/docker/daemon.json中添加：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;log-driver&quot;: &quot;json-file&quot;,</span><br><span class="line">  &quot;log-opts&quot;: &#123;</span><br><span class="line">  &quot;max-size&quot;: &quot;10m&quot;,</span><br><span class="line">  &quot;max-file&quot;: &quot;3&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>重启Docker服务：<code>systemctl restart docker</code></p>
+<p>限制日志大小：</p>
+<ul>
+<li>使用max-size限制单个日志文件大小（10m、50m等）</li>
+<li>使用max-file限制保留文件数量（3、5等）</li>
+<li>超过限制自动删除旧日志</li>
+</ul>
+<h2 id="Docker日志清理的最佳实践是什么？"><a href="#Docker日志清理的最佳实践是什么？" class="headerlink" title="Docker日志清理的最佳实践是什么？"></a>Docker日志清理的最佳实践是什么？</h2><p>最佳实践：</p>
+<ul>
+<li>配置日志轮转，限制日志大小</li>
+<li>使用合适的日志驱动</li>
+<li>定期清理旧日志：<code>docker system prune</code></li>
+<li>监控磁盘使用情况，设置告警</li>
+<li>定期检查日志配置，防止新部署的容器忘记配置</li>
+</ul>
+<p>核心就一句话：提前配置，定期检查，别等磁盘爆了再救火。用<code>docker inspect</code>确认所有容器都应用了日志限制，别等到凌晨被告警吵醒的那一刻，才意识到这个问题。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/ac96/">https://jingluo23.github.io/posts/ac96/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/9f26/" title="Docker logs 命令详解：7个技巧快速定位容器问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker logs 命令详解：7个技巧快速定位容器问题</div></div><div class="info-2"><div class="info-item-1">详解docker logs命令的7个实用技巧,包括实时查看、时间过滤、grep搜索、日志文件位置和生产环境最佳实践,帮助你快速定位容器问题。</div></div></div></a><a class="pagination-related" href="/posts/9669/" title="Docker 日志管理实战：从驱动配置到集中收集"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker 日志管理实战：从驱动配置到集中收集</div></div><div class="info-2"><div class="info-item-1">深度解析 Docker 日志驱动类型、日志轮转配置与集中收集方案，提供生产环境最佳实践与避坑指南</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-12</div><div class="info-item-2">Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)</div></div><div class="info-2"><div class="info-item-1">Docker容器启动后立即退出变Exited状态?本文提供系统性排查方法,详解退出码137/1含义,四步排查法和五大常见失败场景解决方案,帮你快速定位并修复容器启动问题</div></div></div></a><a class="pagination-related" href="/posts/30d7/" title="Docker 镜像源测速实战：3 种方法 + 自动切换脚本"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-29</div><div class="info-item-2">Docker 镜像源测速实战：3 种方法 + 自动切换脚本</div></div><div class="info-2"><div class="info-item-1">Docker 镜像拉取慢？本文详解 3 种测速方法，提供 Shell/Python 双版自动切换脚本，一键配置最优国内镜像源，告别 docker pull 超时。</div></div></div></a><a class="pagination-related" href="/posts/9f26/" title="Docker logs 命令详解：7个技巧快速定位容器问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-08</div><div class="info-item-2">Docker logs 命令详解：7个技巧快速定位容器问题</div></div><div class="info-2"><div class="info-item-1">详解docker logs命令的7个实用技巧,包括实时查看、时间过滤、grep搜索、日志文件位置和生产环境最佳实践,帮助你快速定位容器问题。</div></div></div></a><a class="pagination-related" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-13</div><div class="info-item-2">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</div></div><div class="info-2"><div class="info-item-1">想给 AI Agent、内部工具或 SaaS demo 提供自托管 Dev Sandbox？这篇文章用 Docker、Go 和 Traefik 拆解预览 URL、资源限制、安全边界和生产前检查清单。</div></div></div></a><a class="pagination-related" href="/posts/1820/" title="2026年国内 Docker 镜像源指南：5分钟解决 pull 超时"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-28</div><div class="info-item-2">2026年国内 Docker 镜像源指南：5分钟解决 pull 超时</div></div><div class="info-2"><div class="info-item-1">2026 年 Docker mirror China 最新可用性判断：配置 daemon.json、测速镜像源、处理企业代理和 pull-through cache，并区分 Docker Hub 限速（429）与镜像源失效，5 分钟定位 docker pull timeout。</div></div></div></a><a class="pagination-related" href="/posts/b669/" title="Docker网络模式详解：bridge&#x2F;host&#x2F;none&#x2F;container四种模式性能对比与场景选择"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-23</div><div class="info-item-2">Docker网络模式详解：bridge&#x2F;host&#x2F;none&#x2F;container四种模式性能对比与场景选择</div></div><div class="info-2"><div class="info-item-1">深度解析Docker四种网络模式(bridge/host/none/container)的原理、性能对比和适用场景，帮助你做出正确的网络配置选择，附实战案例和决策指南。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%BF%AB%E9%80%9F%E7%BB%93%E8%AE%BA%EF%BC%88%E5%85%88%E6%AD%A2%E8%A1%80%E5%86%8D%E6%B2%BB%E7%90%86%EF%BC%89"><span class="toc-number">1.</span> <span class="toc-text">快速结论（先止血再治理）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88Docker%E6%97%A5%E5%BF%97%E4%BC%9A%E6%92%91%E7%88%86%E7%A3%81%E7%9B%98"><span class="toc-number">2.</span> <span class="toc-text">为什么Docker日志会撑爆磁盘</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E7%9A%84%E6%97%A5%E5%BF%97%E5%AD%98%E5%82%A8%E6%9C%BA%E5%88%B6"><span class="toc-number">2.1.</span> <span class="toc-text">Docker的日志存储机制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%93%AA%E4%BA%9B%E5%9C%BA%E6%99%AF%E6%9C%80%E5%AE%B9%E6%98%93%E4%B8%AD%E6%8B%9B"><span class="toc-number">2.2.</span> <span class="toc-text">哪些场景最容易中招</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%BA%94%E6%80%A5%E6%B8%85%E7%90%86%EF%BC%9A%E7%AB%8B%E5%8D%B3%E9%87%8A%E6%94%BE%E7%A3%81%E7%9B%98%E7%A9%BA%E9%97%B4"><span class="toc-number">3.</span> <span class="toc-text">应急清理：立即释放磁盘空间</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E6%89%BE%E5%87%BA%E7%BD%AA%E9%AD%81%E7%A5%B8%E9%A6%96"><span class="toc-number">3.1.</span> <span class="toc-text">第一步：找出罪魁祸首</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E5%AE%89%E5%85%A8%E5%9C%B0%E6%B8%85%E7%A9%BA%E6%97%A5%E5%BF%97"><span class="toc-number">3.2.</span> <span class="toc-text">第二步：安全地清空日志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AA%8C%E8%AF%81%E6%95%88%E6%9E%9C"><span class="toc-number">3.3.</span> <span class="toc-text">验证效果</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%B2%BB%E6%9C%AC%E4%B9%8B%E7%AD%96%EF%BC%9A%E9%85%8D%E7%BD%AE%E6%97%A5%E5%BF%97%E8%BD%AE%E8%BD%AC"><span class="toc-number">4.</span> <span class="toc-text">治本之策：配置日志轮转</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%A8%E5%B1%80%E9%85%8D%E7%BD%AE%EF%BC%9A%E4%BF%AE%E6%94%B9daemon-json"><span class="toc-number">4.1.</span> <span class="toc-text">全局配置：修改daemon.json</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E5%90%AFDocker%E4%BD%BF%E9%85%8D%E7%BD%AE%E7%94%9F%E6%95%88"><span class="toc-number">4.2.</span> <span class="toc-text">重启Docker使配置生效</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%92%88%E5%AF%B9%E5%8D%95%E4%B8%AA%E5%AE%B9%E5%99%A8%E9%85%8D%E7%BD%AE"><span class="toc-number">4.3.</span> <span class="toc-text">针对单个容器配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AA%8C%E8%AF%81%E9%85%8D%E7%BD%AE%E6%98%AF%E5%90%A6%E7%94%9F%E6%95%88"><span class="toc-number">4.4.</span> <span class="toc-text">验证配置是否生效</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E9%A9%B1%E5%8A%A8%E9%80%89%E6%8B%A9%E6%8C%87%E5%8D%97"><span class="toc-number">5.</span> <span class="toc-text">日志驱动选择指南</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#json-file%EF%BC%88%E9%BB%98%E8%AE%A4%E9%A9%B1%E5%8A%A8%EF%BC%89"><span class="toc-number">5.1.</span> <span class="toc-text">json-file（默认驱动）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#local%E9%A9%B1%E5%8A%A8%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89"><span class="toc-number">5.2.</span> <span class="toc-text">local驱动（推荐）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#journald%E9%A9%B1%E5%8A%A8"><span class="toc-number">5.3.</span> <span class="toc-text">journald驱动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#syslog%E9%A9%B1%E5%8A%A8"><span class="toc-number">5.4.</span> <span class="toc-text">syslog驱动</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E5%BB%BA%E8%AE%AE"><span class="toc-number">5.5.</span> <span class="toc-text">我的建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E4%B8%8E%E8%BF%90%E7%BB%B4%E5%BB%BA%E8%AE%AE"><span class="toc-number">6.</span> <span class="toc-text">最佳实践与运维建议</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AEchecklist"><span class="toc-number">6.1.</span> <span class="toc-text">生产环境配置checklist</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BA%94%E7%94%A8%E5%B1%82%E4%BC%98%E5%8C%96%E5%BB%BA%E8%AE%AE"><span class="toc-number">6.2.</span> <span class="toc-text">应用层优化建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98FAQ"><span class="toc-number">6.3.</span> <span class="toc-text">常见问题FAQ</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9%E6%80%BB%E7%BB%93"><span class="toc-number">6.4.</span> <span class="toc-text">注意事项总结</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">7.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88Docker%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6%E4%BC%9A%E6%92%91%E7%88%86%E7%A3%81%E7%9B%98%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">为什么Docker日志文件会撑爆磁盘？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%BA%94%E6%80%A5%E6%B8%85%E7%90%86Docker%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6%EF%BC%9F"><span class="toc-number">8.2.</span> <span class="toc-text">如何应急清理Docker日志文件？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AEDocker%E6%97%A5%E5%BF%97%E8%BD%AE%E8%BD%AC%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">如何配置Docker日志轮转？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E6%97%A5%E5%BF%97%E6%B8%85%E7%90%86%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">8.4.</span> <span class="toc-text">Docker日志清理的最佳实践是什么？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

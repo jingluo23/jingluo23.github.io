@@ -1,0 +1,938 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="别再把数据库密码写在Dockerfile里了!本文详解Docker Secrets安全管理敏感信息的方法,对比Docker&#x2F;K8s&#x2F;Vault等工具选择,附生产环境完整checklist。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践">
+<meta property="og:url" content="https://jingluo23.github.io/posts/1433/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="别再把数据库密码写在Dockerfile里了!本文详解Docker Secrets安全管理敏感信息的方法,对比Docker&#x2F;K8s&#x2F;Vault等工具选择,附生产环境完整checklist。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-06T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.709Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践",
+  "url": "https://jingluo23.github.io/posts/1433/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-06T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.709Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/1433/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker Secrets完整指南:安全管理容器密码和API密钥的最佳实践</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-06T07:06:23.000Z" title="发表于 2026-10-06 15:06:23">2026-10-06</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.709Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>22分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>手机疯狂震动——24 条短信，全是数据库异常告警。SSH 连上服务器，数据库连接数爆满，有人在暴力扫描。</p>
+<p>查日志发现：攻击者直接用了正确的密码——那个三个月前写在 <code>docker-compose.yml</code> 里的 MySQL 密码。上个月有实习生 fork 项目到自己的公开仓库练手，密码就这样泄露了。</p>
+<p>就算不考虑代码泄露，只要有人能执行 <code>docker inspect</code> 命令，所有环境变量都能看到——明文。这篇文章聊聊容器密码管理这件事，避开哪些危险做法，用什么工具才能真正保护敏感信息。</p>
+<h1 id="为什么环境变量不安全"><a href="#为什么环境变量不安全" class="headerlink" title="为什么环境变量不安全?"></a>为什么环境变量不安全?</h1><h2 id="三种常见的不安全做法"><a href="#三种常见的不安全做法" class="headerlink" title="三种常见的不安全做法"></a>三种常见的不安全做法</h2><p>我先说说自己犯过的错,看你有没有也这样做过。</p>
+<p><strong>第一种:直接写在Dockerfile里</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">ENV DATABASE_PASSWORD=MyS3cr3tP@ssw0rd</span><br><span class="line">ENV API_KEY=sk-1234567890abcdef</span><br></pre></td></tr></table></figure>
+<p>这个是最糟糕的。因为Dockerfile的每一条指令都会创建一层镜像层,就算你后面用<code>ENV DATABASE_PASSWORD=&quot;&quot;</code>去覆盖,密码依然藏在历史层里。任何拿到你镜像的人,用<code>docker history &lt;镜像名&gt;</code>就能翻出来。</p>
+<p>不相信?我当时也不信,直到有个同事给我演示了一遍。他随手拉了个我们公司的内部镜像,几条命令就把AWS的Access Key给扒出来了。那个Key是三年前某个离职同事留下的,一直忘了删。</p>
+<p><strong>第二种:写在docker-compose.yml里</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line">services:</span><br><span class="line">  db:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    environment:</span><br><span class="line">      MYSQL_ROOT_PASSWORD: SuperSecretPassword123</span><br><span class="line">      MYSQL_DATABASE: myapp</span><br></pre></td></tr></table></figure>
+<p>这个我用了很久。理由很简单:方便。一个<code>docker-compose up -d</code>就起来了,开发调试效率高。</p>
+<p>问题在哪?这文件得提交到Git啊。就算仓库是私有的,但凡有一个人权限管理没做好,或者像我遇到的那样,有人fork到公开仓库,密码就全泄露了。</p>
+<p><strong>第三种:用.env文件但纳入版本控制</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># .env文件</span><br><span class="line">DB_PASSWORD=password123</span><br><span class="line">API_SECRET=abcdef123456</span><br></pre></td></tr></table></figure>
+<p>这个看起来聪明点,把敏感信息抽到单独的<code>.env</code>文件,然后docker-compose里用<code>${DB_PASSWORD}</code>引用。</p>
+<p>但很多人(包括曾经的我)会把<code>.env</code>也提交到Git,觉得”团队其他人也得能跑起来啊”。结果嘛——跟直接写在docker-compose里没区别。</p>
+<p>正确做法是把<code>.env</code>加到<code>.gitignore</code>,然后给一个<code>.env.example</code>模板。但老实说,一开始谁会想这么多?</p>
+<h2 id="环境变量的三大安全隐患"><a href="#环境变量的三大安全隐患" class="headerlink" title="环境变量的三大安全隐患"></a>环境变量的三大安全隐患</h2><p>就算你把.env加到了.gitignore,就算代码没泄露,环境变量依然不安全。为啥?</p>
+<p><strong>隐患1:docker inspect能看到一切</strong></p>
+<p>试试这个命令:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect &lt;容器ID&gt; | grep -A 20 &quot;Env&quot;</span><br></pre></td></tr></table></figure>
+<p>所有环境变量,包括密码,全部明文显示。</p>
+<p>这意味着什么?任何能访问Docker守护进程的人——运维、DevOps、有服务器权限的开发者——都能看到你的密码。不需要破解,不需要什么高级技术,就是一条命令的事。</p>
+<p>我之前在一个创业公司待过,大家都有生产服务器的SSH权限,图个方便。结果有一天新来的前端同学好奇”容器里装了啥”,随手一条<code>docker inspect</code>,数据库密码就这么摆在屏幕上了。还好是自己人,要是有心人呢?</p>
+<p><strong>隐患2:容器内的进程可以读取</strong></p>
+<p>环境变量不仅Docker能看到,容器内的所有进程也能看到。在Linux里,进程的环境变量保存在<code>/proc/&lt;PID&gt;/environ</code>文件里。</p>
+<p>这意味着,如果你的应用有任何一个依赖库存在漏洞,被人注入了代码,那攻击者可以直接读取环境变量拿到密码。</p>
+<p>去年有个Node.js的库被爆出后门,就是偷偷读取环境变量里的AWS凭证然后发到外网。受影响的项目超过几万个。</p>
+<p><strong>隐患3:日志里可能会泄露</strong></p>
+<p>这个更隐蔽。</p>
+<p>很多时候应用启动会打印配置信息,或者出错时会把环境变量dump出来记到日志。日志文件通常权限管理比较松,甚至会被传到集中的日志系统(比如ELK)。</p>
+<p>我见过有团队把所有容器日志汇总到一个Elasticsearch集群,结果安全审计时发现,日志里躺着几百条数据库密码…开发人员在调试时习惯<code>console.log(process.env)</code>,然后就忘了删。</p>
+<p>更麻烦的是,一旦密码进了日志,很难彻底清除——备份、归档、各种地方都有副本。</p>
+<h2 id="真实案例分享"><a href="#真实案例分享" class="headerlink" title="真实案例分享"></a>真实案例分享</h2><p>网上这类事故其实不少,只是很多公司不会公开。我说几个我知道的:</p>
+<p><strong>案例1:GitHub公开仓库泄露</strong></p>
+<p>2023年有个数据分析显示,GitHub上有超过<strong>100万个公开仓库</strong>包含API密钥、数据库密码等敏感信息。不是说这些项目的开发者傻,而是很多时候就是一时疏忽——测试时用的配置忘了删,或者不小心把.env提交了。</p>
+<p>有个做机器学习的朋友,他们团队把训练代码开源到GitHub,顺手把AWS凭证也推上去了。24小时内,就有人用他们的凭证开了十几台GPU实例挖矿。账单直接飙到两万多美元。</p>
+<p><strong>案例2:CI/CD pipeline历史泄露</strong></p>
+<p>CI/CD工具(Jenkins、GitLab CI等)的构建历史通常会保留环境变量日志。如果没做好脱敏处理,这些日志就是密码库。</p>
+<p>我遇到过一个项目,用GitLab CI自动部署。有个同事离职前把仓库权限开给了一个外包团队,结果外包那边有人进去翻历史构建日志,拿到了生产数据库的连接信息。幸好他们是想帮忙优化,主动告诉我们的,要是居心不良呢?</p>
+<p><strong>案例3:Docker Hub镜像扫描</strong></p>
+<p>阿里云有个安全报告显示,他们扫描了公开的Docker镜像,发现<strong>76%存在安全漏洞</strong>,其中不少包含硬编码的凭证。</p>
+<p>有些企业图省事,把内部应用镜像推到公开的Docker Hub,以为”没人会专门来扒我们小公司的镜像”。但现在有很多自动化的爬虫和安全扫描工具,专门干这事。你的镜像一推上去,可能几分钟内就被扫了一遍。</p>
+<p>说这些不是为了吓人,是想说——这些问题真的在发生,而且比你想象的更普遍。关键是,其实是有办法避免的。</p>
+<h1 id="Docker-Secrets是什么-如何使用"><a href="#Docker-Secrets是什么-如何使用" class="headerlink" title="Docker Secrets是什么?如何使用?"></a>Docker Secrets是什么?如何使用?</h1><h2 id="Docker-Secrets工作原理"><a href="#Docker-Secrets工作原理" class="headerlink" title="Docker Secrets工作原理"></a>Docker Secrets工作原理</h2><p>好,现在来说解决方案。</p>
+<p>Docker Secrets是Docker官方提供的密钥管理机制。简单说,它的核心思路是:<strong>密钥不再是明文字符串,而是加密的文件</strong>。</p>
+<p>工作流程是这样的:</p>
+<ol>
+<li>你创建一个secret,Docker会把它加密存储在集群的Raft日志里</li>
+<li>当容器需要这个secret时,Docker通过加密的TLS连接把它传输过去</li>
+<li>Secret以文件的形式挂载到容器内的<code>/run/secrets/</code>目录</li>
+<li>这个目录是<code>tmpfs</code>——纯内存文件系统,不会写入磁盘</li>
+<li>容器停止后,secret自动从内存清除</li>
+</ol>
+<p>关键点来了:<strong>secret不会出现在环境变量里,不会出现在</strong><code>**docker inspect**</code><strong>输出里,不会被</strong><code>**docker commit**</code><strong>打包进镜像</strong>。</p>
+<p>听起来有点抽象?没事,我第一次看Docker文档也是云里雾里的。直接上手试试就明白了。</p>
+<p>先说一下限制:Docker Secrets原生只能在<strong>Swarm模式</strong>下用。这点刚开始挺让我困扰的——我就是本地开发,单机跑,为啥不能用?</p>
+<p>后来发现docker-compose也支持file secrets(功能弱点,但至少能用)。如果是生产环境的集群,那直接用Swarm mode或者Kubernetes都行。</p>
+<h2 id="手把手实战-MySQL-WordPress案例"><a href="#手把手实战-MySQL-WordPress案例" class="headerlink" title="手把手实战:MySQL + WordPress案例"></a>手把手实战:MySQL + WordPress案例</h2><p>来个完整的例子。假设我们要部署一个WordPress博客,需要保护MySQL的root密码和用户密码。</p>
+<p><strong>第一步:创建secret文件</strong></p>
+<p>先把密码写到本地文件(注意:这些文件不要提交到Git):</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">echo &quot;MyRootPassword123&quot; &gt; db_root_password.txt</span><br><span class="line">echo &quot;MyUserPassword456&quot; &gt; db_password.txt</span><br></pre></td></tr></table></figure>
+<p><strong>第二步:初始化Swarm(如果还没初始化)</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker swarm init</span><br></pre></td></tr></table></figure>
+<p>是的,就这一条命令。如果你的机器还没开启Swarm模式,运行这个就行。单机也可以用Swarm,不一定要多台机器组集群。</p>
+<p><strong>第三步:创建Docker secrets</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker secret create mysql_root_password db_root_password.txt</span><br><span class="line">docker secret create mysql_password db_password.txt</span><br></pre></td></tr></table></figure>
+<p>创建完后,<strong>立即删除本地的密码文件</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rm db_root_password.txt db_password.txt</span><br></pre></td></tr></table></figure>
+<p>这一步很重要。文件一旦被Docker读取并加密存储,本地明文就该销毁了。</p>
+<p>验证一下secrets是否创建成功:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker secret ls</span><br></pre></td></tr></table></figure>
+<p>你会看到类似这样的输出:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ID                          NAME                  CREATED         UPDATED</span><br><span class="line">abc123...                   mysql_root_password   5 seconds ago   5 seconds ago</span><br><span class="line">def456...                   mysql_password        3 seconds ago   3 seconds ago</span><br></pre></td></tr></table></figure>
+<p>注意:你<strong>看不到</strong>secret的内容,只能看到名字和元数据。这就是重点——一旦创建,即使是管理员也拿不到明文。</p>
+<p><strong>第四步:创建docker-compose.yml</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line">secrets:</span><br><span class="line">  mysql_root_password:</span><br><span class="line">    external: true</span><br><span class="line">  mysql_password:</span><br><span class="line">    external: true</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  db:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    secrets:</span><br><span class="line">      - mysql_root_password</span><br><span class="line">      - mysql_password</span><br><span class="line">    environment:</span><br><span class="line">      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password</span><br><span class="line">      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password</span><br><span class="line">      MYSQL_USER: wordpress</span><br><span class="line">      MYSQL_DATABASE: wordpress</span><br><span class="line">    volumes:</span><br><span class="line">      - db_data:/var/lib/mysql</span><br><span class="line"></span><br><span class="line">  wordpress:</span><br><span class="line">    image: wordpress:latest</span><br><span class="line">    depends_on:</span><br><span class="line">      - db</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;8080:80&quot;</span><br><span class="line">    secrets:</span><br><span class="line">      - mysql_password</span><br><span class="line">    environment:</span><br><span class="line">      WORDPRESS_DB_HOST: db:3306</span><br><span class="line">      WORDPRESS_DB_USER: wordpress</span><br><span class="line">      WORDPRESS_DB_PASSWORD_FILE: /run/secrets/mysql_password</span><br><span class="line">      WORDPRESS_DB_NAME: wordpress</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  db_data:</span><br></pre></td></tr></table></figure>
+<p>注意几个关键点:</p>
+<ol>
+<li><code>secrets</code><strong>顶层配置</strong>:声明用哪些secrets,<code>external: true</code>表示secret已经存在,不是由compose创建的</li>
+<li><code>services.db.secrets</code>:指定这个服务要用哪些secrets</li>
+<li><code>MYSQL_ROOT_PASSWORD_FILE</code>:MySQL官方镜像支持<code>_FILE</code>后缀的环境变量,会从文件读取密码而不是直接从环境变量</li>
+</ol>
+<p>这个<code>_FILE</code>后缀很重要,不是所有镜像都支持。如果镜像不支持,你需要在启动脚本里自己读取文件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># entrypoint.sh示例</span><br><span class="line">export DB_PASSWORD=$(cat /run/secrets/db_password)</span><br><span class="line"># 然后启动你的应用</span><br></pre></td></tr></table></figure>
+<p><strong>第五步:部署</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker stack deploy -c docker-compose.yml myapp</span><br></pre></td></tr></table></figure>
+<p>注意这里用的是<code>docker stack deploy</code>,不是<code>docker-compose up</code>。Swarm mode下要用stack命令。</p>
+<p><strong>第六步:验证</strong></p>
+<p>进入MySQL容器检查secret是否被正确挂载:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it &lt;容器ID&gt; sh</span><br><span class="line">ls -la /run/secrets/</span><br></pre></td></tr></table></figure>
+<p>你会看到:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">total 8</span><br><span class="line">-r--r--r-- 1 root root 18 Dec 18 10:00 mysql_password</span><br><span class="line">-r--r--r-- 1 root root 18 Dec 18 10:00 mysql_root_password</span><br></pre></td></tr></table></figure>
+<p>试试读取:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat /run/secrets/mysql_root_password</span><br></pre></td></tr></table></figure>
+<p>密码出来了。但关键是:<strong>这个密码只存在于内存中,不会被写入磁盘,不会出现在环境变量里</strong>。</p>
+<p>验证docker inspect看不到密码:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker inspect &lt;容器ID&gt; | grep -i password</span><br></pre></td></tr></table></figure>
+<p>你会发现,输出里只有<code>MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql_root_password</code>这样的路径,<strong>看不到密码本身</strong>。</p>
+<p>这就是Docker Secrets的威力——密码依然可以被容器内的应用读取,但外部拿不到明文。</p>
+<h2 id="Docker-Secrets的限制与替代方案"><a href="#Docker-Secrets的限制与替代方案" class="headerlink" title="Docker Secrets的限制与替代方案"></a>Docker Secrets的限制与替代方案</h2><p>说实话,Docker Secrets不是完美的。主要有这几个限制:</p>
+<p><strong>限制1:必须在Swarm模式</strong></p>
+<p>这个最让人头疼。如果你只是本地开发,单机跑容器,需要先<code>docker swarm init</code>才能用secrets。虽然单机也能开Swarm,但总感觉有点杀鸡用牛刀。</p>
+<p>而且一旦开了Swarm,就得用<code>docker stack deploy</code>,不能用熟悉的<code>docker-compose up</code>了。命令习惯得改。</p>
+<p><strong>限制2:secret创建后不能修改</strong></p>
+<p>Docker Secrets一旦创建,内容就是只读的。如果密码要改,只能删了重建:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker secret rm mysql_password</span><br><span class="line">echo &quot;NewPassword789&quot; | docker secret create mysql_password -</span><br></pre></td></tr></table></figure>
+<p>然后还得更新使用这个secret的所有服务:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker service update --secret-rm mysql_password --secret-add mysql_password myapp_db</span><br></pre></td></tr></table></figure>
+<p>挺麻烦的。不像环境变量,改完直接重启容器就行。</p>
+<p><strong>限制3:不适用于独立容器</strong></p>
+<p>如果你用<code>docker run</code>直接启动容器,没法用Docker Secrets。必须是通过<code>docker service create</code>或<code>docker stack</code>部署的服务才行。</p>
+<p>这对很多快速测试的场景不友好。我有时候就想临时起个数据库容器试试,结果发现还得整一套Swarm的流程。</p>
+<p><strong>单机开发的替代方案:docker-compose file secrets</strong></p>
+<p>好在docker-compose有个变通办法——<code>file secrets</code>。它不需要Swarm模式,直接把本地文件挂载成secret。</p>
+<p>配置大概这样:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line">secrets:</span><br><span class="line">  db_password:</span><br><span class="line">    file: ./secrets/db_password.txt</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  db:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    secrets:</span><br><span class="line">      - db_password</span><br><span class="line">    environment:</span><br><span class="line">      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_password</span><br></pre></td></tr></table></figure>
+<p>然后创建本地密码文件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir secrets</span><br><span class="line">echo &quot;MyPassword123&quot; &gt; secrets/db_password.txt</span><br></pre></td></tr></table></figure>
+<p>注意:一定要把<code>secrets/</code>目录加到<code>.gitignore</code>!</p>
+<p>这个方案的安全性比环境变量好,至少密码不会出现在<code>docker inspect</code>里,也不会被打包进镜像。但比不上真正的Docker Secrets,因为:</p>
+<ul>
+<li>密码文件还是明文存在本地磁盘</li>
+<li>没有加密传输</li>
+<li>没有集中管理</li>
+</ul>
+<p>不过对于本地开发环境,其实够用了。真正的生产环境,还是老老实实用Swarm或者Kubernetes吧。</p>
+<h2 id="进阶技巧"><a href="#进阶技巧" class="headerlink" title="进阶技巧"></a>进阶技巧</h2><p>用熟了基础操作,再说几个实用的小技巧。</p>
+<p><strong>技巧1:自定义secret挂载路径</strong></p>
+<p>默认secret挂载在<code>/run/secrets/&lt;secret_name&gt;</code>,但你可以自定义路径和文件名:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  myapp:</span><br><span class="line">    image: myapp:latest</span><br><span class="line">    secrets:</span><br><span class="line">      - source: db_password</span><br><span class="line">        target: /app/config/database.pwd</span><br><span class="line">        mode: 0400</span><br></pre></td></tr></table></figure>
+<p>这里<code>mode: 0400</code>设置了文件权限(只有owner可读),更安全一些。</p>
+<p><strong>技巧2:多环境管理</strong></p>
+<p>开发、测试、生产环境用不同的密码,但secret名字保持一致:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 生产环境</span><br><span class="line">docker secret create db_password prod_password.txt</span><br><span class="line"></span><br><span class="line"># 测试环境 (另一个Swarm集群)</span><br><span class="line">docker secret create db_password test_password.txt</span><br></pre></td></tr></table></figure>
+<p>应用代码只管读<code>/run/secrets/db_password</code>,不用关心具体值。这样代码可以完全一致,只是部署到不同环境的集群而已。</p>
+<p><strong>技巧3:secret轮换</strong></p>
+<p>定期更换密码是好习惯。Docker的secret轮换稍微有点绕,但也不难:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># 1. 创建新密码</span><br><span class="line">echo &quot;NewPassword&quot; | docker secret create db_password_v2 -</span><br><span class="line"></span><br><span class="line"># 2. 更新服务,添加新secret,移除旧secret</span><br><span class="line">docker service update \</span><br><span class="line">  --secret-rm db_password \</span><br><span class="line">  --secret-add source=db_password_v2,target=/run/secrets/db_password \</span><br><span class="line">  myapp_db</span><br><span class="line"></span><br><span class="line"># 3. 确认服务正常后,删除旧secret</span><br><span class="line">docker secret rm db_password</span><br></pre></td></tr></table></figure>
+<p>注意这里的技巧:新secret名字是<code>db_password_v2</code>,但通过<code>target</code>参数,挂载路径还是<code>/run/secrets/db_password</code>。这样应用不需要改代码。</p>
+<p><strong>技巧4:从stdin创建secret</strong></p>
+<p>不想在磁盘留痕迹?直接从标准输入创建:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo &quot;MySecretPassword&quot; | docker secret create db_password -</span><br></pre></td></tr></table></figure>
+<p>最后那个<code>-</code>表示从stdin读取。这样连临时文件都不用创建。</p>
+<p>或者更安全,手动输入(不会留在shell历史里):</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker secret create db_password -</span><br><span class="line"># 然后粘贴密码,按Ctrl+D结束</span><br></pre></td></tr></table></figure>
+<h1 id="其他密钥管理工具对比"><a href="#其他密钥管理工具对比" class="headerlink" title="其他密钥管理工具对比"></a>其他密钥管理工具对比</h1><h2 id="四种工具的对比矩阵"><a href="#四种工具的对比矩阵" class="headerlink" title="四种工具的对比矩阵"></a>四种工具的对比矩阵</h2><p>Docker Secrets不是唯一的选择。根据项目规模和基础设施,你可能需要其他工具。我整理了个对比表:</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">工具</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">核心优势</th>
+<th style="text-align:center">主要缺点</th>
+<th style="text-align:center">上手难度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Docker Secrets</td>
+<td style="text-align:center">Docker Swarm集群</td>
+<td style="text-align:center">原生支持,零额外成本,配置简单</td>
+<td style="text-align:center">只能Swarm,功能相对基础,不能跨平台</td>
+<td style="text-align:center">⭐ 低</td>
+</tr>
+<tr>
+<td style="text-align:center">Kubernetes Secrets</td>
+<td style="text-align:center">K8s生产环境</td>
+<td style="text-align:center">K8s生态原生支持,与Pod生命周期绑定</td>
+<td style="text-align:center">etcd默认不加密,功能较基础,需要额外配置才安全</td>
+<td style="text-align:center">⭐⭐ 中</td>
+</tr>
+<tr>
+<td style="text-align:center">HashiCorp Vault</td>
+<td style="text-align:center">企业级,多云环境,严格合规要求</td>
+<td style="text-align:center">功能最强大,动态密钥,细粒度权限,审计日志,支持多种后端</td>
+<td style="text-align:center">架构复杂,需独立部署维护,学习曲线陡</td>
+<td style="text-align:center">⭐⭐⭐ 高</td>
+</tr>
+<tr>
+<td style="text-align:center">AWS Secrets Manager</td>
+<td style="text-align:center">全AWS环境,RDS/Lambda等服务</td>
+<td style="text-align:center">与AWS服务深度集成,自动轮换RDS密码,托管服务免运维</td>
+<td style="text-align:center">绑定AWS,跨云困难,有使用费用</td>
+<td style="text-align:center">⭐⭐ 中</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>简单说:</p>
+<ul>
+<li><strong>小项目,Docker Swarm</strong> → Docker Secrets就够了,免费简单</li>
+<li><strong>Kubernetes生产</strong> → 先用K8s Secrets,配合External Secrets Operator对接外部Vault</li>
+<li><strong>大厂,多云,高安全要求</strong> → 上Vault,一次性投入,长期受益</li>
+<li><strong>AWS全家桶</strong> → Secrets Manager最省心,和RDS、Lambda配合很爽</li>
+</ul>
+<p>没有最好的工具,只有最合适的。我自己的选择路径是:一开始小项目用docker-compose file secrets,团队扩大后上了Docker Swarm + Docker Secrets,现在公司迁到K8s,正在评估要不要引入Vault。</p>
+<p>每次迁移都有成本,但安全性确实是逐步提升的。</p>
+<h2 id="选择建议"><a href="#选择建议" class="headerlink" title="选择建议"></a>选择建议</h2><p>具体点说,怎么选?我给几个决策参考:</p>
+<p><strong>如果你是</strong>…</p>
+<p><strong>个人开发者/小型项目</strong>:</p>
+<ul>
+<li>本地开发:docker-compose file secrets就够了</li>
+<li>有VPS部署几个服务:Docker Swarm + Docker Secrets</li>
+<li>预算有限,不想折腾:别上Vault,太重了</li>
+</ul>
+<p><strong>创业公司(10-50人)</strong>:</p>
+<ul>
+<li>用Docker:Docker Secrets</li>
+<li>用K8s:K8s Secrets + External Secrets Operator(渐进式,以后能无缝迁移到Vault)</li>
+<li>全在AWS:直接Secrets Manager,省心</li>
+</ul>
+<p><strong>大厂/企业</strong>:</p>
+<ul>
+<li>多云环境:Vault几乎是唯一选择</li>
+<li>需要审计合规:Vault</li>
+<li>有专门的安全团队:Vault</li>
+<li>预算充足,不在乎学习成本:Vault</li>
+</ul>
+<p>决策树简化版:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">你用K8s吗?</span><br><span class="line"> └─ 是 → 用K8s Secrets,需要高级功能上Vault</span><br><span class="line"> └─ 否 → 用Docker Swarm吗?</span><br><span class="line">      └─ 是 → Docker Secrets</span><br><span class="line">      └─ 否 → 在AWS吗?</span><br><span class="line">           └─ 是 → AWS Secrets Manager</span><br><span class="line">           └─ 否 → docker-compose file secrets(开发) / Vault(生产)</span><br></pre></td></tr></table></figure>
+<h2 id="实际案例"><a href="#实际案例" class="headerlink" title="实际案例"></a>实际案例</h2><p>说两个我知道的真实选择路径:</p>
+<p><strong>案例1:创业公司的演进</strong></p>
+<p>朋友的公司做SaaS,起初5个人,服务全Docker部署在单台VPS。一开始用docker-compose + file secrets,密码文件存在服务器上,手动管理。</p>
+<p>6个月后拿到天使轮,团队扩到15人,服务拆成了微服务架构。这时候上了Docker Swarm,迁移到Docker Secrets。主要是觉得管理方便了——不用每个服务器去放密码文件,secrets在Swarm集群里集中管理。</p>
+<p>又过了一年,A轮后迁到K8s(公司招了DevOps),开始用K8s Secrets。但同时引入了AWS RDS、S3等服务,AWS相关的凭证用Secrets Manager管理,K8s里的secret用External Secrets Operator从Secrets Manager同步。</p>
+<p>现在他们在评估要不要统一迁移到Vault,因为多云战略(考虑GCP做备份),Secrets Manager绑定AWS不太合适了。</p>
+<p>看到了吗?<strong>安全架构是随着业务演进的,没必要一开始就上最复杂的方案</strong>。</p>
+<p><strong>案例2:传统企业的一步到位</strong></p>
+<p>另一个朋友在银行做技术,他们去年做容器化改造。因为是金融行业,合规要求严格,一开始就直接上了Vault。</p>
+<p>虽然学习曲线陡,但好处是:</p>
+<ul>
+<li>审计日志完整,每次密钥访问都有记录</li>
+<li>支持动态密钥(数据库临时凭证,用完自动过期)</li>
+<li>可以对接他们现有的LDAP做权限控制</li>
+</ul>
+<p>投入了2个人月搭建和培训,但一次性解决了所有密钥管理问题,后续维护成本很低。</p>
+<p>不同场景不同选择。小公司折腾Vault可能得不偿失,大企业用Docker Secrets可能不够用。</p>
+<h1 id="生产环境最佳实践Checklist"><a href="#生产环境最佳实践Checklist" class="headerlink" title="生产环境最佳实践Checklist"></a>生产环境最佳实践Checklist</h1><h2 id="立即行动的安全措施"><a href="#立即行动的安全措施" class="headerlink" title="立即行动的安全措施"></a>立即行动的安全措施</h2><p>不管你用不用Docker Secrets,这几件事现在就该做:</p>
+<p>✅ <strong>检查Git历史中的敏感信息</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 搜索可能的密码关键词</span><br><span class="line">git log -p -S &#x27;password&#x27; -S &#x27;secret&#x27; -S &#x27;api_key&#x27;</span><br><span class="line"></span><br><span class="line"># 检查.env文件是否被提交过</span><br><span class="line">git log --all --full-history -- .env</span><br></pre></td></tr></table></figure>
+<p>如果发现了,用<code>git filter-repo</code>或<code>BFG Repo-Cleaner</code>彻底清除历史记录。然后<strong>立即更换所有泄露的密码</strong>。</p>
+<p>✅ <strong>配置.gitignore</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"># .gitignore</span><br><span class="line">.env</span><br><span class="line">*.env</span><br><span class="line">secrets/</span><br><span class="line">db_password.txt</span><br><span class="line">*_password.txt</span><br><span class="line">*_secret.txt</span><br><span class="line">*.pem</span><br><span class="line">*.key</span><br></pre></td></tr></table></figure>
+<p>不要侥幸,一定要加。</p>
+<p>✅ <strong>启用GitHub Secret Scanning</strong></p>
+<p>如果用GitHub,去仓库设置里开启Security → Secret scanning alerts。一旦你不小心推了密钥,GitHub会自动告警。</p>
+<p>免费版仅支持公开仓库,私有仓库需要Pro/Team/Enterprise账号。不过公开仓库更需要,赶紧开。</p>
+<p>✅ <strong>更换所有可能泄露的凭证</strong></p>
+<p>去盘点一下:</p>
+<ul>
+<li>数据库密码</li>
+<li>API密钥(AWS/OpenAI/Stripe等)</li>
+<li>JWT secret</li>
+<li>OAuth client secrets</li>
+<li>SSL私钥</li>
+</ul>
+<p>能换的都换了。密码泄露后,亡羊补牢也来得及。</p>
+<h2 id="Docker-Secrets实施步骤"><a href="#Docker-Secrets实施步骤" class="headerlink" title="Docker Secrets实施步骤"></a>Docker Secrets实施步骤</h2><p>决定用Docker Secrets了?按这个顺序来:</p>
+<p><strong>第一步:盘点敏感信息</strong></p>
+<p>列个清单,哪些信息是敏感的:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">✓ MySQL root密码</span><br><span class="line">✓ 应用数据库密码</span><br><span class="line">✓ Redis密码</span><br><span class="line">✓ JWT签名密钥</span><br><span class="line">✓ 第三方API密钥(支付/短信等)</span><br><span class="line">✓ SSL证书私钥</span><br><span class="line">✓ OAuth client secret</span><br></pre></td></tr></table></figure>
+<p><strong>第二步:选择工具</strong></p>
+<p>根据前面的对比,选Docker Secrets、K8s Secrets还是Vault。别纠结,先选一个,以后可以迁移。</p>
+<p><strong>第三步:创建secrets</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># 如果用Docker Swarm</span><br><span class="line">docker swarm init</span><br><span class="line">docker secret create db_password &lt;(echo &quot;密码&quot;)</span><br><span class="line">docker secret create api_key &lt;(echo &quot;密钥&quot;)</span><br><span class="line"></span><br><span class="line"># 如果用docker-compose file secrets</span><br><span class="line">mkdir secrets</span><br><span class="line">echo &quot;密码&quot; &gt; secrets/db_password.txt</span><br><span class="line">echo &quot;密钥&quot; &gt; secrets/api_key.txt</span><br><span class="line">chmod 600 secrets/*</span><br></pre></td></tr></table></figure>
+<p><strong>第四步:修改配置文件</strong></p>
+<p>把docker-compose.yml里的environment字段改成secrets:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># 改前</span><br><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    environment:</span><br><span class="line">      DB_PASSWORD: &quot;hardcoded_password&quot;  # ❌</span><br><span class="line"></span><br><span class="line"># 改后</span><br><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    secrets:</span><br><span class="line">      - db_password</span><br><span class="line">    environment:</span><br><span class="line">      DB_PASSWORD_FILE: /run/secrets/db_password  # ✅</span><br></pre></td></tr></table></figure>
+<p><strong>第五步:修改应用代码(如果需要)</strong></p>
+<p>如果你的框架不支持<code>_FILE</code>后缀,需要改代码读取文件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">// Node.js示例</span><br><span class="line">const fs = require(&#x27;fs&#x27;);</span><br><span class="line">const dbPassword = process.env.DB_PASSWORD_FILE</span><br><span class="line">  ? fs.readFileSync(process.env.DB_PASSWORD_FILE, &#x27;utf8&#x27;).trim()</span><br><span class="line">  : process.env.DB_PASSWORD;</span><br></pre></td></tr></table></figure>
+<p><strong>第六步:测试验证</strong></p>
+<p>先在测试环境跑一遍,确认:</p>
+<ul>
+<li>服务能正常启动</li>
+<li>能正确读取密码</li>
+<li>docker inspect看不到明文</li>
+<li>功能正常</li>
+</ul>
+<p><strong>第七步:生产部署</strong></p>
+<p>没问题了,再部署到生产。保险起见,先保留旧的环境变量配置作为fallback,确认新方案稳定后再删。</p>
+<h2 id="持续安全维护"><a href="#持续安全维护" class="headerlink" title="持续安全维护"></a>持续安全维护</h2><p>上了Docker Secrets不是一劳永逸,还得持续维护:</p>
+<p><strong>定期轮换密钥(建议每90天)</strong></p>
+<p>设个日历提醒,每季度换一次密码。尤其是有人离职后,相关的密码一定要换。</p>
+<p><strong>监控密钥访问日志</strong></p>
+<p>如果用Vault,记得定期查看audit日志。看看有没有异常的访问模式。</p>
+<p>Docker Secrets和K8s Secrets默认没有审计日志,这是个缺点。如果需要审计,得配合其他工具(比如Falco)。</p>
+<p><strong>最小权限原则</strong></p>
+<p>别让所有服务都能访问所有secrets。每个服务只给它需要的:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  frontend:</span><br><span class="line">    secrets:</span><br><span class="line">      - api_key  # 前端只需要API key</span><br><span class="line"></span><br><span class="line">  backend:</span><br><span class="line">    secrets:</span><br><span class="line">      - db_password  # 后端需要数据库密码</span><br><span class="line">      - api_key</span><br></pre></td></tr></table></figure>
+<p><strong>用密钥扫描工具</strong></p>
+<p>集成到CI/CD:</p>
+<ul>
+<li><code>trufflehog</code>:扫描Git历史</li>
+<li><code>git-secrets</code>:防止提交敏感信息</li>
+<li><code>gitleaks</code>:检测代码中的密钥</li>
+</ul>
+<p>在pre-commit hook里跑一遍,能拦住不少误提交。</p>
+<h2 id="避免踩坑的5个注意事项"><a href="#避免踩坑的5个注意事项" class="headerlink" title="避免踩坑的5个注意事项"></a>避免踩坑的5个注意事项</h2><p>最后,说几个常见的坑:</p>
+<ol>
+<li><p><strong>不要用ARG传递敏感信息</strong></p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># ❌ 错误</span><br><span class="line">ARG DB_PASSWORD=secret</span><br><span class="line">ENV DATABASE_URL=postgres://user:$&#123;DB_PASSWORD&#125;@db/myapp</span><br></pre></td></tr></table></figure>
+<p> ARG会被保留在镜像构建历史里,<code>docker history</code>能看到。</p>
+</li>
+<li><p><strong>不要把secrets打印到stdout</strong></p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># ❌ 错误</span><br><span class="line">password = open(&#x27;/run/secrets/db_password&#x27;).read()</span><br><span class="line">print(f&quot;Using password: &#123;password&#125;&quot;)  # 会进docker logs!</span><br></pre></td></tr></table></figure>
+<p> 日志系统会捕获所有stdout输出。密码一旦进日志,就很难删干净了。</p>
+</li>
+<li><p><strong>不要用同一个secret横跨多个环境</strong></p>
+<p> 开发、测试、生产环境的密码要分离。别图省事用同一个,万一测试环境泄露了,生产也遭殃。</p>
+</li>
+<li><p><strong>不要在容器内复制secret到其他路径</strong></p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># ❌ 错误</span><br><span class="line">cp /run/secrets/db_password /app/config/password.txt</span><br></pre></td></tr></table></figure>
+<p> <code>/run/secrets</code>是tmpfs,内存文件系统,容器停了就没了。你复制到其他路径,可能会写入磁盘,反而不安全。</p>
+<p> 直接从<code>/run/secrets</code>读就行。</p>
+</li>
+<li><p><strong>不要忘记监控secret的过期和轮换</strong></p>
+<p> 如果用了有过期时间的动态密钥(Vault支持),得配置好自动续期或轮换的机制。别等到半夜密码过期了,服务全挂了才发现。</p>
+</li>
+</ol>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多,其实核心就一句话:<strong>别把密码放在能被看到的地方</strong>。</p>
+<p>环境变量看起来方便,但<code>docker inspect</code>一查就全暴露了。Dockerfile里的ENV指令更危险,会永久保留在镜像层里。很多安全事故,就是因为这些”图方便”的小疏忽。</p>
+<p>Docker Secrets不是完美的——需要Swarm模式,不能修改,单机开发不友好。但它至少解决了核心问题:密码加密存储、加密传输、不出现在环境变量和镜像里。对于Docker Swarm集群,它是最简单直接的方案。</p>
+<p>如果你用Kubernetes,那就K8s Secrets;如果是企业级需求,可以考虑Vault;如果全在AWS,Secrets Manager也不错。没有最好的工具,只有最合适的。</p>
+<p>关键是要行动起来。今天就去检查一下:</p>
+<ul>
+<li>你的Git历史里有没有密码?</li>
+<li><code>.env</code>文件加<code>.gitignore</code>了吗?</li>
+<li><code>docker inspect</code>能看到你的密码吗?</li>
+</ul>
+<p>如果答案是”有”、“没有”、“能”,那就该花点时间改改了。不需要一步到位上Vault,哪怕先把环境变量改成file secrets,也比现在安全。</p>
+<p>安全是个持续的过程,不是一次性的配置。定期轮换密码,监控异常访问,用扫描工具检查代码——这些习惯比工具本身更重要。</p>
+<p>最后,分享给你的团队吧。密钥管理不是某一个人的事,是整个团队的共同责任。统一标准,定期review,才能真正降低风险。</p>
+<p>祝好,别再被凌晨3点的告警吵醒了。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么不能把密码写在Dockerfile或docker-compose-yml里？"><a href="#为什么不能把密码写在Dockerfile或docker-compose-yml里？" class="headerlink" title="为什么不能把密码写在Dockerfile或docker-compose.yml里？"></a>为什么不能把密码写在Dockerfile或docker-compose.yml里？</h2><p>安全问题：攻击者直接用了正确的密码——那个写在docker-compose.yml里的MySQL密码，上个月有个实习生fork了项目到自己的公开仓库练手，密码泄露导致数据库被暴力扫描。</p>
+<p>错误做法：</p>
+<ul>
+<li>把密码直接写配置文件</li>
+<li>用环境变量就觉得安全了</li>
+<li>甚至有人说”我的仓库是私有的，没关系”</li>
+<li>这些都是安全隐患</li>
+</ul>
+<p>常见错误：</p>
+<ul>
+<li>密码写在Dockerfile里</li>
+<li>密码写在docker-compose.yml里</li>
+<li>密码写在环境变量里但提交到Git</li>
+<li>使用.env文件但忘记添加到<code>.gitignore</code></li>
+</ul>
+<h2 id="如何使用Docker-Secrets管理密钥？"><a href="#如何使用Docker-Secrets管理密钥？" class="headerlink" title="如何使用Docker Secrets管理密钥？"></a>如何使用Docker Secrets管理密钥？</h2><p>Docker Secrets方案：</p>
+<ul>
+<li>使用docker secret create创建密钥（<code>docker secret create mysql_password -</code>）</li>
+<li>在docker-compose.yml中配置secrets（<code>secrets: - mysql_password</code>）</li>
+<li>容器内通过/run/secrets/路径访问密钥（<code>cat /run/secrets/mysql_password</code>）</li>
+<li>密钥加密存储在Docker Swarm中</li>
+</ul>
+<p>创建密钥：</p>
+<ul>
+<li><code>echo &quot;your-password&quot; | docker secret create mysql_password -</code></li>
+<li>在docker-compose.yml中引用：<code>secrets: - mysql_password</code></li>
+<li>容器内读取：<code>cat /run/secrets/mysql_password</code></li>
+</ul>
+<h2 id="Docker-Secrets和其他密钥管理方案有什么区别？"><a href="#Docker-Secrets和其他密钥管理方案有什么区别？" class="headerlink" title="Docker Secrets和其他密钥管理方案有什么区别？"></a>Docker Secrets和其他密钥管理方案有什么区别？</h2><p>其他方案对比：</p>
+<ul>
+<li>Docker Secrets（适合Docker Swarm，密钥加密存储）</li>
+<li>Kubernetes Secrets（适合K8s环境，Base64编码）</li>
+<li>HashiCorp Vault（企业级密钥管理，支持动态密钥）</li>
+<li>AWS Secrets Manager（AWS环境，与AWS服务集成）</li>
+<li>环境变量文件（.env，不推荐生产环境）</li>
+</ul>
+<p>选择建议：</p>
+<ul>
+<li>Docker Swarm环境用Docker Secrets</li>
+<li>K8s环境用Kubernetes Secrets</li>
+<li>企业级需求用Vault</li>
+<li>AWS环境用Secrets Manager</li>
+</ul>
+<h2 id="生产环境密钥管理的最佳实践是什么？"><a href="#生产环境密钥管理的最佳实践是什么？" class="headerlink" title="生产环境密钥管理的最佳实践是什么？"></a>生产环境密钥管理的最佳实践是什么？</h2><p>最佳实践：</p>
+<ul>
+<li>生产环境必须使用Secrets管理敏感信息</li>
+<li>定期轮换密钥</li>
+<li>使用密钥扫描工具（trufflehog）检查Git仓库</li>
+<li>配置访问控制，避免密钥泄露</li>
+<li>不要在代码中硬编码密码</li>
+</ul>
+<p>定期检查：</p>
+<ul>
+<li>使用trufflehog扫描Git仓库</li>
+<li>检查是否有密钥泄露</li>
+<li>配置CI/CD流程自动扫描</li>
+<li>发现泄露立即轮换密钥</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/1433/">https://jingluo23.github.io/posts/1433/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/6b3b/" title="Docker安全配置：避免用root运行容器的完整实践指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker安全配置：避免用root运行容器的完整实践指南</div></div><div class="info-2"><div class="info-item-1">Docker容器默认root运行存在严重安全风险。本文详解容器逃逸原理，提供Dockerfile USER指令、--user参数、Capabilities精细化权限控制、AppArmor配置等完整安全方案，帮助开发者构建生产级安全容器。</div></div></div></a><a class="pagination-related" href="/posts/9993/" title="Docker资源限制完全指南：防止容器内存泄漏拖垮服务器"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker资源限制完全指南：防止容器内存泄漏拖垮服务器</div></div><div class="info-2"><div class="info-item-1">容器内存泄漏如何拖垮整个服务器？本文从cgroups原理到--memory、--cpus参数实战，再到docker stats、cAdvisor、Prometheus监控方案，教你用资源限制保护生产环境。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/6e34/" title="Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-06</div><div class="info-item-2">Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南</div></div><div class="info-2"><div class="info-item-1">不知道Docker和虚拟机该选哪个？本文用通俗语言解释两者本质区别，提供性能数据对比和场景决策树，5分钟帮你做出正确选择。</div></div></div></a><a class="pagination-related" href="/posts/5b53/" title="Docker挂载目录权限问题完全解决指南：从诊断到实战的5大方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-22</div><div class="info-item-2">Docker挂载目录权限问题完全解决指南：从诊断到实战的5大方案</div></div><div class="info-2"><div class="info-item-1">容器生成的文件删不了？Permission Denied频繁出现？深入讲解Docker权限问题的根本原因，提供5种解决方案，涵盖Linux/Mac/Windows差异和5个真实案例。掌握3个诊断命令，彻底搞定权限问题。</div></div></div></a><a class="pagination-related" href="/posts/38f9/" title="Docker容器互联实战：让Web容器和数据库容器能相互访问的正确方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-24</div><div class="info-item-2">Docker容器互联实战：让Web容器和数据库容器能相互访问的正确方法</div></div><div class="info-2"><div class="info-item-1">Docker容器之间如何互相访问？本文通过实战案例，教你用自定义网络解决容器名解析失败和IP变化问题，让Web容器和数据库容器稳定通信。包含完整命令和故障排查技巧。</div></div></div></a><a class="pagination-related" href="/posts/d498/" title="Docker数据卷备份与迁移实战指南：3种方法全面解析"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-20</div><div class="info-item-2">Docker数据卷备份与迁移实战指南：3种方法全面解析</div></div><div class="info-2"><div class="info-item-1">详细讲解Docker数据卷备份的3种方法：tar打包、docker cp命令和自动化工具。包含数据库备份注意事项、服务器迁移完整流程和避坑指南，让Docker数据备份变得简单可靠。</div></div></div></a><a class="pagination-related" href="/posts/a8d7/" title="Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-01</div><div class="info-item-2">Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失</div></div><div class="info-2"><div class="info-item-1">手把手教你用Docker部署Redis并配置RDB/AOF持久化和密码认证,避免容器重启数据丢失,附完整配置文件和代码示例,适合生产环境部署</div></div></div></a><a class="pagination-related" href="/posts/2b73/" title="Docker Compose 生产部署三要素：健康检查、重启策略与资源限制"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-17</div><div class="info-item-2">Docker Compose 生产部署三要素：健康检查、重启策略与资源限制</div></div><div class="info-2"><div class="info-item-1">详解 Docker Compose 生产部署三要素：健康检查判断服务就绪、重启策略实现自愈、资源限制防止失控。附完整 YAML 配置模板，助你构建稳定可靠的容器化应用。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%E4%B8%8D%E5%AE%89%E5%85%A8"><span class="toc-number">1.</span> <span class="toc-text">为什么环境变量不安全?</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84%E4%B8%8D%E5%AE%89%E5%85%A8%E5%81%9A%E6%B3%95"><span class="toc-number">1.1.</span> <span class="toc-text">三种常见的不安全做法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%E7%9A%84%E4%B8%89%E5%A4%A7%E5%AE%89%E5%85%A8%E9%9A%90%E6%82%A3"><span class="toc-number">1.2.</span> <span class="toc-text">环境变量的三大安全隐患</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9C%9F%E5%AE%9E%E6%A1%88%E4%BE%8B%E5%88%86%E4%BA%AB"><span class="toc-number">1.3.</span> <span class="toc-text">真实案例分享</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Docker-Secrets%E6%98%AF%E4%BB%80%E4%B9%88-%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8"><span class="toc-number">2.</span> <span class="toc-text">Docker Secrets是什么?如何使用?</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Secrets%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="toc-number">2.1.</span> <span class="toc-text">Docker Secrets工作原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%8B%E6%8A%8A%E6%89%8B%E5%AE%9E%E6%88%98-MySQL-WordPress%E6%A1%88%E4%BE%8B"><span class="toc-number">2.2.</span> <span class="toc-text">手把手实战:MySQL + WordPress案例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Secrets%E7%9A%84%E9%99%90%E5%88%B6%E4%B8%8E%E6%9B%BF%E4%BB%A3%E6%96%B9%E6%A1%88"><span class="toc-number">2.3.</span> <span class="toc-text">Docker Secrets的限制与替代方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7"><span class="toc-number">2.4.</span> <span class="toc-text">进阶技巧</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%AF%86%E9%92%A5%E7%AE%A1%E7%90%86%E5%B7%A5%E5%85%B7%E5%AF%B9%E6%AF%94"><span class="toc-number">3.</span> <span class="toc-text">其他密钥管理工具对比</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E7%A7%8D%E5%B7%A5%E5%85%B7%E7%9A%84%E5%AF%B9%E6%AF%94%E7%9F%A9%E9%98%B5"><span class="toc-number">3.1.</span> <span class="toc-text">四种工具的对比矩阵</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%89%E6%8B%A9%E5%BB%BA%E8%AE%AE"><span class="toc-number">3.2.</span> <span class="toc-text">选择建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E9%99%85%E6%A1%88%E4%BE%8B"><span class="toc-number">3.3.</span> <span class="toc-text">实际案例</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5Checklist"><span class="toc-number">4.</span> <span class="toc-text">生产环境最佳实践Checklist</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AB%8B%E5%8D%B3%E8%A1%8C%E5%8A%A8%E7%9A%84%E5%AE%89%E5%85%A8%E6%8E%AA%E6%96%BD"><span class="toc-number">4.1.</span> <span class="toc-text">立即行动的安全措施</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Secrets%E5%AE%9E%E6%96%BD%E6%AD%A5%E9%AA%A4"><span class="toc-number">4.2.</span> <span class="toc-text">Docker Secrets实施步骤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%81%E7%BB%AD%E5%AE%89%E5%85%A8%E7%BB%B4%E6%8A%A4"><span class="toc-number">4.3.</span> <span class="toc-text">持续安全维护</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%BF%E5%85%8D%E8%B8%A9%E5%9D%91%E7%9A%845%E4%B8%AA%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">4.4.</span> <span class="toc-text">避免踩坑的5个注意事项</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">5.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E6%8A%8A%E5%AF%86%E7%A0%81%E5%86%99%E5%9C%A8Dockerfile%E6%88%96docker-compose-yml%E9%87%8C%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">为什么不能把密码写在Dockerfile或docker-compose.yml里？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8Docker-Secrets%E7%AE%A1%E7%90%86%E5%AF%86%E9%92%A5%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">如何使用Docker Secrets管理密钥？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Secrets%E5%92%8C%E5%85%B6%E4%BB%96%E5%AF%86%E9%92%A5%E7%AE%A1%E7%90%86%E6%96%B9%E6%A1%88%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">Docker Secrets和其他密钥管理方案有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E5%AF%86%E9%92%A5%E7%AE%A1%E7%90%86%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">生产环境密钥管理的最佳实践是什么？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

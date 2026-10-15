@@ -1,0 +1,840 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker Compose报错排查手册：5大常见错误快速解决方案 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="Docker Compose执行报错怎么办?本文总结端口冲突、网络问题、构建失败、容器退出、权限错误5大类常见问题,提供系统化排查流程和多种解决方案,帮你5分钟定位问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker Compose报错排查手册：5大常见错误快速解决方案">
+<meta property="og:url" content="https://jingluo23.github.io/posts/286/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="Docker Compose执行报错怎么办?本文总结端口冲突、网络问题、构建失败、容器退出、权限错误5大类常见问题,提供系统化排查流程和多种解决方案,帮你5分钟定位问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-15T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.694Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker Compose报错排查手册：5大常见错误快速解决方案",
+  "url": "https://jingluo23.github.io/posts/286/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-15T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.694Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/286/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker Compose报错排查手册：5大常见错误快速解决方案',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker Compose报错排查手册：5大常见错误快速解决方案</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker Compose报错排查手册：5大常见错误快速解决方案</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-15T07:06:23.000Z" title="发表于 2026-09-15 15:06:23">2026-09-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.694Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.8k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>17分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>周五下午3点半，距离代码提交deadline还有两个小时。</p>
+<p>终端上那行红色的错误信息——<code>Error starting userland proxy: Bind for 0.0.0.0:8080 failed: port is already allocated</code>。明明昨天还跑得好好的，今天就起不来了。</p>
+<p>Ctrl+C，重来。还是报错。Google搜”docker compose port already allocated”，打开五六个Stack Overflow的帖子，每个解决方案都试了一遍：重启Docker、删容器、改端口…屏幕上的报错信息纹丝不动。</p>
+<p>Docker Compose的报错信息往往长达几十行，真正有用的那句话藏在第23行，而你在第1行就开始慌了。这篇文章总结了我这两年踩过的坑——<strong>5大类最常见的Docker Compose报错</strong>，每种错误都按”错误特征→问题根源→解决方案”来讲。看完你会发现，其实90%的报错都能在5分钟内搞定——只要你知道从哪里下手。</p>
+<h1 id="排查基础-掌握3个核心工具"><a href="#排查基础-掌握3个核心工具" class="headerlink" title="排查基础 - 掌握3个核心工具"></a>排查基础 - 掌握3个核心工具</h1><p>先别急着解决具体错误。咱们先说说排查Docker Compose问题的三板斧——这三个命令我每天都要用十几遍。</p>
+<h2 id="工具1：docker-compose-ps-快速看状态"><a href="#工具1：docker-compose-ps-快速看状态" class="headerlink" title="工具1：docker-compose ps - 快速看状态"></a>工具1：docker-compose ps - 快速看状态</h2><p>这个命令告诉你哪些容器起来了,哪些挂了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose ps</span><br></pre></td></tr></table></figure>
+<p>关注<code>State</code>那一列:</p>
+<ul>
+<li><code>Up</code> - 正常运行,松口气</li>
+<li><code>Exit</code> - 启动失败或运行中崩溃了</li>
+<li><code>Restarting</code> - 不停重启,说明启动命令有问题</li>
+</ul>
+<p>我一般看到某个服务是<code>Exit 1</code>状态,就知道该去翻日志了。</p>
+<h2 id="工具2-docker-compose-logs-看日志找线索"><a href="#工具2-docker-compose-logs-看日志找线索" class="headerlink" title="工具2:docker-compose logs - 看日志找线索"></a>工具2:docker-compose logs - 看日志找线索</h2><p>这是排查的核心。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># 看所有服务的日志</span><br><span class="line">docker-compose logs</span><br><span class="line"></span><br><span class="line"># 只看nginx的日志</span><br><span class="line">docker-compose logs nginx</span><br><span class="line"></span><br><span class="line"># 实时跟踪(类似tail -f)</span><br><span class="line">docker-compose logs -f</span><br><span class="line"></span><br><span class="line"># 只看最近100行</span><br><span class="line">docker-compose logs --tail 100 nginx</span><br></pre></td></tr></table></figure>
+<p>说实话,Docker的日志输出有时候挺乱的,但90%的情况下,真正的错误信息就在最后几十行。往上翻,找<code>ERROR</code>、<code>failed</code>、<code>cannot</code>这些关键词。</p>
+<h2 id="工具3-docker-inspect-深度检查-需要时才用"><a href="#工具3-docker-inspect-深度检查-需要时才用" class="headerlink" title="工具3:docker inspect - 深度检查(需要时才用)"></a>工具3:docker inspect - 深度检查(需要时才用)</h2><p>前两个命令解决不了的时候,才需要这个。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 查看容器完整配置</span><br><span class="line">docker inspect 容器名</span><br><span class="line"></span><br><span class="line"># 只看状态</span><br><span class="line">docker inspect --format=&#x27;&#123;&#123;.State.Status&#125;&#125;&#x27; 容器名</span><br><span class="line"></span><br><span class="line"># 看IP地址</span><br><span class="line">docker inspect --format=&#x27;&#123;&#123;range .NetworkSettings.Networks&#125;&#125;&#123;&#123;.IPAddress&#125;&#125;&#123;&#123;end&#125;&#125;&#x27; 容器名</span><br></pre></td></tr></table></figure>
+<h2 id="通用排查流程-记住这个"><a href="#通用排查流程-记住这个" class="headerlink" title="通用排查流程(记住这个)"></a>通用排查流程(记住这个)</h2><p>遇到问题别慌,按这个流程走:</p>
+<ol>
+<li><code>docker-compose ps</code> - 看哪个服务挂了</li>
+<li>docker-compose logs [服务名] - 查具体报错</li>
+<li><code>docker inspect</code> - 深入分析(多数情况用不着)</li>
+</ol>
+<p>好了,工具齐了。下面开始讲5种高频错误。</p>
+<h1 id="端口冲突-“port-is-already-allocated”"><a href="#端口冲突-“port-is-already-allocated”" class="headerlink" title="端口冲突 - “port is already allocated”"></a>端口冲突 - “port is already allocated”</h1><p>这个错误我见得太多了。你会看到类似这样的报错:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Error starting userland proxy: Bind for 0.0.0.0:8080 failed: port is already allocated</span><br></pre></td></tr></table></figure>
+<p>或者:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR: for nginx  Cannot start service nginx: driver failed programming external connectivity on endpoint xxx: Bind for 0.0.0.0:80 failed: port is already allocated</span><br></pre></td></tr></table></figure>
+<h2 id="为什么会这样"><a href="#为什么会这样" class="headerlink" title="为什么会这样?"></a>为什么会这样?</h2><p>通常是三种情况:</p>
+<ol>
+<li>上次<code>docker-compose up</code>之后,你按了Ctrl+C,但没执行<code>docker-compose down</code>,容器还在后台跑</li>
+<li>你改了docker-compose.yml的端口配置,但旧容器没删干净</li>
+<li>你电脑上其他程序占了这个端口(比如本地的Nginx、MySQL)</li>
+</ol>
+<h2 id="解决方案-从简单到复杂-依次试"><a href="#解决方案-从简单到复杂-依次试" class="headerlink" title="解决方案(从简单到复杂,依次试)"></a>解决方案(从简单到复杂,依次试)</h2><p><strong>方案1:清理重来(90%有效)</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down</span><br><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p>这招对我来说是百试百灵。<code>down</code>命令会停掉所有容器并删除它们,但保留volume数据。</p>
+<p><strong>方案2:找出占用端口的容器</strong></p>
+<p>如果方案1不行,说明可能有”幽灵容器”——不属于当前项目但占着端口的容器。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 列出所有容器(包括停止的)</span><br><span class="line">docker ps -a | grep 8080</span><br><span class="line"></span><br><span class="line"># 找到container_id后,干掉它</span><br><span class="line">docker stop &lt;container_id&gt;</span><br><span class="line">docker rm &lt;container_id&gt;</span><br></pre></td></tr></table></figure>
+<p><strong>方案3:检查docker-proxy进程</strong></p>
+<p>有时候容器删了,但docker-proxy进程还残留着。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 查看docker-proxy进程</span><br><span class="line">ps aux | grep docker-proxy | grep 8080</span><br><span class="line"></span><br><span class="line"># 如果有残留,重启Docker服务</span><br><span class="line">sudo systemctl restart docker  # Linux</span><br><span class="line"># 或者在Mac上:Docker Desktop菜单 → Restart</span><br></pre></td></tr></table></figure>
+<p><strong>方案4:检查主机端口占用</strong></p>
+<p>可能是你本地的程序占了端口。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># Linux/Mac</span><br><span class="line">lsof -i :8080</span><br><span class="line">netstat -tlnp | grep 8080</span><br><span class="line"></span><br><span class="line"># Windows</span><br><span class="line">netstat -ano | findstr 8080</span><br></pre></td></tr></table></figure>
+<p>如果发现是其他程序,要么停掉那个程序,要么改docker-compose.yml里的端口。</p>
+<p><strong>方案5:改端口配置(实在没辙时)</strong></p>
+<p>编辑<code>docker-compose.yml</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;8081:80&quot;  # 把8080改成8081</span><br></pre></td></tr></table></figure>
+<h2 id="我的建议"><a href="#我的建议" class="headerlink" title="我的建议"></a>我的建议</h2><p>养成习惯:停容器用<code>docker-compose down</code>,别直接Ctrl+C。我之前就是图方便总按Ctrl+C,结果隔三差五就端口冲突,后来改了习惯,这个错误基本绝迹了。</p>
+<p>还有就是,开发环境尽量用非标准端口。别直接用80、3306这些,改成8080、3307,能避免和系统服务冲突。</p>
+<h1 id="网络问题-“network-declared-as-external-but-could-not-be-found”"><a href="#网络问题-“network-declared-as-external-but-could-not-be-found”" class="headerlink" title="网络问题 - “network declared as external but could not be found”"></a>网络问题 - “network declared as external but could not be found”</h1><p>这个错误通常长这样:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR: Network my_network declared as external, but could not be found. Please create the network manually using `docker network create my_network` and try again.</span><br></pre></td></tr></table></figure>
+<h2 id="为什么会报这个错"><a href="#为什么会报这个错" class="headerlink" title="为什么会报这个错?"></a>为什么会报这个错?</h2><p>Docker Compose有个容易踩的坑:如果你在<code>docker-compose.yml</code>里标记某个网络是<code>external: true</code>,Docker就假设这个网络已经存在了,不会自动创建。然后它去找,找不到,就报错。</p>
+<p>常见场景:</p>
+<ol>
+<li>你复制了别人的配置文件,里面用了external网络,但你本地没有</li>
+<li>你重启了Docker,某些网络配置丢了</li>
+<li>网络名称大小写写错了(Docker网络名称区分大小写!)</li>
+</ol>
+<h2 id="解决方案"><a href="#解决方案" class="headerlink" title="解决方案"></a>解决方案</h2><p><strong>方案1:列出现有网络,确认名称</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker network ls</span><br></pre></td></tr></table></figure>
+<p>你可能会发现实际的网络名是<code>myproject_app_network</code>,而不是你配置的<code>app_network</code>。Docker Compose会自动给网络加项目名前缀。</p>
+<p><strong>方案2:手动创建缺失的网络</strong></p>
+<p>如果网络确实不存在,创建它:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker network create my_network</span><br></pre></td></tr></table></figure>
+<p><strong>方案3:修正配置文件</strong></p>
+<p>有三种修法,选一种:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># 方式A:去掉external,让Compose自动创建</span><br><span class="line">networks:</span><br><span class="line">  app_network:</span><br><span class="line">    driver: bridge</span><br><span class="line"></span><br><span class="line"># 方式B:用name字段明确指定网络名称</span><br><span class="line">networks:</span><br><span class="line">  app_network:</span><br><span class="line">    external: true</span><br><span class="line">    name: my_actual_network_name</span><br><span class="line"></span><br><span class="line"># 方式C:先手动创建网络,再用external引用</span><br></pre></td></tr></table></figure>
+<p>我个人倾向于方式A。除非你需要在多个Compose项目间共享网络,不然让Compose自己管理网络更省心。</p>
+<p><strong>方案4:清理并重建(Docker重启后网络丢失)</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down</span><br><span class="line">docker network prune  # 清理无用网络</span><br><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<h2 id="避坑指南"><a href="#避坑指南" class="headerlink" title="避坑指南"></a>避坑指南</h2><ul>
+<li>明确区分哪些网络应该是external(跨项目共享),哪些由Compose管理(单项目使用)</li>
+<li>用<code>name</code>字段明确指定网络名称,避免Compose自动加前缀导致混淆</li>
+<li>在团队的README里记录需要预先创建的external网络,避免新人踩坑</li>
+</ul>
+<h1 id="构建失败-“service-failed-to-build”"><a href="#构建失败-“service-failed-to-build”" class="headerlink" title="构建失败 - “service failed to build”"></a>构建失败 - “service failed to build”</h1><p>看到这个错误,别慌:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ERROR: Service &#x27;app&#x27; failed to build: Build failed</span><br></pre></td></tr></table></figure>
+<h2 id="关键技巧-往上翻日志"><a href="#关键技巧-往上翻日志" class="headerlink" title="关键技巧:往上翻日志"></a>关键技巧:往上翻日志</h2><p>“service failed to build”只是个总结性错误,真正的问题在前面。你得往上翻50-100行,找关键词:<code>ERROR</code>、<code>failed</code>、<code>cannot</code>、<code>not found</code>、<code>permission denied</code>。</p>
+<p>我第一次遇到这个错误时,盯着最后一行看了半天,后来才知道要往上翻。真正的报错可能是”npm install失败”或者”文件找不到”,藏在一堆输出里。</p>
+<h2 id="常见子错误类型"><a href="#常见子错误类型" class="headerlink" title="常见子错误类型"></a>常见子错误类型</h2><p><strong>类型1:文件找不到</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">COPY failed: stat /var/lib/docker/tmp/.../package.json: no such file or directory</span><br></pre></td></tr></table></figure>
+<p>原因:</p>
+<ul>
+<li><code>build context</code>路径不对</li>
+<li><code>.dockerignore</code>把必要文件排除了</li>
+</ul>
+<p>解决:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># 检查docker-compose.yml的context配置</span><br><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    build:</span><br><span class="line">      context: ./my-app  # 确认这个路径对不对</span><br><span class="line">      dockerfile: Dockerfile</span><br><span class="line"></span><br><span class="line"># 临时重命名.dockerignore测试</span><br><span class="line">mv .dockerignore .dockerignore.bak</span><br><span class="line">docker-compose build app</span><br></pre></td></tr></table></figure>
+<p><strong>类型2:依赖安装失败</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm ERR! 404 Not Found - GET https://registry.npmjs.org/xxx</span><br></pre></td></tr></table></figure>
+<p>或者:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">E: Unable to locate package xxx</span><br></pre></td></tr></table></figure>
+<p>原因:包名错误、版本不存在、网络问题</p>
+<p>解决:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 使用国内镜像源(在Dockerfile里)</span><br><span class="line">RUN npm config set registry https://registry.npmmirror.com</span><br><span class="line">RUN npm install</span><br><span class="line"></span><br><span class="line"># 或者用apt换源</span><br><span class="line">RUN sed -i &#x27;s/deb.debian.org/mirrors.aliyun.com/g&#x27; /etc/apt/sources.list</span><br><span class="line">RUN apt-get update &amp;&amp; apt-get install -y xxx</span><br></pre></td></tr></table></figure>
+<p><strong>类型3:内存不足</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">The command &#x27;/bin/sh -c npm install&#x27; returned a non-zero code: 137</span><br><span class="line">signal: killed</span><br></pre></td></tr></table></figure>
+<p>这个137退出码通常表示内存不够。</p>
+<p>解决:</p>
+<ul>
+<li>Docker Desktop → Settings → Resources → Memory,调到4GB以上</li>
+<li>或者在Dockerfile里减少并发构建:<code>RUN npm install --max_old_space_size=4096</code></li>
+</ul>
+<p><strong>类型4:Dockerfile语法错误</strong></p>
+<p>比如写错了指令名称,或者COPY的源文件路径不对。</p>
+<p>解决:单独构建测试:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cd 构建目录</span><br><span class="line">docker build -t test-build .</span><br></pre></td></tr></table></figure>
+<p>这样能看到更清晰的错误信息。</p>
+<h2 id="调试方法"><a href="#调试方法" class="headerlink" title="调试方法"></a>调试方法</h2><p><strong>不使用缓存重新构建:</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose build --no-cache service_name</span><br></pre></td></tr></table></figure>
+<p>有时候缓存的中间层有问题,清掉缓存重新构建能解决。</p>
+<p><strong>查看构建上下文</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose config</span><br></pre></td></tr></table></figure>
+<p>这个命令会显示Compose解析后的完整配置,能帮你发现路径问题。</p>
+<h2 id="我的经验"><a href="#我的经验" class="headerlink" title="我的经验"></a>我的经验</h2><ul>
+<li>保存一个能正常构建的版本作为baseline,每次改动测试完再继续</li>
+<li>Dockerfile每次只改一点,别一次改一堆然后报错不知道哪里有问题</li>
+<li>构建慢的话,考虑多阶段构建或者调整指令顺序,把不常变的指令放前面利用缓存</li>
+</ul>
+<h1 id="容器启动后退出-“exited-with-code-X”"><a href="#容器启动后退出-“exited-with-code-X”" class="headerlink" title="容器启动后退出 - “exited with code X”"></a>容器启动后退出 - “exited with code X”</h1><p>这种情况更隐蔽:镜像构建成功,容器启动了,然后立刻退出。</p>
+<p>你执行<code>docker-compose ps</code>,会看到:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Name              State</span><br><span class="line">app_web_1         Exit 1</span><br><span class="line">app_db_1          Up</span><br></pre></td></tr></table></figure>
+<h2 id="退出码含义-记住这几个"><a href="#退出码含义-记住这几个" class="headerlink" title="退出码含义(记住这几个)"></a>退出码含义(记住这几个)</h2><ul>
+<li><strong>Exit 0</strong>: 程序正常退出——但对容器来说可能是问题(命令执行完就结束了)</li>
+<li><strong>Exit 1</strong>: 应用程序报错(最常见)</li>
+<li><strong>Exit 137</strong>: 内存不足(OOM)或被kill掉</li>
+<li><strong>Exit 139</strong>: 段错误(Segmentation fault)</li>
+<li><strong>Exit 143</strong>: 收到SIGTERM信号(通常是手动停止)</li>
+</ul>
+<h2 id="排查步骤"><a href="#排查步骤" class="headerlink" title="排查步骤"></a>排查步骤</h2><p><strong>步骤1:看日志</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose logs service_name</span><br></pre></td></tr></table></figure>
+<p>90%的情况,日志里会告诉你为什么退出。</p>
+<p><strong>步骤2:手动进入容器调试</strong></p>
+<p>如果日志看不出问题,改docker-compose.yml让容器保持运行:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    command: sleep infinity  # 先让容器别退出</span><br></pre></td></tr></table></figure>
+<p>然后:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br><span class="line">docker-compose exec app sh  # 进入容器</span><br><span class="line"># 手动执行原来的启动命令,看报错</span><br></pre></td></tr></table></figure>
+<h2 id="针对性解决方案"><a href="#针对性解决方案" class="headerlink" title="针对性解决方案"></a>针对性解决方案</h2><p><strong>Exit 0 - 命令执行完就退出</strong></p>
+<p>比如你的command是<code>echo &quot;Hello&quot;</code>,执行完就没事干了,容器自然退出。</p>
+<p>解决:改成守护进程或阻塞命令:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 错误示例</span><br><span class="line">command: echo &quot;Started&quot;</span><br><span class="line"></span><br><span class="line"># 正确示例</span><br><span class="line">command: npm start  # 一个持续运行的进程</span><br></pre></td></tr></table></figure>
+<p><strong>Exit 1 - 应用报错</strong></p>
+<p>查日志定位具体原因,常见的有:</p>
+<ul>
+<li>配置文件路径错误</li>
+<li>环境变量缺失</li>
+<li>数据库连接失败(数据库还没ready)</li>
+<li>权限问题</li>
+</ul>
+<p><strong>Exit 137 - 内存不足</strong></p>
+<p>给容器加内存限制:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    mem_limit: 2g</span><br><span class="line">    memswap_limit: 2g</span><br></pre></td></tr></table></figure>
+<p>或者调整Docker Desktop的总内存分配。</p>
+<p><strong>依赖服务未就绪</strong></p>
+<p>这个我踩过坑。应用容器启动了,但数据库还在初始化,应用连不上就崩了。</p>
+<p>解决:用<code>depends_on</code>配合<code>healthcheck</code>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    depends_on:</span><br><span class="line">      db:</span><br><span class="line">        condition: service_healthy</span><br><span class="line"></span><br><span class="line">  db:</span><br><span class="line">    image: postgres</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD-SHELL&quot;, &quot;pg_isready -U postgres&quot;]</span><br><span class="line">      interval: 10s</span><br><span class="line">      timeout: 5s</span><br><span class="line">      retries: 5</span><br></pre></td></tr></table></figure>
+<p>这样app会等db真正ready了再启动。</p>
+<h2 id="我踩过的坑"><a href="#我踩过的坑" class="headerlink" title="我踩过的坑"></a>我踩过的坑</h2><p>之前有个容器反复Exit 1,日志里只有一句”Config file not found”。找了半天,原来是我用相对路径写的配置文件位置,容器内的工作目录和我想的不一样。后来改成绝对路径就好了。</p>
+<p>还有一次是数据库密码写错了,应用启动就崩,日志里倒是写得清楚,但我当时没仔细看…白白浪费了20分钟。</p>
+<h1 id="权限问题-“permission-denied”"><a href="#权限问题-“permission-denied”" class="headerlink" title="权限问题 - “permission denied”"></a>权限问题 - “permission denied”</h1><p>这个错误在挂载volume时特别常见:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Error: EACCES: permission denied, open &#x27;/app/data/config.json&#x27;</span><br></pre></td></tr></table></figure>
+<p>或者容器日志里写着”Permission denied”但你不知道是哪个文件。</p>
+<h2 id="为什么会权限问题"><a href="#为什么会权限问题" class="headerlink" title="为什么会权限问题?"></a>为什么会权限问题?</h2><p>容器内的用户UID/GID和主机文件所有者不匹配。举个例子:</p>
+<ul>
+<li>主机上文件所有者是你(UID 1000)</li>
+<li>容器内应用以www-data用户运行(UID 33)</li>
+<li>www-data没权限读写你的文件,就报错了</li>
+</ul>
+<h2 id="解决方案-1"><a href="#解决方案-1" class="headerlink" title="解决方案"></a>解决方案</h2><p><strong>方案1:用user指定UID/GID(推荐)</strong></p>
+<p>让容器以你的用户身份运行:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    user: &quot;$&#123;UID&#125;:$&#123;GID&#125;&quot;</span><br><span class="line">    volumes:</span><br><span class="line">      - ./data:/app/data</span><br></pre></td></tr></table></figure>
+<p>运行时:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">UID=$(id -u) GID=$(id -g) docker-compose up</span><br></pre></td></tr></table></figure>
+<p>或者写到.env文件里:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># .env</span><br><span class="line">UID=1000</span><br><span class="line">GID=1000</span><br></pre></td></tr></table></figure>
+<p><strong>方案2:改主机文件权限</strong></p>
+<p>简单粗暴:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">chmod -R 777 ./data  # 谨慎使用,有安全隐患</span><br><span class="line"># 或者</span><br><span class="line">chmod -R 755 ./data  # 更安全</span><br><span class="line">chown -R $(id -u):$(id -g) ./data</span><br></pre></td></tr></table></figure>
+<p><strong>方案3:SELinux系统(CentOS/RHEL)添加标志</strong></p>
+<p>如果你用CentOS/RHEL,可能是SELinux限制:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">volumes:</span><br><span class="line">  - ./data:/app/data:z  # 允许多个容器共享</span><br><span class="line">  # 或者</span><br><span class="line">  - ./config:/app/config:Z  # 仅本容器独占</span><br></pre></td></tr></table></figure>
+<p>小写<code>z</code>和大写<code>Z</code>的区别:小写是共享权限,大写是私有权限。</p>
+<p><strong>方案4:用named volume代替bind mount</strong></p>
+<p>Docker管理的volume不会有权限问题:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    volumes:</span><br><span class="line">      - app_data:/app/data  # named volume</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  app_data:  # Docker自动管理权限</span><br></pre></td></tr></table></figure>
+<p>缺点是你不能直接在主机上修改文件了,只能通过容器访问。</p>
+<p><strong>方案5:在entrypoint脚本里调整权限</strong></p>
+<p>适合复杂场景:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># entrypoint.sh</span><br><span class="line">#!/bin/sh</span><br><span class="line">chown -R appuser:appuser /app/data</span><br><span class="line">exec &quot;$@&quot;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">COPY entrypoint.sh /</span><br><span class="line">RUN chmod +x /entrypoint.sh</span><br><span class="line">ENTRYPOINT [&quot;/entrypoint.sh&quot;]</span><br><span class="line">CMD [&quot;node&quot;, &quot;app.js&quot;]</span><br></pre></td></tr></table></figure>
+<h2 id="我的建议-1"><a href="#我的建议-1" class="headerlink" title="我的建议"></a>我的建议</h2><ul>
+<li><strong>生产环境</strong>:用named volume,安全且不用操心权限</li>
+<li><strong>开发环境</strong>:用方案1(user指定UID/GID),方便在主机直接改文件</li>
+<li><strong>避免777权限</strong>:除非你完全信任容器内运行的代码,不然别给777</li>
+</ul>
+<p>权限问题确实有点绕,但搞清楚UID/GID匹配的逻辑之后,就不难了。</p>
+<h1 id="通用调试技巧总结"><a href="#通用调试技巧总结" class="headerlink" title="通用调试技巧总结"></a>通用调试技巧总结</h1><p>说了这么多具体错误,最后聊聊系统性的排查思路。</p>
+<h2 id="标准排查流程-照着做准没错"><a href="#标准排查流程-照着做准没错" class="headerlink" title="标准排查流程(照着做准没错)"></a>标准排查流程(照着做准没错)</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. docker-compose ps           → 看状态,定位出问题的服务</span><br><span class="line">2. docker-compose logs &lt;服务&gt;  → 看日志,找关键错误信息</span><br><span class="line">3. docker-compose config       → 验证配置文件语法</span><br><span class="line">4. docker inspect &lt;容器&gt;       → 深度检查(必要时)</span><br><span class="line">5. 隔离测试                    → 单独启动出问题的服务</span><br></pre></td></tr></table></figure>
+<p>养成这个习惯,遇到问题不会一头雾水。</p>
+<h2 id="常用清理命令-定期大扫除"><a href="#常用清理命令-定期大扫除" class="headerlink" title="常用清理命令(定期大扫除)"></a>常用清理命令(定期大扫除)</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"># 停止并删除容器(保留volume)</span><br><span class="line">docker-compose down</span><br><span class="line"></span><br><span class="line"># 连volume一起删(慎用!)</span><br><span class="line">docker-compose down -v</span><br><span class="line"></span><br><span class="line"># 清理悬空资源(未使用的网络、镜像等)</span><br><span class="line">docker system prune</span><br><span class="line"></span><br><span class="line"># 彻底清理(包括所有镜像)</span><br><span class="line">docker system prune -a</span><br><span class="line"></span><br><span class="line"># 重新构建不使用缓存</span><br><span class="line">docker-compose build --no-cache</span><br><span class="line"></span><br><span class="line"># 查看Docker占用的磁盘空间</span><br><span class="line">docker system df</span><br></pre></td></tr></table></figure>
+<p>我每周五下班前会跑一次docker system prune,清理掉一周积累的垃圾。有次发现Docker占了50GB硬盘,清完剩10GB…</p>
+<h2 id="预防性措施-防患于未然"><a href="#预防性措施-防患于未然" class="headerlink" title="预防性措施(防患于未然)"></a>预防性措施(防患于未然)</h2><p><strong>配置验证</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 启动前先验证配置文件</span><br><span class="line">docker-compose config</span><br></pre></td></tr></table></figure>
+<p>这个命令会检查YAML语法,发现配置错误。</p>
+<p><strong>健康检查</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD&quot;, &quot;curl&quot;, &quot;-f&quot;, &quot;http://localhost:80/health&quot;]</span><br><span class="line">      interval: 30s</span><br><span class="line">      timeout: 10s</span><br><span class="line">      retries: 3</span><br></pre></td></tr></table></figure>
+<p>有了healthcheck,你能更快发现服务虽然启动了但实际不健康的情况。</p>
+<p><strong>合理的重启策略</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    restart: unless-stopped  # 推荐:除非手动停止,否则总是重启</span><br><span class="line">    # restart: always        # 总是重启</span><br><span class="line">    # restart: on-failure    # 只有失败时重启</span><br></pre></td></tr></table></figure>
+<p><strong>环境变量集中管理</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># .env文件</span><br><span class="line">DB_PASSWORD=your_password</span><br><span class="line">API_KEY=your_key</span><br><span class="line"></span><br><span class="line"># docker-compose.yml</span><br><span class="line">services:</span><br><span class="line">  app:</span><br><span class="line">    environment:</span><br><span class="line">      - DB_PASSWORD=$&#123;DB_PASSWORD&#125;</span><br><span class="line">      - API_KEY=$&#123;API_KEY&#125;</span><br></pre></td></tr></table></figure>
+<p>这样改配置不用动YAML文件,团队协作时也方便。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>回到开头那个场景:周五下午3点半,deadline临近,容器起不来。现在你知道该怎么办了:</p>
+<ol>
+<li>别慌,深呼吸</li>
+<li>看是哪类错误(端口、网络、构建、退出、权限)</li>
+<li>按对应章节的解决方案,从简单到复杂依次试</li>
+<li>实在不行,去看日志——答案就在那里</li>
+</ol>
+<p>Docker Compose报错不可怕,可怕的是没有系统性的排查思路。记住这5大类错误和对应的解决套路,下次遇到问题,5分钟搞定它。</p>
+<p>最后一个建议:建个团队知识库,把踩过的坑和解决方案记下来。我们团队的Wiki里有个”Docker常见问题”页面,新人看完能少踩80%的坑。</p>
+<p>你遇到过哪些Docker Compose的奇葩报错?欢迎留言分享,说不定能帮到其他人。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Docker-Compose报错排查有哪些核心工具？"><a href="#Docker-Compose报错排查有哪些核心工具？" class="headerlink" title="Docker Compose报错排查有哪些核心工具？"></a>Docker Compose报错排查有哪些核心工具？</h2><p>掌握3个核心工具：</p>
+<ul>
+<li>docker-compose ps - 快速看状态：<ul>
+<li>这个命令告诉你哪些容器起来了，哪些挂了</li>
+<li>关注State那一列（Up正常运行、Exit启动失败或运行中崩溃了、Restarting不停重启说明启动命令有问题）</li>
+</ul>
+</li>
+<li>docker-compose logs - 看日志找线索：<ul>
+<li>查看特定服务的日志：docker-compose logs web</li>
+<li>查看最近50行日志：docker-compose logs —tail=50 web</li>
+<li>实时跟踪日志：docker-compose logs -f web</li>
+</ul>
+</li>
+<li>docker-compose config - 验证配置：<ul>
+<li>检查docker-compose.yml语法是否正确：docker-compose config</li>
+<li>验证环境变量是否正确：docker-compose config —resolve-env-vars</li>
+</ul>
+</li>
+</ul>
+<h2 id="端口冲突错误如何解决？"><a href="#端口冲突错误如何解决？" class="headerlink" title="端口冲突错误如何解决？"></a>端口冲突错误如何解决？</h2><p>错误特征：Error starting userland proxy: Bind for 0.0.0.0:8080 failed: port is already allocated。</p>
+<p>问题根源：端口被其他进程占用，可能是之前的容器没有停止，或者系统其他服务占用了端口。</p>
+<p>解决方案：</p>
+<ul>
+<li>检查端口占用（lsof -i :8080或netstat -tuln | grep 8080）</li>
+<li>停止占用进程（kill -9 PID或docker-compose down）</li>
+<li>修改端口（在docker-compose.yml中修改ports配置，例如”8081:8080”）</li>
+<li>使用动态端口（不指定宿主机端口，让Docker自动分配）</li>
+</ul>
+<h2 id="Docker-Compose网络问题如何排查？"><a href="#Docker-Compose网络问题如何排查？" class="headerlink" title="Docker Compose网络问题如何排查？"></a>Docker Compose网络问题如何排查？</h2><p>错误特征：network not found、container name resolution failed。</p>
+<p>问题根源：网络配置错误、容器无法通过名称解析。</p>
+<p>解决方案：</p>
+<ul>
+<li>检查网络配置（docker network ls查看所有网络）</li>
+<li>创建自定义网络（docker network create my-network）</li>
+<li>在docker-compose.yml中指定网络（networks: my-network）</li>
+<li>确保服务在同一网络中（使用相同的网络名称）</li>
+</ul>
+<h2 id="容器退出错误如何排查？"><a href="#容器退出错误如何排查？" class="headerlink" title="容器退出错误如何排查？"></a>容器退出错误如何排查？</h2><p>错误特征：Exited with code 1、Restarting。</p>
+<p>问题根源：</p>
+<ul>
+<li>启动命令错误</li>
+<li>环境变量缺失</li>
+<li>依赖服务未就绪</li>
+</ul>
+<p>解决方案：</p>
+<ul>
+<li>查看日志（docker-compose logs查看详细日志）</li>
+<li>检查启动命令（确认CMD或ENTRYPOINT是否正确）</li>
+<li>检查环境变量（确认.env文件或环境变量配置正确）</li>
+<li>检查依赖服务（确认依赖的服务是否已启动并就绪）</li>
+<li>检查健康检查（如果配置了healthcheck，确认健康检查是否通过）</li>
+</ul>
+<h2 id="如何系统化排查Docker-Compose报错？"><a href="#如何系统化排查Docker-Compose报错？" class="headerlink" title="如何系统化排查Docker Compose报错？"></a>如何系统化排查Docker Compose报错？</h2><p>系统化排查流程：</p>
+<ul>
+<li>使用docker-compose ps查看容器状态</li>
+<li>使用docker-compose logs查看错误日志</li>
+<li>使用docker-compose config验证配置文件</li>
+<li>按错误类型分类处理：<ul>
+<li>端口冲突→检查端口占用→修改端口或停止占用进程</li>
+<li>网络问题→检查网络配置→创建自定义网络</li>
+<li>构建失败→检查Dockerfile→修复构建错误</li>
+<li>容器退出→查看日志→修复启动命令</li>
+<li>权限错误→检查文件权限→修复权限问题</li>
+</ul>
+</li>
+</ul>
+<p>90%的报错都能在5分钟内搞定，只要你知道从哪里下手。</p>
+<p>最佳实践：建个团队知识库，把踩过的坑和解决方案记下来，我们团队的Wiki里有个”Docker常见问题”页面，新人看完能少踩80%的坑。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/286/">https://jingluo23.github.io/posts/286/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/c04c/" title="Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题</div></div><div class="info-2"><div class="info-item-1">详解Docker Compose的depends_on与healthcheck配置，通过实战示例解决数据库未就绪导致的应用启动失败问题，包含PostgreSQL和MySQL完整配置模板</div></div></div></a><a class="pagination-related" href="/posts/438c/" title="Docker Compose 生产部署：健康检查、重启策略与日志管理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker Compose 生产部署：健康检查、重启策略与日志管理</div></div><div class="info-2"><div class="info-item-1">Docker Compose 生产环境实战指南：健康检查配置、重启策略详解、日志管理完整方案。从容器假死到自动恢复，避免磁盘被日志填满的实用配置。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/1820/" title="2026年国内 Docker 镜像源指南：5分钟解决 pull 超时"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-28</div><div class="info-item-2">2026年国内 Docker 镜像源指南：5分钟解决 pull 超时</div></div><div class="info-2"><div class="info-item-1">2026 年 Docker mirror China 最新可用性判断：配置 daemon.json、测速镜像源、处理企业代理和 pull-through cache，并区分 Docker Hub 限速（429）与镜像源失效，5 分钟定位 docker pull timeout。</div></div></div></a><a class="pagination-related" href="/posts/d4c3/" title="Docker Compose 多服务编排：本地开发环境一键启动"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-13</div><div class="info-item-2">Docker Compose 多服务编排：本地开发环境一键启动</div></div><div class="info-2"><div class="info-item-1">用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。</div></div></div></a><a class="pagination-related" href="/posts/a8d7/" title="Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-01</div><div class="info-item-2">Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失</div></div><div class="info-2"><div class="info-item-1">手把手教你用Docker部署Redis并配置RDB/AOF持久化和密码认证,避免容器重启数据丢失,附完整配置文件和代码示例,适合生产环境部署</div></div></div></a><a class="pagination-related" href="/posts/8180/" title="Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-19</div><div class="info-item-2">Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题</div></div><div class="info-2"><div class="info-item-1">通过5个实战案例手把手教你使用Docker Volume，从基础概念到MySQL、Redis持久化，让容器数据不再随删除而消失，适合Docker初学者和开发者。</div></div></div></a><a class="pagination-related" href="/posts/64d8/" title="Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）</div></div><div class="info-2"><div class="info-item-1">手把手教你写Dockerfile，详解FROM、RUN、COPY等核心指令，避开初学者常踩的坑，附Node.js实战案例。看完就能给自己项目写Dockerfile！</div></div></div></a><a class="pagination-related" href="/posts/9de5/" title="Docker多阶段构建实战：Go&#x2F;Java&#x2F;Rust镜像从GB到MB的极致瘦身"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-10</div><div class="info-item-2">Docker多阶段构建实战：Go&#x2F;Java&#x2F;Rust镜像从GB到MB的极致瘦身</div></div><div class="info-2"><div class="info-item-1">深度解析Docker多阶段构建技术,通过真实案例展示如何将Go镜像优化98%、Java镜像减少86%、Rust镜像压缩99.4%。包含完整Dockerfile代码和踩坑经验。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8E%92%E6%9F%A5%E5%9F%BA%E7%A1%80-%E6%8E%8C%E6%8F%A13%E4%B8%AA%E6%A0%B8%E5%BF%83%E5%B7%A5%E5%85%B7"><span class="toc-number">1.</span> <span class="toc-text">排查基础 - 掌握3个核心工具</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B71%EF%BC%9Adocker-compose-ps-%E5%BF%AB%E9%80%9F%E7%9C%8B%E7%8A%B6%E6%80%81"><span class="toc-number">1.1.</span> <span class="toc-text">工具1：docker-compose ps - 快速看状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B72-docker-compose-logs-%E7%9C%8B%E6%97%A5%E5%BF%97%E6%89%BE%E7%BA%BF%E7%B4%A2"><span class="toc-number">1.2.</span> <span class="toc-text">工具2:docker-compose logs - 看日志找线索</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B73-docker-inspect-%E6%B7%B1%E5%BA%A6%E6%A3%80%E6%9F%A5-%E9%9C%80%E8%A6%81%E6%97%B6%E6%89%8D%E7%94%A8"><span class="toc-number">1.3.</span> <span class="toc-text">工具3:docker inspect - 深度检查(需要时才用)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%9A%E7%94%A8%E6%8E%92%E6%9F%A5%E6%B5%81%E7%A8%8B-%E8%AE%B0%E4%BD%8F%E8%BF%99%E4%B8%AA"><span class="toc-number">1.4.</span> <span class="toc-text">通用排查流程(记住这个)</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AB%AF%E5%8F%A3%E5%86%B2%E7%AA%81-%E2%80%9Cport-is-already-allocated%E2%80%9D"><span class="toc-number">2.</span> <span class="toc-text">端口冲突 - “port is already allocated”</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%9A%E8%BF%99%E6%A0%B7"><span class="toc-number">2.1.</span> <span class="toc-text">为什么会这样?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88-%E4%BB%8E%E7%AE%80%E5%8D%95%E5%88%B0%E5%A4%8D%E6%9D%82-%E4%BE%9D%E6%AC%A1%E8%AF%95"><span class="toc-number">2.2.</span> <span class="toc-text">解决方案(从简单到复杂,依次试)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E5%BB%BA%E8%AE%AE"><span class="toc-number">2.3.</span> <span class="toc-text">我的建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98-%E2%80%9Cnetwork-declared-as-external-but-could-not-be-found%E2%80%9D"><span class="toc-number">3.</span> <span class="toc-text">网络问题 - “network declared as external but could not be found”</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%9A%E6%8A%A5%E8%BF%99%E4%B8%AA%E9%94%99"><span class="toc-number">3.1.</span> <span class="toc-text">为什么会报这个错?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="toc-number">3.2.</span> <span class="toc-text">解决方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97"><span class="toc-number">3.3.</span> <span class="toc-text">避坑指南</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9E%84%E5%BB%BA%E5%A4%B1%E8%B4%A5-%E2%80%9Cservice-failed-to-build%E2%80%9D"><span class="toc-number">4.</span> <span class="toc-text">构建失败 - “service failed to build”</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E6%8A%80%E5%B7%A7-%E5%BE%80%E4%B8%8A%E7%BF%BB%E6%97%A5%E5%BF%97"><span class="toc-number">4.1.</span> <span class="toc-text">关键技巧:往上翻日志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E5%AD%90%E9%94%99%E8%AF%AF%E7%B1%BB%E5%9E%8B"><span class="toc-number">4.2.</span> <span class="toc-text">常见子错误类型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95"><span class="toc-number">4.3.</span> <span class="toc-text">调试方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E7%BB%8F%E9%AA%8C"><span class="toc-number">4.4.</span> <span class="toc-text">我的经验</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%90%8E%E9%80%80%E5%87%BA-%E2%80%9Cexited-with-code-X%E2%80%9D"><span class="toc-number">5.</span> <span class="toc-text">容器启动后退出 - “exited with code X”</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%80%E5%87%BA%E7%A0%81%E5%90%AB%E4%B9%89-%E8%AE%B0%E4%BD%8F%E8%BF%99%E5%87%A0%E4%B8%AA"><span class="toc-number">5.1.</span> <span class="toc-text">退出码含义(记住这几个)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%92%E6%9F%A5%E6%AD%A5%E9%AA%A4"><span class="toc-number">5.2.</span> <span class="toc-text">排查步骤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%92%88%E5%AF%B9%E6%80%A7%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="toc-number">5.3.</span> <span class="toc-text">针对性解决方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E8%B8%A9%E8%BF%87%E7%9A%84%E5%9D%91"><span class="toc-number">5.4.</span> <span class="toc-text">我踩过的坑</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9D%83%E9%99%90%E9%97%AE%E9%A2%98-%E2%80%9Cpermission-denied%E2%80%9D"><span class="toc-number">6.</span> <span class="toc-text">权限问题 - “permission denied”</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%9A%E6%9D%83%E9%99%90%E9%97%AE%E9%A2%98"><span class="toc-number">6.1.</span> <span class="toc-text">为什么会权限问题?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88-1"><span class="toc-number">6.2.</span> <span class="toc-text">解决方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E5%BB%BA%E8%AE%AE-1"><span class="toc-number">6.3.</span> <span class="toc-text">我的建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%80%9A%E7%94%A8%E8%B0%83%E8%AF%95%E6%8A%80%E5%B7%A7%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">通用调试技巧总结</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%87%E5%87%86%E6%8E%92%E6%9F%A5%E6%B5%81%E7%A8%8B-%E7%85%A7%E7%9D%80%E5%81%9A%E5%87%86%E6%B2%A1%E9%94%99"><span class="toc-number">7.1.</span> <span class="toc-text">标准排查流程(照着做准没错)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E6%B8%85%E7%90%86%E5%91%BD%E4%BB%A4-%E5%AE%9A%E6%9C%9F%E5%A4%A7%E6%89%AB%E9%99%A4"><span class="toc-number">7.2.</span> <span class="toc-text">常用清理命令(定期大扫除)</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A2%84%E9%98%B2%E6%80%A7%E6%8E%AA%E6%96%BD-%E9%98%B2%E6%82%A3%E4%BA%8E%E6%9C%AA%E7%84%B6"><span class="toc-number">7.3.</span> <span class="toc-text">预防性措施(防患于未然)</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">8.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Compose%E6%8A%A5%E9%94%99%E6%8E%92%E6%9F%A5%E6%9C%89%E5%93%AA%E4%BA%9B%E6%A0%B8%E5%BF%83%E5%B7%A5%E5%85%B7%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">Docker Compose报错排查有哪些核心工具？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AB%AF%E5%8F%A3%E5%86%B2%E7%AA%81%E9%94%99%E8%AF%AF%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">端口冲突错误如何解决？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Compose%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98%E5%A6%82%E4%BD%95%E6%8E%92%E6%9F%A5%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">Docker Compose网络问题如何排查？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E9%80%80%E5%87%BA%E9%94%99%E8%AF%AF%E5%A6%82%E4%BD%95%E6%8E%92%E6%9F%A5%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">容器退出错误如何排查？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E7%B3%BB%E7%BB%9F%E5%8C%96%E6%8E%92%E6%9F%A5Docker-Compose%E6%8A%A5%E9%94%99%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">如何系统化排查Docker Compose报错？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

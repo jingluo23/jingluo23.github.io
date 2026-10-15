@@ -1,0 +1,802 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker容器调试指南：exec命令进入容器排查问题的正确姿势 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解docker exec命令进入容器调试的正确方法，包含exec与attach区别、工具安装技巧、用户权限指定等实用场景，附带完整命令示例助你快速排查容器问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker容器调试指南：exec命令进入容器排查问题的正确姿势">
+<meta property="og:url" content="https://jingluo23.github.io/posts/a163/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解docker exec命令进入容器调试的正确方法，包含exec与attach区别、工具安装技巧、用户权限指定等实用场景，附带完整命令示例助你快速排查容器问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-11T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.723Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker容器调试指南：exec命令进入容器排查问题的正确姿势",
+  "url": "https://jingluo23.github.io/posts/a163/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-11T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.723Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/a163/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker容器调试指南：exec命令进入容器排查问题的正确姿势',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker容器调试指南：exec命令进入容器排查问题的正确姿势</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker容器调试指南：exec命令进入容器排查问题的正确姿势</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-11T07:06:23.000Z" title="发表于 2026-10-11 15:06:23">2026-10-11</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.723Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.8k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>16分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>测试环境的API突然返回502。运行<code>docker ps</code>，容器状态显示”Up 2 hours”，明明在正常运行。再看日志，只有一句冷冰冰的”Connection refused”。</p>
+<p>这种时候最让人抓狂——你知道容器在跑,但就是不知道里面到底发生了什么。配置文件写对了吗？进程真的起来了吗？端口监听了没有？这些问题都需要”进入”容器内部才能确认，就像你需要进入一个黑箱子看看里面到底装了什么。</p>
+<p>说实话，我刚接触Docker的时候,也不知道怎么”进入”容器。网上搜了一圈,有人说用<code>docker exec</code>，有人说用<code>docker attach</code>，还有人直接建议我重启容器。后来踩了不少坑才明白，容器调试其实有一套正确的姿势。</p>
+<p>这篇文章会教你如何用docker exec正确进入容器排查问题，包含exec和attach的本质区别、容器内工具缺失的应对方案，以及一些实用的调试技巧。掌握了这些，下次容器出问题，你就不用只会重启大法了。</p>
+<h1 id="docker-exec基础-正确进入容器的方式"><a href="#docker-exec基础-正确进入容器的方式" class="headerlink" title="docker exec基础 - 正确进入容器的方式"></a>docker exec基础 - 正确进入容器的方式</h1><h2 id="最简单的进入方式"><a href="#最简单的进入方式" class="headerlink" title="最简单的进入方式"></a>最简单的进入方式</h2><p>想进入一个正在运行的容器，最常用的命令就是：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it my-nginx bash</span><br></pre></td></tr></table></figure>
+<p>这里有三个关键部分：</p>
+<ul>
+<li><code>-it</code>：这是两个参数的缩写，<code>-i</code>保持标准输入打开，<code>-t</code>分配一个终端。简单理解就是让你能和容器”对话”</li>
+<li><code>my-nginx</code>：容器名称，也可以用容器ID（比如<code>docker exec -it abc123def456 bash</code>）</li>
+<li><code>bash</code>：你要在容器里执行的命令，这里是启动bash终端</li>
+</ul>
+<p>运行这个命令后，你的命令行提示符会变成类似<code>root@abc123def456:/#</code>的样子，这就说明你已经”进入”容器了。现在你可以像操作普通Linux服务器一样执行各种命令。</p>
+<h2 id="如果bash不存在怎么办？"><a href="#如果bash不存在怎么办？" class="headerlink" title="如果bash不存在怎么办？"></a>如果bash不存在怎么办？</h2><p>有时候你会遇到这种错误：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ docker exec -it my-alpine bash</span><br><span class="line">OCI runtime exec failed: exec failed: container_linux.go:380:</span><br><span class="line">starting container process caused: exec: &quot;bash&quot;: executable file not found</span><br></pre></td></tr></table></figure>
+<p>别慌，这通常是因为容器用的是Alpine Linux这种超精简的系统，它默认只带<code>sh</code>而没有<code>bash</code>。换个命令就行：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it my-alpine sh</span><br></pre></td></tr></table></figure>
+<p>我的经验是，先试<code>bash</code>，不行就用<code>sh</code>，基本能搞定90%的容器。</p>
+<h2 id="用容器ID更灵活"><a href="#用容器ID更灵活" class="headerlink" title="用容器ID更灵活"></a>用容器ID更灵活</h2><p>很多时候你可能懒得去看容器名称，直接用ID前几位就行：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 先看下容器ID</span><br><span class="line">$ docker ps</span><br><span class="line">CONTAINER ID   IMAGE    COMMAND                  CREATED</span><br><span class="line">abc123def456   nginx    &quot;/docker-entrypoint.…&quot;   2 hours ago</span><br><span class="line"></span><br><span class="line"># 用ID前缀进入（3-4位就够了）</span><br><span class="line">$ docker exec -it abc1 bash</span><br></pre></td></tr></table></figure>
+<p>Docker会自动匹配ID前缀，只要不重复就行。这招在有很多容器的时候特别好用。</p>
+<h2 id="退出容器的正确方式"><a href="#退出容器的正确方式" class="headerlink" title="退出容器的正确方式"></a>退出容器的正确方式</h2><p>进去容器后想出来，直接输入<code>exit</code>或按<code>Ctrl+D</code>就行：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">root@abc123def456:/# exit</span><br><span class="line">exit</span><br><span class="line">$</span><br></pre></td></tr></table></figure>
+<p>重点是，用exec进入的容器，你退出后容器<strong>不会停止</strong>。这点很重要，咱们接下来就讲为什么。</p>
+<h1 id="exec-vs-attach-别再用错了"><a href="#exec-vs-attach-别再用错了" class="headerlink" title="exec vs attach - 别再用错了"></a>exec vs attach - 别再用错了</h1><h2 id="它们的本质区别"><a href="#它们的本质区别" class="headerlink" title="它们的本质区别"></a>它们的本质区别</h2><p>很多教程会同时提到<code>docker exec</code>和<code>docker attach</code>，但很少讲清楚它们的本质区别。我当初就因为用错了attach，导致一个容器莫名其妙地停了。</p>
+<p>简单来说：</p>
+<ul>
+<li><strong>docker exec</strong>：在容器内启动一个<strong>新进程</strong>，就像开了一个新窗口</li>
+<li><strong>docker attach</strong>：连接到容器的<strong>主进程</strong>（PID 1），就像投屏到已有的屏幕上</li>
+</ul>
+<p>听起来有点抽象？我给你举个例子。</p>
+<p>假设你用<code>docker attach my-nginx</code>连接到Nginx容器，然后按<code>Ctrl+C</code>或输入<code>exit</code>退出。结果呢？容器的主进程（Nginx）会收到退出信号，整个容器就停了。生产环境要是这么干，估计得被老板骂死。</p>
+<p>但如果用<code>docker exec -it my-nginx bash</code>，你启动的是一个独立的bash进程，退出这个bash不会影响Nginx主进程，容器继续正常运行。</p>
+<h2 id="什么时候用exec，什么时候用attach？"><a href="#什么时候用exec，什么时候用attach？" class="headerlink" title="什么时候用exec，什么时候用attach？"></a>什么时候用exec，什么时候用attach？</h2><p>我的建议很简单：<strong>99%的情况下用exec就对了</strong>。</p>
+<p>attach唯一有用的场景是当你需要直接与容器的主进程交互时，比如：</p>
+<ul>
+<li>容器里运行的是一个交互式程序（比如Python REPL）</li>
+<li>你需要看到主进程的实时输出</li>
+<li>多个终端需要”同步”看到同样的内容（类似屏幕共享）</li>
+</ul>
+<p>但说实话，这些场景太少见了。大部分时候你只是想进容器看看文件、改改配置、跑跑命令，用exec安全又方便。</p>
+<h2 id="一个对比表格让你彻底记住"><a href="#一个对比表格让你彻底记住" class="headerlink" title="一个对比表格让你彻底记住"></a>一个对比表格让你彻底记住</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">特性</th>
+<th style="text-align:center">docker exec</th>
+<th style="text-align:center">docker attach</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">启动新进程</td>
+<td style="text-align:center">✓ 是</td>
+<td style="text-align:center">✗ 否</td>
+</tr>
+<tr>
+<td style="text-align:center">exit后容器停止</td>
+<td style="text-align:center">✗ 否</td>
+<td style="text-align:center">✓ 是（危险！）</td>
+</tr>
+<tr>
+<td style="text-align:center">可以运行任意命令</td>
+<td style="text-align:center">✓ 是</td>
+<td style="text-align:center">✗ 否</td>
+</tr>
+<tr>
+<td style="text-align:center">多个终端独立</td>
+<td style="text-align:center">✓ 是</td>
+<td style="text-align:center">✗ 否（共享同一个tty）</td>
+</tr>
+<tr>
+<td style="text-align:center">调试推荐度</td>
+<td style="text-align:center">⭐⭐⭐⭐⭐</td>
+<td style="text-align:center">⭐</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>看到这里，你应该知道为什么我一直在强调用exec了吧。attach的设计初衷是为了查看容器输出，而不是用来做日常调试的。</p>
+<h1 id="容器内工具缺失的应对方案"><a href="#容器内工具缺失的应对方案" class="headerlink" title="容器内工具缺失的应对方案"></a>容器内工具缺失的应对方案</h1><h2 id="为什么容器里啥命令都没有？"><a href="#为什么容器里啥命令都没有？" class="headerlink" title="为什么容器里啥命令都没有？"></a>为什么容器里啥命令都没有？</h2><p>好不容易进了容器，准备用<code>vim</code>改个配置文件，结果：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@abc123:/# vim /etc/nginx/nginx.conf</span><br><span class="line"><span class="attribute">bash</span><span class="punctuation">: </span>vim: command not found</span><br></pre></td></tr></table></figure>
+<p>想用<code>curl</code>测试下API：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@abc123:/# curl localhost:8080</span><br><span class="line"><span class="attribute">bash</span><span class="punctuation">: </span>curl: command not found</span><br></pre></td></tr></table></figure>
+<p>甚至连<code>ping</code>都没有。第一次遇到这种情况，我的内心是崩溃的——这啥都没有还怎么调试？</p>
+<p>其实这是Docker镜像的设计哲学：<strong>只装必需的东西，能不装就不装</strong>。一个完整的Ubuntu镜像可能有几百MB，但Alpine镜像只有5MB。怎么做到的？就是把所有”不必要”的工具都删了，包括vim、curl、ping这些你觉得理所当然应该存在的东西。</p>
+<h2 id="临时安装工具救急"><a href="#临时安装工具救急" class="headerlink" title="临时安装工具救急"></a>临时安装工具救急</h2><p>遇到这种情况，可以临时装一下需要的工具。根据容器的系统类型，用不同的包管理器：</p>
+<p><strong>Debian/Ubuntu系统（apt/apt-get）</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 先更新包列表</span><br><span class="line">apt-get update</span><br><span class="line"></span><br><span class="line"># 安装常用工具</span><br><span class="line">apt-get install -y vim curl wget net-tools</span><br><span class="line"></span><br><span class="line"># 如果需要网络诊断工具</span><br><span class="line">apt-get install -y iputils-ping dnsutils</span><br></pre></td></tr></table></figure>
+<p><strong>CentOS/RedHat系统（yum）</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install -y vim curl wget</span><br></pre></td></tr></table></figure>
+<p><strong>Alpine系统（apk）</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">apk update</span><br><span class="line">apk add vim curl bash</span><br></pre></td></tr></table></figure>
+<h2 id="怎么知道容器用的啥系统？"><a href="#怎么知道容器用的啥系统？" class="headerlink" title="怎么知道容器用的啥系统？"></a>怎么知道容器用的啥系统？</h2><p>如果不确定容器是啥系统，有两个简单方法：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 方法1：查看系统发行版文件</span><br><span class="line">cat /etc/os-release</span><br><span class="line"></span><br><span class="line"># 方法2：试试包管理器命令存不存在</span><br><span class="line">which apt-get   # 存在说明是Debian/Ubuntu</span><br><span class="line">which yum      # 存在说明是CentOS/RedHat</span><br><span class="line">which apk      # 存在说明是Alpine</span><br></pre></td></tr></table></figure>
+<p>我一般是直接试<code>apt-get update</code>，报错了再换别的。反正也不会把容器搞坏。</p>
+<h2 id="这样做安全吗？"><a href="#这样做安全吗？" class="headerlink" title="这样做安全吗？"></a>这样做安全吗？</h2><p>临时装工具有几个要注意的点：</p>
+<ul>
+<li><strong>开发环境</strong>：随便装，没关系。反正测试容器重启后就重置了，你装的东西也会消失。</li>
+<li><strong>生产环境</strong>：只在紧急排查问题时才这么干。问题解决后，应该把需要的工具写进Dockerfile，重新构建镜像。</li>
+</ul>
+<p>为什么？有两个原因：</p>
+<ul>
+<li><strong>安全性</strong>：临时安装的包可能有安全漏洞</li>
+<li><strong>可重现性</strong>：容器重启后你装的工具就没了，下次又得重新装</li>
+</ul>
+<h2 id="长期方案：在Dockerfile里预装"><a href="#长期方案：在Dockerfile里预装" class="headerlink" title="长期方案：在Dockerfile里预装"></a>长期方案：在Dockerfile里预装</h2><p>如果你经常需要某些调试工具，最好在构建镜像时就装好：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">FROM nginx:latest</span><br><span class="line"></span><br><span class="line"># 安装常用调试工具</span><br><span class="line">RUN apt-get update &amp;&amp; apt-get install -y \</span><br><span class="line">    vim \</span><br><span class="line">    curl \</span><br><span class="line">    wget \</span><br><span class="line">    net-tools \</span><br><span class="line">    iputils-ping \</span><br><span class="line"> &amp;&amp; rm -rf /var/lib/apt/lists/*  # 清理缓存，减小镜像体积</span><br><span class="line"></span><br><span class="line"># 其他配置...</span><br></pre></td></tr></table></figure>
+<p>注意最后的<code>rm -rf /var/lib/apt/lists/*</code>，这是个好习惯，能让你的镜像小不少。</p>
+<h2 id="一个实用小技巧"><a href="#一个实用小技巧" class="headerlink" title="一个实用小技巧"></a>一个实用小技巧</h2><p>如果你只是想快速查看配置文件内容，其实不需要vim。用<code>cat</code>或<code>less</code>就行，这俩命令基本上所有容器都有：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 查看完整文件</span><br><span class="line">cat /etc/nginx/nginx.conf</span><br><span class="line"></span><br><span class="line"># 分页查看（适合长文件）</span><br><span class="line">less /etc/nginx/nginx.conf  # 按q退出</span><br><span class="line"></span><br><span class="line"># 只看前几行</span><br><span class="line">head -n 20 /etc/nginx/nginx.conf</span><br></pre></td></tr></table></figure>
+<p>如果要改文件，实在没vim的话，可以用<code>sed</code>直接替换，虽然不如vim直观，但在紧急时刻管用：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 把listen 80改成listen 8080</span><br><span class="line">sed -i &#x27;s/listen 80/listen 8080/g&#x27; /etc/nginx/nginx.conf</span><br></pre></td></tr></table></figure>
+<h1 id="以特定用户身份进入容器"><a href="#以特定用户身份进入容器" class="headerlink" title="以特定用户身份进入容器"></a>以特定用户身份进入容器</h1><h2 id="为什么需要指定用户？"><a href="#为什么需要指定用户？" class="headerlink" title="为什么需要指定用户？"></a>为什么需要指定用户？</h2><p>有时候你进入容器后会遇到这种情况：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@abc123:/app# cat /var/log/app.log</span><br><span class="line"><span class="attribute">cat</span><span class="punctuation">: </span>/var/log/app.log: Permission denied</span><br></pre></td></tr></table></figure>
+<p>或者想改个文件权限：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">root@abc123:/app# chmod 644 config.yaml</span><br><span class="line"><span class="attribute">chmod</span><span class="punctuation">: </span>changing permissions of &#x27;config.yaml&#x27;: Operation not permitted</span><br></pre></td></tr></table></figure>
+<p>明明提示符显示的是root，怎么还没权限？这通常是因为容器配置了非root用户运行（这是个好习惯，生产环境推荐这么做），但你exec进去的默认用户继承了容器的用户设置。</p>
+<h2 id="以root身份进入"><a href="#以root身份进入" class="headerlink" title="以root身份进入"></a>以root身份进入</h2><p>这时候就需要明确指定用root身份进入：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it --user root my-app bash</span><br></pre></td></tr></table></figure>
+<p>或者简写：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it -u root my-app bash</span><br></pre></td></tr></table></figure>
+<p>现在你就有真正的root权限了，可以查看任何文件、修改任何配置。</p>
+<h2 id="以特定UID进入"><a href="#以特定UID进入" class="headerlink" title="以特定UID进入"></a>以特定UID进入</h2><p>有时候你可能需要以特定的用户ID进入，比如容器内的应用用户是UID 1000：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 以UID 1000进入</span><br><span class="line">docker exec -it --user 1000 my-app bash</span><br><span class="line"></span><br><span class="line"># 也可以指定用户名（如果容器里有这个用户）</span><br><span class="line">docker exec -it --user appuser my-app bash</span><br><span class="line"></span><br><span class="line"># 指定用户和组（格式：用户:组）</span><br><span class="line">docker exec -it --user 1000:1000 my-app bash</span><br></pre></td></tr></table></figure>
+<p>这个在调试权限问题时特别有用。比如你怀疑应用写不了某个目录，可以用应用的身份进去试试：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 以应用用户身份进入</span><br><span class="line">docker exec -it --user appuser my-app bash</span><br><span class="line"></span><br><span class="line"># 试试能不能在数据目录创建文件</span><br><span class="line">appuser@abc123:/app$ touch /data/test.txt</span><br><span class="line"><span class="attribute">touch</span><span class="punctuation">: </span>cannot touch &#x27;/data/test.txt&#x27;: Permission denied</span><br><span class="line"></span><br><span class="line"># 好，找到问题了，权限确实有问题</span><br></pre></td></tr></table></figure>
+<h2 id="什么时候需要root权限？"><a href="#什么时候需要root权限？" class="headerlink" title="什么时候需要root权限？"></a>什么时候需要root权限？</h2><p>根据我的经验，这些场景通常需要root：</p>
+<ol>
+<li><strong>修改系统配置</strong>：<code>/etc/</code>下的各种配置文件</li>
+<li><strong>安装软件包</strong>：apt-get、yum等都需要root</li>
+<li><strong>查看系统日志</strong>：<code>/var/log/</code>下的很多日志文件普通用户看不了</li>
+<li><strong>调整文件权限</strong>：chmod、chown这些操作</li>
+<li><strong>调试网络问题</strong>：tcpdump、netstat等网络工具通常需要root</li>
+</ol>
+<p>但记住，<strong>能不用root就别用root</strong>。特别是生产环境，用root改完东西记得改回来，不然可能留下安全隐患。</p>
+<h2 id="一个安全提醒"><a href="#一个安全提醒" class="headerlink" title="一个安全提醒"></a>一个安全提醒</h2><p>虽然可以用root进入容器，但有几点要注意：</p>
+<p><strong>测试环境</strong>：随便用，没啥大问题。容器重启就重置了。</p>
+<p><strong>生产环境</strong>：</p>
+<ul>
+<li>进去看看东西 → OK</li>
+<li>临时改个配置救急 → 勉强OK，但要记录下来改了什么</li>
+<li>直接在容器里编译代码、安装软件 → 不OK！这种改动应该写进Dockerfile</li>
+</ul>
+<p>为什么？因为容器的设计理念是”不可变基础设施”。你在运行中的容器里改的东西，只要容器重启就全没了。真正的修改应该体现在Dockerfile里，这样才能保证可重现。</p>
+<p>还有个安全风险：容器里的root和宿主机的root在某些配置下可能是同一个用户（共享UID 0）。虽然有命名空间隔离，但如果配置不当，容器里的root可能对宿主机造成影响。这也是为什么生产环境推荐用非root用户运行容器。</p>
+<h1 id="实战技巧和常见场景"><a href="#实战技巧和常见场景" class="headerlink" title="实战技巧和常见场景"></a>实战技巧和常见场景</h1><h2 id="执行单条命令（不进入交互式shell）"><a href="#执行单条命令（不进入交互式shell）" class="headerlink" title="执行单条命令（不进入交互式shell）"></a>执行单条命令（不进入交互式shell）</h2><p>很多时候你不需要进入容器待着，只是想快速执行一条命令看看结果。这时候不用加<code>-it</code>参数：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># 查看目录内容</span><br><span class="line">docker exec my-nginx ls -la /etc/nginx/</span><br><span class="line"></span><br><span class="line"># 查看配置文件</span><br><span class="line">docker exec my-nginx cat /etc/nginx/nginx.conf</span><br><span class="line"></span><br><span class="line"># 检查进程</span><br><span class="line">docker exec my-nginx ps aux</span><br><span class="line"></span><br><span class="line"># 查看端口监听情况</span><br><span class="line">docker exec my-nginx netstat -tlnp</span><br><span class="line"></span><br><span class="line"># 测试网络连通性</span><br><span class="line">docker exec my-nginx curl -I localhost:80</span><br></pre></td></tr></table></figure>
+<p>这种方式特别适合写脚本或者快速检查某个值。比如我经常用这个检查应用是否正常响应：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 健康检查脚本</span><br><span class="line">if docker exec my-app curl -f http://localhost:8080/health; then</span><br><span class="line">  echo &quot;App is healthy&quot;</span><br><span class="line">else</span><br><span class="line">  echo &quot;App is down!&quot;</span><br><span class="line">fi</span><br></pre></td></tr></table></figure>
+<h2 id="容器调试的标准流程"><a href="#容器调试的标准流程" class="headerlink" title="容器调试的标准流程"></a>容器调试的标准流程</h2><p>遇到容器问题，我一般按这个流程排查：</p>
+<ol>
+<li><p><strong>先看容器状态</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker ps -a  # 看容器是否在运行</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>查看日志找线索</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker logs my-app --tail 100  # 看最近100行日志</span><br><span class="line">docker logs my-app -f          # 实时跟踪日志（类似tail -f）</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>进容器检查进程</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app ps aux</span><br></pre></td></tr></table></figure>
+<p> 看看该起的进程起了没有。比如Nginx容器应该能看到nginx master和worker进程。</p>
+</li>
+<li><p><strong>检查端口监听</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app netstat -tlnp</span><br><span class="line"># 或者（如果netstat没有）</span><br><span class="line">docker exec my-app ss -tlnp</span><br></pre></td></tr></table></figure>
+<p> 确认应用监听的端口对不对。</p>
+</li>
+<li><p><strong>测试服务可用性</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 从容器内部测试</span><br><span class="line">docker exec my-app curl localhost:8080</span><br><span class="line"></span><br><span class="line"># 如果curl没有，用telnet看端口通不通</span><br><span class="line">docker exec my-app telnet localhost 8080</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>查看配置文件</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app cat /etc/nginx/nginx.conf</span><br><span class="line">docker exec my-app cat /app/config.yaml</span><br></pre></td></tr></table></figure>
+<p> 看看配置是不是符合预期。</p>
+</li>
+<li><p><strong>检查磁盘空间</strong></p>
+ <figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app df -h</span><br></pre></td></tr></table></figure>
+<p> 有时候是容器里的磁盘满了导致应用写不了文件。</p>
+</li>
+</ol>
+<h2 id="几个实用的调试命令组合"><a href="#几个实用的调试命令组合" class="headerlink" title="几个实用的调试命令组合"></a>几个实用的调试命令组合</h2><p><strong>检查环境变量</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app env | grep DATABASE</span><br></pre></td></tr></table></figure>
+<p>看看数据库连接配置对不对。</p>
+<p><strong>查找特定文件</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app find /app -name &quot;*.log&quot;</span><br></pre></td></tr></table></figure>
+<p><strong>查看文件权限</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec my-app ls -la /app/</span><br></pre></td></tr></table></figure>
+<p>排查权限问题时很有用。</p>
+<p><strong>实时监控容器资源</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker stats my-app</span><br></pre></td></tr></table></figure>
+<p>这个不用exec，直接在宿主机运行。能看到CPU、内存、网络、IO的实时使用情况。</p>
+<h2 id="批量操作多个容器"><a href="#批量操作多个容器" class="headerlink" title="批量操作多个容器"></a>批量操作多个容器</h2><p>如果你有多个容器需要检查，可以结合shell脚本：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 检查所有运行中容器的内存使用</span><br><span class="line">for container in $(docker ps -q); do</span><br><span class="line">  echo &quot;Container: $container&quot;</span><br><span class="line">  docker exec $container free -h</span><br><span class="line">  echo &quot;---&quot;</span><br><span class="line">done</span><br></pre></td></tr></table></figure>
+<h2 id="调试网络问题"><a href="#调试网络问题" class="headerlink" title="调试网络问题"></a>调试网络问题</h2><p><strong>检查容器间连通性</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 在容器A里ping容器B</span><br><span class="line">docker exec containerA ping containerB</span><br><span class="line"></span><br><span class="line"># 测试容器能否访问外网</span><br><span class="line">docker exec my-app ping -c 3 google.com</span><br><span class="line"></span><br><span class="line"># 查看DNS解析</span><br><span class="line">docker exec my-app nslookup google.com</span><br></pre></td></tr></table></figure>
+<p><strong>查看容器IP</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">docker inspect my-app | grep IPAddress</span><br><span class="line"># 或者进容器看</span><br><span class="line">docker exec my-app ip addr show</span><br></pre></td></tr></table></figure>
+<h2 id="遇到容器一直重启怎么办？"><a href="#遇到容器一直重启怎么办？" class="headerlink" title="遇到容器一直重启怎么办？"></a>遇到容器一直重启怎么办？</h2><p>有时候容器刚起来就退出，根本来不及exec进去。这时候可以：</p>
+<p><strong>方法1：覆盖启动命令</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 让容器启动后保持运行，不执行原来的CMD</span><br><span class="line">docker run -it --name debug-app my-app-image sh</span><br></pre></td></tr></table></figure>
+<p>这样容器会停在shell，不会执行原来的启动脚本，你就有时间检查问题了。</p>
+<p><strong>方法2：查看退出的容器</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 启动一个已经退出的容器</span><br><span class="line">docker start my-app</span><br><span class="line"></span><br><span class="line"># 马上查看日志</span><br><span class="line">docker logs my-app</span><br><span class="line"></span><br><span class="line"># 如果容器还没退出，赶紧exec进去</span><br><span class="line">docker exec -it my-app bash</span><br></pre></td></tr></table></figure>
+<p>这一节的技巧我都是在实战中一点点积累的。Docker容器调试刚开始可能有点懵，但熟悉这些命令之后，排查问题会快很多。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实Docker容器调试的核心就这几点：</p>
+<p><strong>用</strong><code>**docker exec**</code><strong>进入容器</strong>是最安全的方式，退出不会影响容器运行。记住这个万能命令：<code>docker exec -it 容器名 bash</code>，bash不行就试sh。</p>
+<p><strong>exec和attach别搞混</strong>，attach会连接到主进程，exit就把容器停了。除非你明确知道自己在干什么，否则老老实实用exec。</p>
+<p><strong>工具缺失不用慌</strong>，临时装一下就行（apt-get/yum/apk）。但要记住，这只是救急用的，长期方案是把工具写进Dockerfile。</p>
+<p><strong>需要root权限时</strong>，加个<code>--user root</code>参数。但生产环境要慎用，改完记得记录下来，最好尽快把修改同步到镜像里。</p>
+<p><strong>调试要有流程</strong>：先看日志，再检查进程，然后查配置，最后测网络。按这个顺序排查，能解决大部分问题。</p>
+<p>下次容器出问题，别急着重启大法了。进去看看，很多问题都是配置写错、权限不对、端口冲突这种简单原因。exec命令用好了，容器调试其实没那么难。</p>
+<p>最后送你一个调试清单，遇到问题可以照着检查：</p>
+<p><strong>容器调试检查清单</strong>：</p>
+<ul>
+<li>容器在运行吗？（<code>docker ps</code>）</li>
+<li>日志有报错吗？（<code>docker logs</code>）</li>
+<li>进程都起来了吗？（<code>docker exec ps aux</code>）</li>
+<li>端口监听正常吗？（<code>docker exec netstat -tlnp</code>）</li>
+<li>配置文件对不对？（<code>docker exec cat config</code>）</li>
+<li>磁盘空间够不够？（<code>docker exec df -h</code>）</li>
+<li>网络通不通？（<code>docker exec curl/ping</code>）</li>
+</ul>
+<p>把这些都检查一遍，基本上问题就能定位到了。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么推荐使用exec而不是attach进入容器？"><a href="#为什么推荐使用exec而不是attach进入容器？" class="headerlink" title="为什么推荐使用exec而不是attach进入容器？"></a>为什么推荐使用exec而不是attach进入容器？</h2><p>exec和attach的核心区别在于进程处理方式：</p>
+<ul>
+<li>exec：创建新进程进入容器，不会影响主进程，退出时容器继续运行</li>
+<li>attach：连接到主进程的stdin/stdout，退出时会停止容器</li>
+</ul>
+<p>因此exec更适合调试场景，可以安全地进入容器排查问题，而attach主要用于查看实时日志输出。</p>
+<h2 id="容器内没有bash或sh怎么办？"><a href="#容器内没有bash或sh怎么办？" class="headerlink" title="容器内没有bash或sh怎么办？"></a>容器内没有bash或sh怎么办？</h2><p>如果容器内没有bash或sh，可以尝试以下方法：</p>
+<ul>
+<li>使用其他shell：<code>docker exec -it container-name /bin/ash</code>（Alpine常用）</li>
+<li>直接执行命令：<code>docker exec container-name command</code>（不需要进入交互式shell）</li>
+<li>检查可用shell：<code>docker exec container-name ls /bin/</code></li>
+<li>使用busybox：某些精简镜像可能只有busybox，可以尝试<code>docker exec -it container-name busybox sh</code></li>
+</ul>
+<p>如果确实需要交互式调试，建议在Dockerfile中预先安装bash或sh。</p>
+<h2 id="如何在只读文件系统的容器中安装工具？"><a href="#如何在只读文件系统的容器中安装工具？" class="headerlink" title="如何在只读文件系统的容器中安装工具？"></a>如何在只读文件系统的容器中安装工具？</h2><p>只读文件系统的容器需要先重新挂载为可写：</p>
+<ol>
+<li>重新挂载根目录为可写：<code>docker exec -u root container-name sh -c &#39;mount -o remount,rw /&#39;</code></li>
+<li>然后正常安装工具：</li>
+</ol>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker exec -u root container-name apt-get update</span><br><span class="line">docker exec -u root container-name apt-get install -y tool-name</span><br></pre></td></tr></table></figure>
+<p>注意：容器重启后修改会丢失，建议将工具安装步骤添加到Dockerfile中，或使用多阶段构建预先安装常用工具。</p>
+<h2 id="容器内无法访问外部网络怎么办？"><a href="#容器内无法访问外部网络怎么办？" class="headerlink" title="容器内无法访问外部网络怎么办？"></a>容器内无法访问外部网络怎么办？</h2><p>容器网络问题排查步骤：</p>
+<ol>
+<li>检查容器网络模式：<code>docker inspect container-name | grep NetworkMode</code></li>
+<li>测试DNS解析：<code>docker exec container-name nslookup google.com</code></li>
+<li>测试网络连通性：<code>docker exec container-name ping -c 3 8.8.8.8</code></li>
+<li>检查防火墙规则：<code>docker exec container-name iptables -L</code></li>
+<li>如果使用自定义网络，检查网络配置：<code>docker network inspect network-name</code></li>
+</ol>
+<p>常见原因：DNS配置错误、防火墙规则限制、网络模式配置问题。</p>
+<h2 id="exec进入容器后如何退出而不影响容器运行？"><a href="#exec进入容器后如何退出而不影响容器运行？" class="headerlink" title="exec进入容器后如何退出而不影响容器运行？"></a>exec进入容器后如何退出而不影响容器运行？</h2><p>使用exec进入容器后，有几种安全的退出方式：</p>
+<ul>
+<li>输入<code>exit</code>或按<code>Ctrl+D</code>：正常退出，不会影响容器</li>
+<li>按<code>Ctrl+P</code>然后<code>Ctrl+Q</code>：分离模式退出，容器继续运行</li>
+<li>直接关闭终端：如果使用<code>-it</code>参数，直接关闭终端窗口即可</li>
+</ul>
+<p>注意：不要使用<code>docker attach</code>进入容器后按<code>Ctrl+C</code>，这会停止容器的主进程。使用exec进入的容器，退出时不会影响主进程运行。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/a163/">https://jingluo23.github.io/posts/a163/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/9669/" title="Docker 日志管理实战：从驱动配置到集中收集"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker 日志管理实战：从驱动配置到集中收集</div></div><div class="info-2"><div class="info-item-1">深度解析 Docker 日志驱动类型、日志轮转配置与集中收集方案，提供生产环境最佳实践与避坑指南</div></div></div></a><a class="pagination-related" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker容器启动就退出?完整排查指南(含退出码137/1解决方案)</div></div><div class="info-2"><div class="info-item-1">Docker容器启动后立即退出变Exited状态?本文提供系统性排查方法,详解退出码137/1含义,四步排查法和五大常见失败场景解决方案,帮你快速定位并修复容器启动问题</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/c04c/" title="Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-14</div><div class="info-item-2">Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题</div></div><div class="info-2"><div class="info-item-1">详解Docker Compose的depends_on与healthcheck配置，通过实战示例解决数据库未就绪导致的应用启动失败问题，包含PostgreSQL和MySQL完整配置模板</div></div></div></a><a class="pagination-related" href="/posts/ac96/" title="Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-09</div><div class="info-item-2">Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法</div></div><div class="info-2"><div class="info-item-1">Docker日志文件不断增长导致磁盘满？本文教你如何清理json.log、配置日志轮转、选择合适的日志驱动，彻底解决Docker日志撑爆磁盘的问题。</div></div></div></a><a class="pagination-related" href="/posts/ff6a/" title="Docker构建加速：善用缓存让构建快10倍的实战指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">Docker构建加速：善用缓存让构建快10倍的实战指南</div></div><div class="info-2"><div class="info-item-1">掌握Docker层缓存、.dockerignore配置和Dockerfile优化技巧,让构建速度从10分钟缩短到30秒。附完整代码示例和BuildKit缓存挂载进阶实战。</div></div></div></a><a class="pagination-related" href="/posts/7e11/" title="Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-18</div><div class="info-item-2">Docker Compose一键部署PHP环境：DNMP完整教程（Nginx+MySQL+PHP）</div></div><div class="info-2"><div class="info-item-1">手把手教你用Docker Compose一键部署DNMP（Docker+Nginx+MySQL+PHP）开发环境，10分钟搞定，彻底解决团队环境不一致问题，附完整配置文件和踩坑指南</div></div></div></a><a class="pagination-related" href="/posts/3a8b/" title="Docker 多阶段构建实战：生产镜像从 1GB 瘦身到 10MB"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-11</div><div class="info-item-2">Docker 多阶段构建实战：生产镜像从 1GB 瘦身到 10MB</div></div><div class="info-2"><div class="info-item-1">掌握 Docker 多阶段构建实战技巧，将生产镜像从 1GB 精简到 10MB。本文提供 Go、Node.js、Python 三语言模板，对比 Alpine vs Distroless 基础镜像，总结 5 个常见避坑方案。</div></div></div></a><a class="pagination-related" href="/posts/6e34/" title="Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-06</div><div class="info-item-2">Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南</div></div><div class="info-2"><div class="info-item-1">不知道Docker和虚拟机该选哪个？本文用通俗语言解释两者本质区别，提供性能数据对比和场景决策树，5分钟帮你做出正确选择。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#docker-exec%E5%9F%BA%E7%A1%80-%E6%AD%A3%E7%A1%AE%E8%BF%9B%E5%85%A5%E5%AE%B9%E5%99%A8%E7%9A%84%E6%96%B9%E5%BC%8F"><span class="toc-number">1.</span> <span class="toc-text">docker exec基础 - 正确进入容器的方式</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%80%E7%AE%80%E5%8D%95%E7%9A%84%E8%BF%9B%E5%85%A5%E6%96%B9%E5%BC%8F"><span class="toc-number">1.1.</span> <span class="toc-text">最简单的进入方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E6%9E%9Cbash%E4%B8%8D%E5%AD%98%E5%9C%A8%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">如果bash不存在怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E5%AE%B9%E5%99%A8ID%E6%9B%B4%E7%81%B5%E6%B4%BB"><span class="toc-number">1.3.</span> <span class="toc-text">用容器ID更灵活</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%80%E5%87%BA%E5%AE%B9%E5%99%A8%E7%9A%84%E6%AD%A3%E7%A1%AE%E6%96%B9%E5%BC%8F"><span class="toc-number">1.4.</span> <span class="toc-text">退出容器的正确方式</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#exec-vs-attach-%E5%88%AB%E5%86%8D%E7%94%A8%E9%94%99%E4%BA%86"><span class="toc-number">2.</span> <span class="toc-text">exec vs attach - 别再用错了</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%83%E4%BB%AC%E7%9A%84%E6%9C%AC%E8%B4%A8%E5%8C%BA%E5%88%AB"><span class="toc-number">2.1.</span> <span class="toc-text">它们的本质区别</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E7%94%A8exec%EF%BC%8C%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E7%94%A8attach%EF%BC%9F"><span class="toc-number">2.2.</span> <span class="toc-text">什么时候用exec，什么时候用attach？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E5%AF%B9%E6%AF%94%E8%A1%A8%E6%A0%BC%E8%AE%A9%E4%BD%A0%E5%BD%BB%E5%BA%95%E8%AE%B0%E4%BD%8F"><span class="toc-number">2.3.</span> <span class="toc-text">一个对比表格让你彻底记住</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E5%86%85%E5%B7%A5%E5%85%B7%E7%BC%BA%E5%A4%B1%E7%9A%84%E5%BA%94%E5%AF%B9%E6%96%B9%E6%A1%88"><span class="toc-number">3.</span> <span class="toc-text">容器内工具缺失的应对方案</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E5%AE%B9%E5%99%A8%E9%87%8C%E5%95%A5%E5%91%BD%E4%BB%A4%E9%83%BD%E6%B2%A1%E6%9C%89%EF%BC%9F"><span class="toc-number">3.1.</span> <span class="toc-text">为什么容器里啥命令都没有？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%B4%E6%97%B6%E5%AE%89%E8%A3%85%E5%B7%A5%E5%85%B7%E6%95%91%E6%80%A5"><span class="toc-number">3.2.</span> <span class="toc-text">临时安装工具救急</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E7%9F%A5%E9%81%93%E5%AE%B9%E5%99%A8%E7%94%A8%E7%9A%84%E5%95%A5%E7%B3%BB%E7%BB%9F%EF%BC%9F"><span class="toc-number">3.3.</span> <span class="toc-text">怎么知道容器用的啥系统？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%99%E6%A0%B7%E5%81%9A%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="toc-number">3.4.</span> <span class="toc-text">这样做安全吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%95%BF%E6%9C%9F%E6%96%B9%E6%A1%88%EF%BC%9A%E5%9C%A8Dockerfile%E9%87%8C%E9%A2%84%E8%A3%85"><span class="toc-number">3.5.</span> <span class="toc-text">长期方案：在Dockerfile里预装</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E5%AE%9E%E7%94%A8%E5%B0%8F%E6%8A%80%E5%B7%A7"><span class="toc-number">3.6.</span> <span class="toc-text">一个实用小技巧</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%A5%E7%89%B9%E5%AE%9A%E7%94%A8%E6%88%B7%E8%BA%AB%E4%BB%BD%E8%BF%9B%E5%85%A5%E5%AE%B9%E5%99%A8"><span class="toc-number">4.</span> <span class="toc-text">以特定用户身份进入容器</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E6%8C%87%E5%AE%9A%E7%94%A8%E6%88%B7%EF%BC%9F"><span class="toc-number">4.1.</span> <span class="toc-text">为什么需要指定用户？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%A5root%E8%BA%AB%E4%BB%BD%E8%BF%9B%E5%85%A5"><span class="toc-number">4.2.</span> <span class="toc-text">以root身份进入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%A5%E7%89%B9%E5%AE%9AUID%E8%BF%9B%E5%85%A5"><span class="toc-number">4.3.</span> <span class="toc-text">以特定UID进入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E9%9C%80%E8%A6%81root%E6%9D%83%E9%99%90%EF%BC%9F"><span class="toc-number">4.4.</span> <span class="toc-text">什么时候需要root权限？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E5%AE%89%E5%85%A8%E6%8F%90%E9%86%92"><span class="toc-number">4.5.</span> <span class="toc-text">一个安全提醒</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E6%8A%80%E5%B7%A7%E5%92%8C%E5%B8%B8%E8%A7%81%E5%9C%BA%E6%99%AF"><span class="toc-number">5.</span> <span class="toc-text">实战技巧和常见场景</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E5%8D%95%E6%9D%A1%E5%91%BD%E4%BB%A4%EF%BC%88%E4%B8%8D%E8%BF%9B%E5%85%A5%E4%BA%A4%E4%BA%92%E5%BC%8Fshell%EF%BC%89"><span class="toc-number">5.1.</span> <span class="toc-text">执行单条命令（不进入交互式shell）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E8%B0%83%E8%AF%95%E7%9A%84%E6%A0%87%E5%87%86%E6%B5%81%E7%A8%8B"><span class="toc-number">5.2.</span> <span class="toc-text">容器调试的标准流程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%87%A0%E4%B8%AA%E5%AE%9E%E7%94%A8%E7%9A%84%E8%B0%83%E8%AF%95%E5%91%BD%E4%BB%A4%E7%BB%84%E5%90%88"><span class="toc-number">5.3.</span> <span class="toc-text">几个实用的调试命令组合</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%B9%E9%87%8F%E6%93%8D%E4%BD%9C%E5%A4%9A%E4%B8%AA%E5%AE%B9%E5%99%A8"><span class="toc-number">5.4.</span> <span class="toc-text">批量操作多个容器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B0%83%E8%AF%95%E7%BD%91%E7%BB%9C%E9%97%AE%E9%A2%98"><span class="toc-number">5.5.</span> <span class="toc-text">调试网络问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%87%E5%88%B0%E5%AE%B9%E5%99%A8%E4%B8%80%E7%9B%B4%E9%87%8D%E5%90%AF%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">5.6.</span> <span class="toc-text">遇到容器一直重启怎么办？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E6%8E%A8%E8%8D%90%E4%BD%BF%E7%94%A8exec%E8%80%8C%E4%B8%8D%E6%98%AFattach%E8%BF%9B%E5%85%A5%E5%AE%B9%E5%99%A8%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">为什么推荐使用exec而不是attach进入容器？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E5%86%85%E6%B2%A1%E6%9C%89bash%E6%88%96sh%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">容器内没有bash或sh怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%9C%A8%E5%8F%AA%E8%AF%BB%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%AE%B9%E5%99%A8%E4%B8%AD%E5%AE%89%E8%A3%85%E5%B7%A5%E5%85%B7%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">如何在只读文件系统的容器中安装工具？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E5%86%85%E6%97%A0%E6%B3%95%E8%AE%BF%E9%97%AE%E5%A4%96%E9%83%A8%E7%BD%91%E7%BB%9C%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">容器内无法访问外部网络怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#exec%E8%BF%9B%E5%85%A5%E5%AE%B9%E5%99%A8%E5%90%8E%E5%A6%82%E4%BD%95%E9%80%80%E5%87%BA%E8%80%8C%E4%B8%8D%E5%BD%B1%E5%93%8D%E5%AE%B9%E5%99%A8%E8%BF%90%E8%A1%8C%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">exec进入容器后如何退出而不影响容器运行？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

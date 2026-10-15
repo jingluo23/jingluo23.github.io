@@ -1,0 +1,749 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker构建加速：善用缓存让构建快10倍的实战指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="掌握Docker层缓存、.dockerignore配置和Dockerfile优化技巧,让构建速度从10分钟缩短到30秒。附完整代码示例和BuildKit缓存挂载进阶实战。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker构建加速：善用缓存让构建快10倍的实战指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/ff6a/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="掌握Docker层缓存、.dockerignore配置和Dockerfile优化技巧,让构建速度从10分钟缩短到30秒。附完整代码示例和BuildKit缓存挂载进阶实战。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-12T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.733Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker构建加速：善用缓存让构建快10倍的实战指南",
+  "url": "https://jingluo23.github.io/posts/ff6a/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-12T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.733Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/ff6a/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker构建加速：善用缓存让构建快10倍的实战指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker构建加速：善用缓存让构建快10倍的实战指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker构建加速：善用缓存让构建快10倍的实战指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-12T07:06:23.000Z" title="发表于 2026-09-12 15:06:23">2026-09-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.733Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>14分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>改了个typo，重新<code>docker build</code>，然后——npm install又开始了。10分钟过去了，刷了20条朋友圈，喝了两杯咖啡，进度条还在那儿转。</p>
+<p>做过容器化开发的人都懂的崩溃感。</p>
+<p>研究Docker缓存机制，把构建时间从10分钟压到30秒。</p>
+<p>这篇文章聊聊3个立马就能用的技巧：配置.dockerignore、理解层缓存原理、优化Dockerfile指令顺序。最后还有个进阶的BuildKit缓存挂载。你的构建慢吗？慢的话，接着往下看。</p>
+<h1 id="为什么你的Docker构建这么慢"><a href="#为什么你的Docker构建这么慢" class="headerlink" title="为什么你的Docker构建这么慢?"></a>为什么你的Docker构建这么慢?</h1><h2 id="构建上下文太大了"><a href="#构建上下文太大了" class="headerlink" title="构建上下文太大了"></a>构建上下文太大了</h2><p>先说个很多人都踩过的坑:<strong>构建上下文</strong>(Build Context)。</p>
+<p>你知道吗,当你执行<code>docker build .</code>的时候,Docker做的第一件事不是运行Dockerfile,而是把<code>.</code>这个目录下的<strong>所有文件</strong>打包发给Docker daemon。对,是所有。包括你的node_modules,包括.git文件夹,包括你下载的几百M的测试数据。</p>
+<p>我见过最夸张的,一个前端项目的构建上下文有800MB。光是传输这些文件,就要花2-3分钟。而实际上,镜像里真正需要的,可能只有不到10MB的源代码。</p>
+<p>这就好比你要快递一本书,结果连书架一起打包了。</p>
+<h2 id="层缓存失效的连锁反应"><a href="#层缓存失效的连锁反应" class="headerlink" title="层缓存失效的连锁反应"></a>层缓存失效的连锁反应</h2><p>第二个问题:不懂Docker的层缓存机制。</p>
+<p>Docker镜像是分层的。Dockerfile里每一条指令——FROM、RUN、COPY——都会创建一层。Docker构建的时候,会检查每一层有没有缓存可用。如果指令完全一样,依赖的文件也没变,就直接用缓存,不用重新执行。</p>
+<p>听起来很美好对吧?</p>
+<p>但问题是,一旦某一层的缓存失效了,后面所有层都得重新构建。就像多米诺骨牌,推倒第一张,后面全倒。</p>
+<p>很多人的Dockerfile是这么写的:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">COPY . /app</span><br><span class="line">WORKDIR /app</span><br><span class="line">RUN npm install</span><br></pre></td></tr></table></figure>
+<p>看起来没毛病?其实大问题。</p>
+<p><code>COPY . /app</code>这一行,把整个项目复制进去。你改了任何一个文件——哪怕只是README.md里改了个typo——这层缓存就失效了。然后呢?后面的<code>npm install</code>也得重新跑一遍。</p>
+<p>这就是为什么你改一行代码,要重装整个依赖树的原因。</p>
+<h2 id="指令顺序不合理"><a href="#指令顺序不合理" class="headerlink" title="指令顺序不合理"></a>指令顺序不合理</h2><p>第三个坑:不知道指令该怎么排序。</p>
+<p>Docker的缓存策略很简单:<strong>从上到下依次检查,一旦失效就停止使用缓存</strong>。这意味着,你应该把<strong>不常变的指令放前面,常变的放后面</strong>。</p>
+<p>但现实中很多Dockerfile是反着来的:先复制代码(最常变),再安装依赖(不常变)。结果每次改代码,依赖缓存全废。</p>
+<p>说白了,就是没搞清楚什么东西变化频繁、什么东西相对稳定。</p>
+<h1 id="技巧1-配置-dockerignore减小构建上下文"><a href="#技巧1-配置-dockerignore减小构建上下文" class="headerlink" title="技巧1 - 配置.dockerignore减小构建上下文"></a>技巧1 - 配置.dockerignore减小构建上下文</h1><p>好了,问题摆出来了。先聊聊最简单、立竿见影的优化:<code>.dockerignore</code>。</p>
+<h2 id="它是个什么东西"><a href="#它是个什么东西" class="headerlink" title="它是个什么东西?"></a>它是个什么东西?</h2><p>你用过<code>.gitignore</code>吧?<code>.dockerignore</code>和它是一个意思,告诉Docker哪些文件不用打包进构建上下文。</p>
+<p>创建方式超简单:在项目根目录(跟Dockerfile同级)新建一个<code>.dockerignore</code>文件,然后往里写规则就行了。</p>
+<h2 id="Node-js项目怎么配置"><a href="#Node-js项目怎么配置" class="headerlink" title="Node.js项目怎么配置?"></a>Node.js项目怎么配置?</h2><p>直接上代码,这是我自己用的配置:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"># 依赖目录</span><br><span class="line">**/node_modules/</span><br><span class="line">**/npm-debug.log</span><br><span class="line">**/.npm</span><br><span class="line"></span><br><span class="line"># Git相关</span><br><span class="line">.git/</span><br><span class="line">.gitignore</span><br><span class="line">.gitattributes</span><br><span class="line"></span><br><span class="line"># 测试和文档</span><br><span class="line">**/test/</span><br><span class="line">**/tests/</span><br><span class="line">**/docs/</span><br><span class="line">**/*.md</span><br><span class="line">!README.md</span><br><span class="line"></span><br><span class="line"># IDE和编辑器</span><br><span class="line">.vscode/</span><br><span class="line">.idea/</span><br><span class="line">*.swp</span><br><span class="line">*.swo</span><br><span class="line">.DS_Store</span><br><span class="line"></span><br><span class="line"># 环境变量和配置</span><br><span class="line">.env</span><br><span class="line">.env.*</span><br><span class="line">*.local</span><br><span class="line"></span><br><span class="line"># 构建产物</span><br><span class="line">dist/</span><br><span class="line">build/</span><br><span class="line">coverage/</span><br></pre></td></tr></table></figure>
+<p>几个要点:</p>
+<ol>
+<li><strong>node_modules一定要排除</strong>。这东西可能几百MB,而且镜像里会重新安装,不需要从本地复制。</li>
+<li><strong>用</strong><code>**/</code><strong>前缀匹配所有嵌套目录</strong>。比如<code>**/node_modules/</code>会匹配<code>./node_modules/</code>和<code>./packages/lib/node_modules/</code>,不会漏掉。</li>
+<li><strong>目录要加斜杠</strong>。<code>node_modules/</code>表示目录,<code>node_modules</code>表示文件。虽然看起来差不多,但Docker认真得很。</li>
+</ol>
+<h2 id="效果有多明显"><a href="#效果有多明显" class="headerlink" title="效果有多明显?"></a>效果有多明显?</h2><p>我实测了一个<code>Next.js</code>项目:</p>
+<ul>
+<li>配置前:构建上下文520MB,传输耗时2分15秒</li>
+<li>配置后:构建上下文4.8MB,传输耗时3秒</li>
+</ul>
+<p>对,是3秒。一下子省了2分钟。</p>
+<p>这还没算上镜像体积的减小——不再把<code>.git</code>和<code>node_modules</code>打进去,最终镜像从1.2GB瘦到了680MB。</p>
+<h2 id="常见陷阱"><a href="#常见陷阱" class="headerlink" title="常见陷阱"></a>常见陷阱</h2><p><strong>陷阱1</strong>: <code>.dockerignore</code>只在<strong>构建上下文的根目录</strong>生效。如果你的构建命令是<code>docker build -f subfolder/Dockerfile .</code>,那<code>.dockerignore</code>要放在项目根目录,不是subfolder里。</p>
+<p><strong>陷阱2</strong>: 写成<code>node_modules</code>(没斜杠)可能不生效。加斜杠:<code>node_modules/</code>。</p>
+<p><strong>陷阱3</strong>: 忘记排除<code>.git</code>。<code>.git</code>目录动辄几百MB,却从来不会用到。</p>
+<h1 id="技巧2-理解并善用Docker层缓存机制"><a href="#技巧2-理解并善用Docker层缓存机制" class="headerlink" title="技巧2 - 理解并善用Docker层缓存机制"></a>技巧2 - 理解并善用Docker层缓存机制</h1><p><code>.dockerignore</code>解决了传输速度问题,但核心还是要搞懂缓存怎么工作的。</p>
+<h2 id="层缓存到底是怎么回事"><a href="#层缓存到底是怎么回事" class="headerlink" title="层缓存到底是怎么回事?"></a>层缓存到底是怎么回事?</h2><p>Docker镜像就像千层蛋糕,每一层都是一条Dockerfile指令的执行结果。</p>
+<p>比如这个Dockerfile:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18          # 层1</span><br><span class="line">RUN apt-get update    # 层2</span><br><span class="line">COPY package.json .   # 层3</span><br><span class="line">RUN npm install       # 层4</span><br><span class="line">COPY . .              # 层5</span><br></pre></td></tr></table></figure>
+<p>构建的时候,Docker会逐层检查:</p>
+<ul>
+<li>层1: FROM指令,检查本地有没有node:18镜像。有?用缓存。</li>
+<li>层2: RUN指令,检查指令文本是否一样。一样?用缓存。</li>
+<li>层3: COPY指令,会计算package.json的校验码(checksum)。文件没变?用缓存。</li>
+<li>层4: RUN指令,继续检查。</li>
+<li>层5: 同理。</li>
+</ul>
+<p>关键点:<strong>一旦某层缓存失效,后面所有层都得重新构建</strong>。</p>
+<p>这就是我之前说的多米诺骨牌效应。你在第3层改了<code>package.json</code>,第4层的<code>npm install</code>和第5层的代码复制都得重跑。</p>
+<h2 id="如何判断缓存是否生效"><a href="#如何判断缓存是否生效" class="headerlink" title="如何判断缓存是否生效?"></a>如何判断缓存是否生效?</h2><p>看构建输出:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Step 3/5 : COPY package.json .</span><br><span class="line"> ---&gt; Using cache</span><br><span class="line"> ---&gt; 3a8f29e7c5b1</span><br></pre></td></tr></table></figure>
+<p>看到<code>Using cache</code>就说明用上缓存了。没看到?那就是在重新构建。</p>
+<p>你也可以用<code>docker history &lt;镜像ID&gt;</code>查看镜像的层历史,每层的SIZE和创建时间一目了然。</p>
+<h2 id="为什么COPY指令特殊"><a href="#为什么COPY指令特殊" class="headerlink" title="为什么COPY指令特殊?"></a>为什么COPY指令特殊?</h2><p>RUN指令只看命令文本。<code>RUN npm install</code>这条命令,只要文本不变,Docker就认为可以用缓存。</p>
+<p>但COPY和ADD不一样。Docker会计算被复制文件的内容校验码,哪怕文件名不变,只要内容变了,缓存就失效。</p>
+<p>这个设计很聪明——因为文件内容变了,后续构建步骤可能受影响,不能直接用老缓存。</p>
+<p>但也因为这个,<code>COPY . .</code>这种写法特别危险:只要项目里任何文件改了(哪怕是README.md),这层缓存就废了。</p>
+<h1 id="技巧3-优化Dockerfile指令顺序"><a href="#技巧3-优化Dockerfile指令顺序" class="headerlink" title="技巧3 - 优化Dockerfile指令顺序"></a>技巧3 - 优化Dockerfile指令顺序</h1><p>懂了缓存原理,接下来就是实战了:怎么写Dockerfile才能最大化利用缓存?</p>
+<h2 id="黄金法则-从稳定到易变"><a href="#黄金法则-从稳定到易变" class="headerlink" title="黄金法则:从稳定到易变"></a>黄金法则:从稳定到易变</h2><p>核心就一句话:<strong>把不常变的指令放前面,把常变的放后面</strong>。</p>
+<p>为什么?因为Docker是从上往下检查缓存的。如果前面的层稳定,后面改来改去也不影响前面的缓存。</p>
+<p>具体来说:</p>
+<ul>
+<li><strong>基础镜像</strong> - 几乎不变</li>
+<li><strong>系统依赖</strong> - 偶尔变</li>
+<li><strong>项目依赖</strong> - 有时变</li>
+<li><strong>源代码</strong> - 天天变</li>
+</ul>
+<p>按这个顺序排列,就能最大化缓存利用率。</p>
+<h2 id="错误示例-先复制代码再装依赖"><a href="#错误示例-先复制代码再装依赖" class="headerlink" title="错误示例:先复制代码再装依赖"></a>错误示例:先复制代码再装依赖</h2><p>很多人一开始都这么写:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">WORKDIR /app</span><br><span class="line"></span><br><span class="line"># 错误:直接复制整个项目</span><br><span class="line">COPY . .</span><br><span class="line"></span><br><span class="line"># 然后安装依赖</span><br><span class="line">RUN npm install</span><br><span class="line"></span><br><span class="line"># 启动命令</span><br><span class="line">CMD [&quot;npm&quot;, &quot;start&quot;]</span><br></pre></td></tr></table></figure>
+<p>问题在哪?你改了源代码,<code>COPY . .</code>这层缓存失效,后面的<code>npm install</code>也得重跑。</p>
+<p>结果就是:改一行JS代码,要重装几百个npm包。10分钟又没了。</p>
+<h2 id="正确示例-先装依赖再复制代码"><a href="#正确示例-先装依赖再复制代码" class="headerlink" title="正确示例:先装依赖再复制代码"></a>正确示例:先装依赖再复制代码</h2><p>优化后的写法:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">WORKDIR /app</span><br><span class="line"></span><br><span class="line"># 第一步:只复制依赖文件</span><br><span class="line">COPY package.json package-lock.json ./</span><br><span class="line"></span><br><span class="line"># 第二步:安装依赖(这层会被缓存)</span><br><span class="line">RUN npm ci --only=production</span><br><span class="line"></span><br><span class="line"># 第三步:复制源代码</span><br><span class="line">COPY . .</span><br><span class="line"></span><br><span class="line"># 启动命令</span><br><span class="line">CMD [&quot;npm&quot;, &quot;start&quot;]</span><br></pre></td></tr></table></figure>
+<p>这样做的好处:</p>
+<ol>
+<li>只要<code>package.json</code>不变,<code>npm ci</code>那层就用缓存。</li>
+<li>你改源代码,只有<code>COPY . .</code>这层失效,依赖安装的缓存还在。</li>
+<li>第二次构建直接跳过npm安装,速度飞起。</li>
+</ol>
+<p>我实测过,这个调整能把后续构建时间从7-8分钟压到30秒左右。</p>
+<h2 id="其他语言也是一样的道理"><a href="#其他语言也是一样的道理" class="headerlink" title="其他语言也是一样的道理"></a>其他语言也是一样的道理</h2><p><strong>Python项目</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">FROM python:3.11</span><br><span class="line">WORKDIR /app</span><br><span class="line"></span><br><span class="line"># 先复制requirements.txt</span><br><span class="line">COPY requirements.txt .</span><br><span class="line"></span><br><span class="line"># 再pip install</span><br><span class="line">RUN pip install --no-cache-dir -r requirements.txt</span><br><span class="line"></span><br><span class="line"># 最后复制代码</span><br><span class="line">COPY . .</span><br></pre></td></tr></table></figure>
+<p><strong>Go项目</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">FROM golang:1.21</span><br><span class="line">WORKDIR /app</span><br><span class="line"></span><br><span class="line"># 先复制go.mod和go.sum</span><br><span class="line">COPY go.mod go.sum ./</span><br><span class="line"></span><br><span class="line"># 下载依赖</span><br><span class="line">RUN go mod download</span><br><span class="line"></span><br><span class="line"># 再复制代码</span><br><span class="line">COPY . .</span><br><span class="line"></span><br><span class="line"># 编译</span><br><span class="line">RUN go build -o main .</span><br></pre></td></tr></table></figure>
+<p>核心思路都是一样的:把依赖管理文件和源代码分开复制,让依赖安装这一步尽可能复用缓存。</p>
+<h2 id="进阶技巧-细粒度COPY"><a href="#进阶技巧-细粒度COPY" class="headerlink" title="进阶技巧:细粒度COPY"></a>进阶技巧:细粒度COPY</h2><p>如果项目结构复杂,你甚至可以更细致:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># 先复制不常变的配置文件</span><br><span class="line">COPY .eslintrc.json .prettierrc ./</span><br><span class="line"></span><br><span class="line"># 再复制依赖文件</span><br><span class="line">COPY package*.json ./</span><br><span class="line">RUN npm install</span><br><span class="line"></span><br><span class="line"># 然后复制公共库(如果有)</span><br><span class="line">COPY ./lib ./lib</span><br><span class="line"></span><br><span class="line"># 最后复制业务代码</span><br><span class="line">COPY ./src ./src</span><br></pre></td></tr></table></figure>
+<p>这种做法比较少见,但在某些场景下(比如monorepo项目)很有用。</p>
+<h1 id="进阶技巧-BuildKit缓存挂载"><a href="#进阶技巧-BuildKit缓存挂载" class="headerlink" title="进阶技巧 - BuildKit缓存挂载"></a>进阶技巧 - BuildKit缓存挂载</h1><p>前面说的都是基础优化,现在聊个进阶点的:BuildKit的缓存挂载。</p>
+<h2 id="BuildKit是啥"><a href="#BuildKit是啥" class="headerlink" title="BuildKit是啥?"></a>BuildKit是啥?</h2><p>BuildKit是Docker 18.09引入的新构建引擎,比旧引擎快不少,而且支持更强大的缓存功能。</p>
+<p>启用方式超简单:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 临时启用</span><br><span class="line">export DOCKER_BUILDKIT=1</span><br><span class="line">docker build .</span><br><span class="line"></span><br><span class="line"># 或者直接在命令前加</span><br><span class="line">DOCKER_BUILDKIT=1 docker build .</span><br></pre></td></tr></table></figure>
+<p>如果你的Docker版本够新(19.03+),BuildKit应该默认开启了。不确定的话可以跑<code>docker version</code>确认一下。</p>
+<h2 id="缓存挂载是个啥"><a href="#缓存挂载是个啥" class="headerlink" title="缓存挂载是个啥?"></a>缓存挂载是个啥?</h2><p>前面讲的层缓存有个问题:一旦那层失效了,就得完全重新执行。</p>
+<p>比如你改了<code>package.json</code>,加了个新依赖,<code>npm install</code>那层缓存就没了。结果所有包——包括之前已经下载过的——都要重新下载一遍。</p>
+<p>缓存挂载就是为了解决这个问题的。它的逻辑是:<strong>即使层缓存失效,也能保留包管理器的下载缓存</strong>。</p>
+<p>说白了,就是给包管理器一个持久化的缓存目录,让它跨构建共享。</p>
+<h2 id="怎么用"><a href="#怎么用" class="headerlink" title="怎么用?"></a>怎么用?</h2><p>Node.js项目示例:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">WORKDIR /app</span><br><span class="line"></span><br><span class="line">COPY package*.json ./</span><br><span class="line"></span><br><span class="line"># 关键在这里:挂载npm缓存目录</span><br><span class="line">RUN --mount=type=cache,target=/root/.npm \</span><br><span class="line">    npm ci --only=production</span><br><span class="line"></span><br><span class="line">COPY . .</span><br><span class="line">CMD [&quot;npm&quot;, &quot;start&quot;]</span><br></pre></td></tr></table></figure>
+<p><code>--mount=type=cache,target=/root/.npm</code>这段是重点:</p>
+<ul>
+<li><code>type=cache</code>表示这是个缓存挂载</li>
+<li><code>target=/root/.npm</code>是npm的缓存目录</li>
+</ul>
+<p>有了这个,即使<code>package.json</code>变了、层缓存失效了,npm也不用从头下载所有包。它会从<code>/root/.npm</code>里读取已有的缓存,只下载新增或更新的包。</p>
+<h2 id="其他包管理器怎么配"><a href="#其他包管理器怎么配" class="headerlink" title="其他包管理器怎么配?"></a>其他包管理器怎么配?</h2><p><strong>Yarn</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">RUN --mount=type=cache,target=/root/.yarn \</span><br><span class="line">    yarn install --frozen-lockfile</span><br></pre></td></tr></table></figure>
+<p><strong>pip (Python)</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">RUN --mount=type=cache,target=/root/.cache/pip \</span><br><span class="line">    pip install -r requirements.txt</span><br></pre></td></tr></table></figure>
+<p><strong>apt (系统包)</strong>:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \</span><br><span class="line">    apt-get update &amp;&amp; apt-get install -y gcc</span><br></pre></td></tr></table></figure>
+<p>注意apt那个<code>sharing=locked</code>参数。因为apt需要独占访问它的缓存,所以要加这个参数避免并发构建冲突。</p>
+<h2 id="效果怎么样"><a href="#效果怎么样" class="headerlink" title="效果怎么样?"></a>效果怎么样?</h2><p>我在一个有200+依赖的项目上测试过:</p>
+<ul>
+<li><strong>层缓存失效但缓存挂载生效</strong>:依赖安装从8分钟降到1分30秒</li>
+<li><strong>完全冷启动</strong>(没有任何缓存):还是8分钟</li>
+</ul>
+<p>也就是说,缓存挂载是层缓存的”二道防线”。层缓存没失效时最快(直接跳过),失效了还有缓存挂载顶着,至少不用完全重新下载。</p>
+<h2 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h2><ol>
+<li><strong>默认保留时间不长</strong>:BuildKit默认会清理超过2天且超过512MB的缓存。如果你在CI/CD环境里用,可能需要调整策略。</li>
+<li><strong>不是所有场景都需要</strong>:如果你的项目依赖很少(比如就十几个包),加不加缓存挂载区别不大。</li>
+<li><strong>路径要对</strong>:每个包管理器的缓存目录不一样,要查文档确认。</li>
+</ol>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多,核心就三件事:</p>
+<p><strong>第一件事,立即去做</strong>:在项目根目录创建<code>.dockerignore</code>文件,把<code>node_modules</code>、<code>.git</code>、测试文件这些排除掉。花不了5分钟,构建上下文能小90%+。</p>
+<p><strong>第二件事,今天就改</strong>:调整你的Dockerfile指令顺序。先COPY依赖文件,再RUN安装,最后COPY源代码。这个调整能让你的后续构建时间从10分钟降到30秒。</p>
+<p><strong>第三件事,有空研究</strong>:如果项目依赖很多、更新频繁,可以试试BuildKit的缓存挂载。它在层缓存失效时能救你一命。</p>
+<p>我自己的项目做完这三步,构建时间从10分钟压到30秒,镜像体积从1.2GB瘦到680MB。说实话,这个投入产出比算是我见过最高的优化了。</p>
+<p>你的Docker构建慢吗?慢的话,不妨照着这篇文章试试看。搞定了记得回来评论区说一声,我挺好奇你能提速多少倍的。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="为什么Docker构建这么慢？"><a href="#为什么Docker构建这么慢？" class="headerlink" title="为什么Docker构建这么慢？"></a>为什么Docker构建这么慢？</h2><p>构建上下文问题：</p>
+<ul>
+<li>当你执行<code>docker build .</code>的时候，Docker做的第一件事是把.目录下的所有文件打包发给Docker daemon</li>
+<li>包括<code>node_modules</code>、<code>.git</code>文件夹、测试数据等</li>
+<li>一个前端项目的构建上下文可能有800MB，光是传输这些文件就要花2-3分钟</li>
+<li>而实际上镜像里真正需要的可能只有不到10MB的源代码</li>
+<li>这就好比你要快递一本书，结果连书架一起打包了</li>
+</ul>
+<p>层缓存失效的连锁反应：</p>
+<ul>
+<li>Docker镜像是分层的，Dockerfile里每一条指令（FROM、RUN、COPY）都会创建一层</li>
+<li>Docker构建的时候会检查每一层有没有缓存可用，如果指令完全一样，依赖的文件也没变，就直接用缓存</li>
+<li>但问题是，一旦某一层的缓存失效了，后面所有层都得重新构建，就像多米诺骨牌，推倒第一张，后面全倒</li>
+</ul>
+<p>很多人的Dockerfile是这么写的：<code>FROM node:18，COPY . /app，WORKDIR /app，RUN npm install</code>，这样每次代码改动都会让npm install重新执行。</p>
+<h2 id="如何配置-dockerignore减少构建上下文？"><a href="#如何配置-dockerignore减少构建上下文？" class="headerlink" title="如何配置.dockerignore减少构建上下文？"></a>如何配置.dockerignore减少构建上下文？</h2><p>立即去做：在项目根目录创建<code>.dockerignore</code>文件，把<code>node_modules</code>、<code>.git</code>、测试文件这些排除掉，花不了5分钟，构建上下文能小90%+。    </p>
+<p><code>.dockerignore</code>配置示例：</p>
+<ul>
+<li><code>node_modules</code>（排除依赖包）</li>
+<li><code>.git</code>（排除Git历史）</li>
+<li><code>*.log</code>（排除日志文件）</li>
+<li><code>.env</code>（排除环境变量）</li>
+<li><code>dist</code>（排除构建产物）</li>
+<li><code>test</code>（排除测试文件）</li>
+<li><code>*.md</code>（排除文档文件）</li>
+</ul>
+<p>配置完成后，构建上下文从800MB降到不到10MB，传输时间从2-3分钟降到几秒钟。</p>
+<h2 id="如何优化Dockerfile指令顺序？"><a href="#如何优化Dockerfile指令顺序？" class="headerlink" title="如何优化Dockerfile指令顺序？"></a>如何优化Dockerfile指令顺序？</h2><p>今天就改：调整你的Dockerfile指令顺序，先COPY依赖文件，再RUN安装，最后COPY源代码，这个调整能让你的后续构建时间从10分钟降到30秒。</p>
+<p>优化原则：</p>
+<ul>
+<li>把变化频率低的指令放前面（FROM、安装系统依赖、安装应用依赖）</li>
+<li>把变化频率高的指令放后面（COPY源代码）</li>
+</ul>
+<p>优化前：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">COPY . /app</span><br><span class="line">WORKDIR /app</span><br><span class="line">RUN npm install</span><br></pre></td></tr></table></figure>
+<p>每次代码改动都会让npm install重新执行</p>
+<p>优化后：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">FROM node:18</span><br><span class="line">WORKDIR /app</span><br><span class="line">COPY package*.json ./</span><br><span class="line">RUN npm install</span><br><span class="line">COPY . .</span><br></pre></td></tr></table></figure>
+<p>只有<code>package.json</code>变化时才重新执行<code>npm install</code>，代码改动不影响依赖安装</p>
+<h2 id="如何使用BuildKit缓存挂载？"><a href="#如何使用BuildKit缓存挂载？" class="headerlink" title="如何使用BuildKit缓存挂载？"></a>如何使用BuildKit缓存挂载？</h2><p>有空研究：如果项目依赖很多、更新频繁，可以试试BuildKit的缓存挂载，它在层缓存失效时能救你一命。</p>
+<p>BuildKit缓存挂载：</p>
+<ul>
+<li>使用<code>--mount=type=cache</code>挂载缓存目录</li>
+<li>让<code>npm install</code>的<code>node_modules</code>缓存到宿主机</li>
+<li>下次构建时直接使用缓存，构建速度提升10倍以上</li>
+</ul>
+<p>示例：</p>
+<ul>
+<li>npm示例：<code>RUN --mount=type=cache,target=/root/.npm npm install</code></li>
+<li>yarn示例：<code>RUN --mount=type=cache,target=/root/.yarn yarn install --frozen-lockfile</code></li>
+<li>pip示例：<code>RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt</code></li>
+<li>apt示例：<code>RUN --mount=type=cache,target=/var/cache/apt,sharing=locked apt-get update &amp;&amp; apt-get install -y gcc</code></li>
+</ul>
+<p>注意apt那个<code>sharing=locked</code>参数，因为apt需要独占访问它的缓存，所以要加这个参数避免并发构建冲突。</p>
+<h2 id="Docker构建优化的效果如何？"><a href="#Docker构建优化的效果如何？" class="headerlink" title="Docker构建优化的效果如何？"></a>Docker构建优化的效果如何？</h2><p>优化效果：</p>
+<ul>
+<li>构建时间从10分钟压到30秒（提升20倍）</li>
+<li>镜像体积从1.2GB瘦到680MB</li>
+<li>构建上下文从800MB降到不到10MB</li>
+<li>传输时间从2-3分钟降到几秒钟</li>
+</ul>
+<p>我自己的项目做完这三步，构建时间从10分钟压到30秒，镜像体积从1.2GB瘦到680MB。说实话，这个投入产出比算是我见过最高的优化了。</p>
+<p>核心就三件事：</p>
+<ul>
+<li>第一件事立即去做（在项目根目录创建<code>.dockerignore</code>文件）</li>
+<li>第二件事今天就改（调整你的Dockerfile指令顺序）</li>
+<li>第三件事有空研究（如果项目依赖很多、更新频繁，可以试试BuildKit的缓存挂载）</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/ff6a/">https://jingluo23.github.io/posts/ff6a/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/3a8b/" title="Docker 多阶段构建实战：生产镜像从 1GB 瘦身到 10MB"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker 多阶段构建实战：生产镜像从 1GB 瘦身到 10MB</div></div><div class="info-2"><div class="info-item-1">掌握 Docker 多阶段构建实战技巧，将生产镜像从 1GB 精简到 10MB。本文提供 Go、Node.js、Python 三语言模板，对比 Alpine vs Distroless 基础镜像，总结 5 个常见避坑方案。</div></div></div></a><a class="pagination-related" href="/posts/d4c3/" title="Docker Compose 多服务编排：本地开发环境一键启动"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker Compose 多服务编排：本地开发环境一键启动</div></div><div class="info-2"><div class="info-item-1">用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/e0b1/" title="Dockerfile优化实战：5个技巧让镜像体积缩小80%"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-09</div><div class="info-item-2">Dockerfile优化实战：5个技巧让镜像体积缩小80%</div></div><div class="info-2"><div class="info-item-1">Docker镜像动辄几GB？掌握Alpine基础镜像、合并RUN指令、多阶段构建、.dockerignore配置和清理缓存5个技巧，将镜像从1.2GB降到180MB，减少85%。附完整Node.js优化案例和实测数据。</div></div></div></a><a class="pagination-related" href="/posts/a8d7/" title="Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-01</div><div class="info-item-2">Docker部署Redis完全指南：配置持久化与密码认证避免数据丢失</div></div><div class="info-2"><div class="info-item-1">手把手教你用Docker部署Redis并配置RDB/AOF持久化和密码认证,避免容器重启数据丢失,附完整配置文件和代码示例,适合生产环境部署</div></div></div></a><a class="pagination-related" href="/posts/9669/" title="Docker 日志管理实战：从驱动配置到集中收集"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-10</div><div class="info-item-2">Docker 日志管理实战：从驱动配置到集中收集</div></div><div class="info-2"><div class="info-item-1">深度解析 Docker 日志驱动类型、日志轮转配置与集中收集方案，提供生产环境最佳实践与避坑指南</div></div></div></a><a class="pagination-related" href="/posts/c04c/" title="Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-14</div><div class="info-item-2">Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题</div></div><div class="info-2"><div class="info-item-1">详解Docker Compose的depends_on与healthcheck配置，通过实战示例解决数据库未就绪导致的应用启动失败问题，包含PostgreSQL和MySQL完整配置模板</div></div></div></a><a class="pagination-related" href="/posts/9f26/" title="Docker logs 命令详解：7个技巧快速定位容器问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-08</div><div class="info-item-2">Docker logs 命令详解：7个技巧快速定位容器问题</div></div><div class="info-2"><div class="info-item-1">详解docker logs命令的7个实用技巧,包括实时查看、时间过滤、grep搜索、日志文件位置和生产环境最佳实践,帮助你快速定位容器问题。</div></div></div></a><a class="pagination-related" href="/posts/438c/" title="Docker Compose 生产部署：健康检查、重启策略与日志管理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-16</div><div class="info-item-2">Docker Compose 生产部署：健康检查、重启策略与日志管理</div></div><div class="info-2"><div class="info-item-1">Docker Compose 生产环境实战指南：健康检查配置、重启策略详解、日志管理完整方案。从容器假死到自动恢复，避免磁盘被日志填满的实用配置。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%A0%E7%9A%84Docker%E6%9E%84%E5%BB%BA%E8%BF%99%E4%B9%88%E6%85%A2"><span class="toc-number">1.</span> <span class="toc-text">为什么你的Docker构建这么慢?</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%84%E5%BB%BA%E4%B8%8A%E4%B8%8B%E6%96%87%E5%A4%AA%E5%A4%A7%E4%BA%86"><span class="toc-number">1.1.</span> <span class="toc-text">构建上下文太大了</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B1%82%E7%BC%93%E5%AD%98%E5%A4%B1%E6%95%88%E7%9A%84%E8%BF%9E%E9%94%81%E5%8F%8D%E5%BA%94"><span class="toc-number">1.2.</span> <span class="toc-text">层缓存失效的连锁反应</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%87%E4%BB%A4%E9%A1%BA%E5%BA%8F%E4%B8%8D%E5%90%88%E7%90%86"><span class="toc-number">1.3.</span> <span class="toc-text">指令顺序不合理</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8A%80%E5%B7%A71-%E9%85%8D%E7%BD%AE-dockerignore%E5%87%8F%E5%B0%8F%E6%9E%84%E5%BB%BA%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="toc-number">2.</span> <span class="toc-text">技巧1 - 配置.dockerignore减小构建上下文</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%83%E6%98%AF%E4%B8%AA%E4%BB%80%E4%B9%88%E4%B8%9C%E8%A5%BF"><span class="toc-number">2.1.</span> <span class="toc-text">它是个什么东西?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Node-js%E9%A1%B9%E7%9B%AE%E6%80%8E%E4%B9%88%E9%85%8D%E7%BD%AE"><span class="toc-number">2.2.</span> <span class="toc-text">Node.js项目怎么配置?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%88%E6%9E%9C%E6%9C%89%E5%A4%9A%E6%98%8E%E6%98%BE"><span class="toc-number">2.3.</span> <span class="toc-text">效果有多明显?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%99%B7%E9%98%B1"><span class="toc-number">2.4.</span> <span class="toc-text">常见陷阱</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8A%80%E5%B7%A72-%E7%90%86%E8%A7%A3%E5%B9%B6%E5%96%84%E7%94%A8Docker%E5%B1%82%E7%BC%93%E5%AD%98%E6%9C%BA%E5%88%B6"><span class="toc-number">3.</span> <span class="toc-text">技巧2 - 理解并善用Docker层缓存机制</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B1%82%E7%BC%93%E5%AD%98%E5%88%B0%E5%BA%95%E6%98%AF%E6%80%8E%E4%B9%88%E5%9B%9E%E4%BA%8B"><span class="toc-number">3.1.</span> <span class="toc-text">层缓存到底是怎么回事?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E7%BC%93%E5%AD%98%E6%98%AF%E5%90%A6%E7%94%9F%E6%95%88"><span class="toc-number">3.2.</span> <span class="toc-text">如何判断缓存是否生效?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88COPY%E6%8C%87%E4%BB%A4%E7%89%B9%E6%AE%8A"><span class="toc-number">3.3.</span> <span class="toc-text">为什么COPY指令特殊?</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8A%80%E5%B7%A73-%E4%BC%98%E5%8C%96Dockerfile%E6%8C%87%E4%BB%A4%E9%A1%BA%E5%BA%8F"><span class="toc-number">4.</span> <span class="toc-text">技巧3 - 优化Dockerfile指令顺序</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%BB%84%E9%87%91%E6%B3%95%E5%88%99-%E4%BB%8E%E7%A8%B3%E5%AE%9A%E5%88%B0%E6%98%93%E5%8F%98"><span class="toc-number">4.1.</span> <span class="toc-text">黄金法则:从稳定到易变</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E7%A4%BA%E4%BE%8B-%E5%85%88%E5%A4%8D%E5%88%B6%E4%BB%A3%E7%A0%81%E5%86%8D%E8%A3%85%E4%BE%9D%E8%B5%96"><span class="toc-number">4.2.</span> <span class="toc-text">错误示例:先复制代码再装依赖</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A3%E7%A1%AE%E7%A4%BA%E4%BE%8B-%E5%85%88%E8%A3%85%E4%BE%9D%E8%B5%96%E5%86%8D%E5%A4%8D%E5%88%B6%E4%BB%A3%E7%A0%81"><span class="toc-number">4.3.</span> <span class="toc-text">正确示例:先装依赖再复制代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E8%AF%AD%E8%A8%80%E4%B9%9F%E6%98%AF%E4%B8%80%E6%A0%B7%E7%9A%84%E9%81%93%E7%90%86"><span class="toc-number">4.4.</span> <span class="toc-text">其他语言也是一样的道理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7-%E7%BB%86%E7%B2%92%E5%BA%A6COPY"><span class="toc-number">4.5.</span> <span class="toc-text">进阶技巧:细粒度COPY</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7-BuildKit%E7%BC%93%E5%AD%98%E6%8C%82%E8%BD%BD"><span class="toc-number">5.</span> <span class="toc-text">进阶技巧 - BuildKit缓存挂载</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#BuildKit%E6%98%AF%E5%95%A5"><span class="toc-number">5.1.</span> <span class="toc-text">BuildKit是啥?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%93%E5%AD%98%E6%8C%82%E8%BD%BD%E6%98%AF%E4%B8%AA%E5%95%A5"><span class="toc-number">5.2.</span> <span class="toc-text">缓存挂载是个啥?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E7%94%A8"><span class="toc-number">5.3.</span> <span class="toc-text">怎么用?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%8C%85%E7%AE%A1%E7%90%86%E5%99%A8%E6%80%8E%E4%B9%88%E9%85%8D"><span class="toc-number">5.4.</span> <span class="toc-text">其他包管理器怎么配?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%88%E6%9E%9C%E6%80%8E%E4%B9%88%E6%A0%B7"><span class="toc-number">5.5.</span> <span class="toc-text">效果怎么样?</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">5.6.</span> <span class="toc-text">注意事项</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88Docker%E6%9E%84%E5%BB%BA%E8%BF%99%E4%B9%88%E6%85%A2%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">为什么Docker构建这么慢？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AE-dockerignore%E5%87%8F%E5%B0%91%E6%9E%84%E5%BB%BA%E4%B8%8A%E4%B8%8B%E6%96%87%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">如何配置.dockerignore减少构建上下文？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BC%98%E5%8C%96Dockerfile%E6%8C%87%E4%BB%A4%E9%A1%BA%E5%BA%8F%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">如何优化Dockerfile指令顺序？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8BuildKit%E7%BC%93%E5%AD%98%E6%8C%82%E8%BD%BD%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">如何使用BuildKit缓存挂载？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E6%9E%84%E5%BB%BA%E4%BC%98%E5%8C%96%E7%9A%84%E6%95%88%E6%9E%9C%E5%A6%82%E4%BD%95%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">Docker构建优化的效果如何？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

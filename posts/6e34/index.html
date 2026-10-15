@@ -1,0 +1,781 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="不知道Docker和虚拟机该选哪个？本文用通俗语言解释两者本质区别，提供性能数据对比和场景决策树，5分钟帮你做出正确选择。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/6e34/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="不知道Docker和虚拟机该选哪个？本文用通俗语言解释两者本质区别，提供性能数据对比和场景决策树，5分钟帮你做出正确选择。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-06T09:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.701Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南",
+  "url": "https://jingluo23.github.io/posts/6e34/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-06T09:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.701Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/6e34/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker vs 虚拟机：5分钟搞懂性能差异与场景选择指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-06T09:06:23.000Z" title="发表于 2026-09-06 17:06:23">2026-09-06</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.701Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.1k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>15分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>组会上老板问：“新项目准备用Docker还是虚拟机？“这两个东西都用过，但要清楚说出区别，还真有点懵。回到工位后搜了一圈，发现网上的文章要么讲得太理论，要么就是简单说”Docker更轻量”就完了——可到底轻量在哪？性能能差多少？什么场景该用哪个？都没说清楚。</p>
+<p>搞了三天，我终于把这事儿琢磨透了。今天就用最简单的方式，帮你彻底搞懂Docker和虚拟机的区别。读完你就知道：两者的本质区别（我找了个特别形象的比喻）、性能到底差多少（真实数据）、以及一个决策树帮你秒选技术方案。</p>
+<ul>
+<li>本质区别：虚拟机是独立套房（完整OS），Docker是集装箱（共享内核），虚拟机启动分钟级，Docker秒级（3秒 vs 4分钟）。</li>
+<li>性能对比：Docker内存占用MB级（2-50MB），虚拟机GB级（1-4GB起步），单机密度Docker数百到上千个，虚拟机几十个，性能损耗Docker少于5%，虚拟机10-20%。</li>
+<li>真实案例：32核128G服务器跑800多个Docker容器游刃有余，虚拟机30个都够呛；Redis容器CPU 0.08%内存2.6MB，虚拟机光OS就1-2GB。</li>
+<li>选择决策：微服务/DevOps/快速部署/开发环境统一选Docker；传统单体/多OS/强隔离/完整OS环境选虚拟机；大多数公司混合使用。</li>
+<li>安全隔离：虚拟机硬件级隔离（硬隔离），Docker进程级隔离（共享内核有容器逃逸风险），云服务商/金融/多租户必须用虚拟机。</li>
+</ul>
+<h1 id="本质区别——集装箱-vs-独立房间"><a href="#本质区别——集装箱-vs-独立房间" class="headerlink" title="本质区别——集装箱 vs 独立房间"></a>本质区别——集装箱 vs 独立房间</h1><p>先说个最容易理解的比喻。</p>
+<p><strong>虚拟机就像一栋楼里的独立套房</strong>。每个套房都有自己的厨房、卫生间、水电系统——是个完整的生活单元。你住在2楼,邻居住3楼，大家互不干扰。每个虚拟机都跑一个完整的操作系统（Windows、Linux什么的），有自己的内核、驱动、系统服务，从头到脚都是全套的。</p>
+<p><strong>Docker容器就像码头上的集装箱</strong>。所有集装箱都共用码头的基础设施——起重机、电力系统、道路网络。集装箱里只装应用和它需要的依赖，不需要每个箱子都配一套基础设施。Docker容器共享宿主机的操作系统内核，只打包应用程序和运行环境。</p>
+<p>这个区别看起来不大，但影响是全方位的。</p>
+<p>从架构上看，虚拟机多了两层”包袱”：Guest OS（客户机操作系统）和Hypervisor（虚拟化层）。Hypervisor要模拟整套硬件环境——CPU、内存、硬盘、网卡，全都得虚拟出来。每个虚拟机启动时，要先启动这个完整的操作系统，加载内核、初始化服务，就像重启一台电脑。</p>
+<p>Docker呢？直接基于宿主机内核运行。启动容器就是启动一个进程，秒开。没有虚拟化硬件的开销，没有额外的操作系统层，轻得飞起。</p>
+<p>你可能会想：共用内核不会有问题吗？后面我会讲到，这恰恰是Docker的软肋——隔离性没虚拟机强。但也是它的优势所在——快、轻、省资源。</p>
+<p>理解了这个本质差异，后面的性能对比、使用场景就全都串起来了。</p>
+<h1 id="性能对决——数据说话"><a href="#性能对决——数据说话" class="headerlink" title="性能对决——数据说话"></a>性能对决——数据说话</h1><p>光说理论没用，咱们看数据。</p>
+<h2 id="启动速度：秒级-vs-分钟级"><a href="#启动速度：秒级-vs-分钟级" class="headerlink" title="启动速度：秒级 vs 分钟级"></a>启动速度：秒级 vs 分钟级</h2><p>上周我测试了一下，启动一个配置好的虚拟机（2核4G），从开机到可以SSH登录，花了将近4分钟。期间我泡了杯咖啡、刷了几条朋友圈。</p>
+<p>同样的Redis服务，用Docker启动呢？3秒。</p>
+<p>还没来得及放下鼠标就好了。</p>
+<p>这不是偶然。虚拟机要加载完整操作系统——内核初始化、系统服务启动、网络配置，一个都不能少。Docker启动容器就是启动一个进程，内核早就跑在那了，直接开干。</p>
+<h2 id="资源占用：MB级-vs-GB级"><a href="#资源占用：MB级-vs-GB级" class="headerlink" title="资源占用：MB级 vs GB级"></a>资源占用：MB级 vs GB级</h2><p>更夸张的是资源占用。Docker本身的开销？6-8MB内存。对，你没看错，个位数的MB。</p>
+<p>我跑了个Redis容器，实际占用多少？CPU 0.08%，内存2.6MB。轻到没存在感。</p>
+<p>虚拟机呢？哪怕里面啥都不跑，光是操作系统就得吃掉1-2GB内存起步。跑个MySQL虚拟机,4GB内存打底。</p>
+<p>这直接导致了一个残酷的现实：同样一台物理服务器，虚拟机能跑几十个就顶天了，Docker能跑上千个。我见过真实的生产环境，一台32核128G的服务器，跑了800多个Docker容器，还游刃有余。换成虚拟机？30个都够呛。</p>
+<h2 id="性能损耗：接近原生-vs-有感知的慢"><a href="#性能损耗：接近原生-vs-有感知的慢" class="headerlink" title="性能损耗：接近原生 vs 有感知的慢"></a>性能损耗：接近原生 vs 有感知的慢</h2><p>有研究机构做过对比测试，Docker容器的性能在几乎所有场景下都跟原生应用持平，甚至部分场景更快（因为没有额外的虚拟化开销）。虚拟机呢？通常有10-20%的性能损耗。</p>
+<p>CPU密集型任务尤其明显。我自己试过编译一个大型项目，虚拟机里跑要25分钟，容器里21分钟，物理机上20分钟。容器几乎没有性能损失。</p>
+<p>给你个对比表格，一目了然：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">维度</th>
+<th style="text-align:center">Docker容器</th>
+<th style="text-align:center">虚拟机 (VMware/VirtualBox)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">启动时间</td>
+<td style="text-align:center">秒级（1-5秒）</td>
+<td style="text-align:center">分钟级（2-5分钟）</td>
+</tr>
+<tr>
+<td style="text-align:center">内存占用</td>
+<td style="text-align:center">MB级（2-50MB）</td>
+<td style="text-align:center">GB级（1-4GB起步）</td>
+</tr>
+<tr>
+<td style="text-align:center">单机密度</td>
+<td style="text-align:center">数百到上千个</td>
+<td style="text-align:center">几十个</td>
+</tr>
+<tr>
+<td style="text-align:center">性能损耗</td>
+<td style="text-align:center">少于5%</td>
+<td style="text-align:center">10-20%</td>
+</tr>
+<tr>
+<td style="text-align:center">镜像大小</td>
+<td style="text-align:center">几十MB到几百MB</td>
+<td style="text-align:center">几GB到几十GB</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>看完这个表，你就明白为啥现在微服务架构全都往Docker上迁了。资源利用率能差一个数量级，谁不心动？</p>
+<h1 id="隔离性与安全性——不是越强越好"><a href="#隔离性与安全性——不是越强越好" class="headerlink" title="隔离性与安全性——不是越强越好"></a>隔离性与安全性——不是越强越好</h1><p>说完性能优势，该聊聊Docker的软肋了。</p>
+<h2 id="隔离级别的差异"><a href="#隔离级别的差异" class="headerlink" title="隔离级别的差异"></a>隔离级别的差异</h2><p>虚拟机是硬件级别的隔离。每个虚拟机有自己独立的操作系统内核，相当于完全隔离的两台电脑。A虚拟机被黑了，理论上黑客也没法跳到B虚拟机或宿主机上。这叫”硬隔离”。</p>
+<p>Docker呢？进程级别的隔离。所有容器共享宿主机的内核，只是通过Linux的namespace和cgroups技术做了资源隔离。听起来就没那么保险，对吧？</p>
+<p>事实也是。容器逃逸（Container Escape）这种攻击方式就是专门针对Docker的——如果黑客找到了容器的漏洞，有可能突破隔离直接攻击宿主机。去年有个CVE漏洞（CVE-2024-21626），就让攻击者能从容器逃逸到宿主机。</p>
+<p>虚拟机有这种风险吗？有，但难度高多了。</p>
+<h2 id="什么场景必须用虚拟机？"><a href="#什么场景必须用虚拟机？" class="headerlink" title="什么场景必须用虚拟机？"></a>什么场景必须用虚拟机？</h2><p>并不是说Docker就不安全，而是看你的场景对隔离性有多高要求。</p>
+<p>如果你是<strong>云服务提供商</strong>，要给不同客户提供服务，客户之间必须完全隔离——用虚拟机。阿里云、AWS这些公有云，底层都是虚拟机隔离不同租户的。你不可能让A客户和B客户共享内核，万一A被攻击了，B也跟着遭殃？</p>
+<p>如果你是<strong>金融公司</strong>，有严格的合规要求（等保三级之类的），审计人员看到你用Docker共享内核可能直接不通过——老老实实用虚拟机。</p>
+<p>如果你要<strong>运行不可信代码</strong>，比如在线代码编译平台（用户提交任意代码你帮他跑），用Docker风险太高，必须虚拟机。</p>
+<h2 id="Docker怎么加固安全？"><a href="#Docker怎么加固安全？" class="headerlink" title="Docker怎么加固安全？"></a>Docker怎么加固安全？</h2><p>话说回来，大多数场景其实没那么极端。你自己公司内部的微服务，全是自己写的代码，用Docker完全够。只要做好这几点：</p>
+<ol>
+<li>别用root用户跑容器。默认容器是root权限，万一被攻破影响大。改用非特权用户。</li>
+<li>限制容器权限（Capabilities）。不要给容器一堆它用不着的系统权限。</li>
+<li>定期扫描镜像漏洞。用Trivy这种工具扫一下，发现漏洞及时更新基础镜像。</li>
+</ol>
+<p>我们团队现在所有Docker容器都配了这三板斧，两年了没出过安全问题。</p>
+<p>说白了，隔离性强不强，关键看你的威胁模型。内部应用用Docker够了，对外暴露的多租户场景才考虑虚拟机。</p>
+<h1 id="使用场景——决策树来了"><a href="#使用场景——决策树来了" class="headerlink" title="使用场景——决策树来了"></a>使用场景——决策树来了</h1><p>讲了这么多，到底什么时候该用哪个？给你个简单粗暴的决策流程。</p>
+<h2 id="优先选Docker的4种场景"><a href="#优先选Docker的4种场景" class="headerlink" title="优先选Docker的4种场景"></a>优先选Docker的4种场景</h2><ol>
+<li><p><strong>微服务架构</strong></p>
+<p> 如果你在做微服务，别犹豫，上Docker。</p>
+<p> 为啥？微服务本质就是把一个大应用拆成几十上百个小服务，每个服务独立部署。用虚拟机的话，一个用户服务要占1个VM，订单服务又要1个VM，支付服务再来1个…资源撑不住。</p>
+<p> Docker正好完美匹配：轻量、秒启、高密度。电商平台的用户服务、订单服务、支付服务，每个跑一个容器，资源隔离互不影响，横向扩容分分钟搞定。</p>
+<p> 我之前参与过一个项目，30多个微服务全部容器化，部署在5台服务器上。要是用虚拟机，光服务器成本就得翻三倍。</p>
+</li>
+<li><p><strong>DevOps和CI/CD流水线</strong></p>
+<p> 开发、测试、生产环境不一致，这是所有开发者的噩梦。“我电脑上能跑”这句话相信你听过无数遍了吧？</p>
+<p> Docker天生就是解决这个问题的。把应用和依赖全打进镜像，开发环境能跑，测试环境就能跑，生产环境也能跑。环境完全一致。</p>
+<p> 还有CI/CD流水线。Jenkins每次自动打包需要一个干净的环境，用Docker启动一个容器，跑完测试，销毁。整个过程20秒。用虚拟机？光启动就得等5分钟，还得手动清理环境，烦死了。</p>
+</li>
+<li><p><strong>快速部署和弹性扩容</strong></p>
+<p> 晚上11点，突然来了一波流量高峰，需要紧急扩容10个实例。</p>
+<p> Docker：几秒钟，10个容器全部起来。</p>
+<p> 虚拟机：等着吧，每个虚拟机启动5分钟，10个就是50分钟。用户早跑光了。</p>
+<p> 这就是Docker的杀手锏——弹性伸缩。K8s（Kubernetes）能根据流量自动扩缩容器数量，完全无感知。虚拟机做不到这个速度。</p>
+</li>
+<li><p><strong>开发环境统一</strong></p>
+<p> 团队5个人，小王用macOS，老李用Windows，小张用Ubuntu。结果每个人的开发环境都不一样，MySQL版本不同、Node版本不同，天天互相问”你那能跑吗？”</p>
+<p> Docker来一套环境镜像，所有人<code>docker-compose up</code>一键启动，MySQL、Redis、Nginx全齐活。版本锁死，环境一致，再也没有环境问题。</p>
+</li>
+</ol>
+<h2 id="必须选虚拟机的4种场景"><a href="#必须选虚拟机的4种场景" class="headerlink" title="必须选虚拟机的4种场景"></a>必须选虚拟机的4种场景</h2><ol>
+<li><p><strong>传统单体应用</strong></p>
+<p> 你们公司有个10年前的老ERP系统，Java 6 + Oracle数据库，运行在CentOS 6上。代码几十万行，改不动也不敢动。</p>
+<p> 这种情况别折腾Docker了。老老实实虚拟机跑着，稳定压倒一切。容器化改造成本太高，风险也大。</p>
+</li>
+<li><p><strong>多操作系统需求</strong></p>
+<p> 你需要同时跑Windows应用和Linux应用。比如测试团队要在Windows Server上跑.NET程序，Linux上跑Java服务。</p>
+<p> Docker不行，它只能跑Linux容器（Windows容器也有但支持很差）。必须用虚拟机，一台装Windows，一台装Linux。</p>
+<p> 或者开发人员在Mac上需要测试Windows软件，只能用VMware或VirtualBox开个Windows虚拟机。</p>
+</li>
+<li><p><strong>强隔离需求</strong></p>
+<p> 云服务商、多租户SaaS平台，客户之间必须完全隔离。用虚拟机，每个客户一个VM，内核都是独立的。</p>
+<p> 金融行业、政府项目，合规要求严格，审计时必须证明强隔离。Docker的共享内核模式过不了审。</p>
+</li>
+<li><p><strong>需要模拟完整的操作系统环境</strong></p>
+<p> 你在开发嵌入式系统的驱动程序，需要特定的内核版本和硬件环境。或者你在做操作系统相关的底层开发。</p>
+<p> Docker不行，它共享宿主机内核。虚拟机可以完整模拟硬件和内核，想装啥装啥。</p>
+</li>
+</ol>
+<h2 id="混合使用才是王道"><a href="#混合使用才是王道" class="headerlink" title="混合使用才是王道"></a>混合使用才是王道</h2><p>其实大多数公司都是混着用的。</p>
+<p>拿我们公司举例：</p>
+<ul>
+<li>核心交易系统（已经稳定跑了5年）：虚拟机</li>
+<li>新开发的API网关、微服务：Docker + Kubernetes</li>
+<li>开发测试环境：全Docker</li>
+<li>Windows办公系统测试：VMware虚拟机</li>
+</ul>
+<p>这样既保证了核心业务的稳定性，又享受了容器技术的敏捷性。</p>
+<p>一张决策树帮你快速决策</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">你的应用是新开发的吗？</span><br><span class="line">├─ 是 → 是微服务架构吗？</span><br><span class="line">│   ├─ 是 → 选Docker ✅</span><br><span class="line">│   └─ 否 → 需要频繁更新部署吗？</span><br><span class="line">│       ├─ 是 → 选Docker ✅</span><br><span class="line">│       └─ 否 → 根据其他因素决定</span><br><span class="line">└─ 否（遗留系统）→ 是否需要特定OS/内核？</span><br><span class="line">    ├─ 是 → 选虚拟机 ✅</span><br><span class="line">    └─ 否 → 是否需要强隔离？</span><br><span class="line">        ├─ 是 → 选虚拟机 ✅</span><br><span class="line">        └─ 否 → 可以尝试容器化改造 → 选Docker ✅</span><br></pre></td></tr></table></figure>
+<p>对着这个流程图走一遍，基本就能做出决定了。</p>
+<h2 id="真实案例——看看大家怎么选"><a href="#真实案例——看看大家怎么选" class="headerlink" title="真实案例——看看大家怎么选"></a>真实案例——看看大家怎么选</h2><p>纸上谈兵不够，来看几个真实场景。</p>
+<p><strong>案例1：创业公司的All-in Docker</strong></p>
+<p>朋友的创业公司，做SaaS的，团队15个人。一开始服务器预算紧张，3台阿里云ECS（4核8G）要跑十几个服务。</p>
+<p>如果用虚拟机，3台物理机最多开15个VM，资源就到头了。他们直接上Docker + Kubernetes，3台机器跑了60多个容器，还有余量。</p>
+<p>开发环境也统一了。新人入职第一天，clone代码，<code>docker-compose up</code>，5分钟环境就好了。以前用虚拟机，光配环境就得折腾半天。</p>
+<p>成本节省了多少？按他们的估算，如果用虚拟机，得买10台服务器。现在3台搞定，每年省下大几万的服务器费用。<br>对创业公司来说，这就是真金白银的价值。</p>
+<p><strong>案例2：传统企业的渐进式改造</strong></p>
+<p>某制造业公司，核心ERP系统用了15年，SAP + Oracle数据库，跑在几台老旧的IBM服务器（虚拟机）上。动不得。</p>
+<p>但去年他们要做数字化转型，开发新的供应链系统。IT总监很聪明：核心ERP保持不动，新业务全用Docker微服务架构。</p>
+<p>现在的架构：</p>
+<ul>
+<li>老ERP：虚拟机，5台服务器，稳如老狗</li>
+<li>新供应链系统：Docker + K8s，3台服务器，70多个容器</li>
+<li>两边通过API网关互通</li>
+</ul>
+<p>既保证了核心系统的稳定性（毕竟几百号人靠这个系统干活），又让新业务有了敏捷性。这就是典型的”双模IT”。</p>
+<p><strong>案例3：云服务商的安全隔离</strong></p>
+<p>某小型云服务商，给企业提供虚拟主机服务。每个客户要一个独立的运行环境。</p>
+<p>他们最开始想用Docker，成本低啊。但技术总监否决了：客户之间必须强隔离，万一某个客户的网站被黑，不能影响其他客户。Docker共享内核，风险太大。</p>
+<p>最后还是用KVM虚拟机。每个客户一个VM，内核隔离。虽然成本高，但安全有保障。客户也认这个——合同里写明了”独立虚拟服务器”，不是容器。</p>
+<p>这就是典型的安全优先于成本的场景。</p>
+<p><strong>案例4：混合云架构的最佳实践</strong></p>
+<p>某互联网公司，游戏业务。核心数据库必须放自建机房（数据安全要求），但游戏服务器需要弹性扩容（活动期间流量暴增）。</p>
+<p>他们的方案：</p>
+<ul>
+<li>自建机房：MySQL主库跑虚拟机，稳定第一</li>
+<li>云上：游戏服务全部Docker化，接入K8s，流量高峰自动扩容</li>
+<li>活动期间：从10个容器扩到100个，10分钟搞定</li>
+<li>活动结束：自动缩回20个，省钱</li>
+</ul>
+<p>这套架构平衡了稳定性、弹性和成本。核心用VM，边缘用Docker，各取所长。</p>
+<p>看完这几个案例你会发现，没有绝对的对错，只有适不适合。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说到底，Docker和虚拟机不是非此即彼的关系，而是各有所长的工具。</p>
+<p>如果你在做新项目、追求快速迭代、想要环境一致性——Docker是更好的选择。启动快、资源占用低、完美适配微服务架构和DevOps流程。我自己的新项目基本都是Docker起步，真的香。</p>
+<p>如果你在维护遗留系统、需要强隔离、或者要跑多操作系统——虚拟机更合适。稳定性和安全性有保障，该用的时候别犹豫。</p>
+<p>其实不少公司都是混着用的。核心系统求稳用虚拟机，边缘服务求快用Docker。没必要教条，实用主义万岁。</p>
+<p>最后给你三个行动建议：</p>
+<ul>
+<li>评估你的项目：对照前面的决策树，花5分钟判断一下当前项目适合哪个</li>
+<li>小步试错：如果决定用Docker，先从非核心服务开始尝试，别一上来就全部容器化</li>
+<li>持续学习：容器技术发展很快，Kubernetes、Serverless、边缘计算都在演进，保持好奇心</li>
+</ul>
+<p>选对工具，事半功倍。希望这篇文章能帮你做出正确的决定。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Docker和虚拟机的本质区别是什么？"><a href="#Docker和虚拟机的本质区别是什么？" class="headerlink" title="Docker和虚拟机的本质区别是什么？"></a>Docker和虚拟机的本质区别是什么？</h2><p>虚拟机是独立套房（完整OS）：<br>• 每个虚拟机有独立的操作系统内核、驱动、系统服务<br>• 需要Hypervisor虚拟化硬件<br>• 启动分钟级（2-5分钟）<br>• 内存占用GB级（1-4GB起步）</p>
+<p>Docker是集装箱（共享内核）：<br>• 容器共享宿主机操作系统内核<br>• 只打包应用程序和运行环境<br>• 启动秒级（1-5秒）<br>• 内存占用MB级（2-50MB）</p>
+<h2 id="Docker和虚拟机的性能差异有多大？"><a href="#Docker和虚拟机的性能差异有多大？" class="headerlink" title="Docker和虚拟机的性能差异有多大？"></a>Docker和虚拟机的性能差异有多大？</h2><p>性能对比：</p>
+<p>• 启动速度：Docker秒级（3秒），虚拟机分钟级（4分钟）</p>
+<p>• 资源占用：Docker MB级（Redis容器CPU 0.08%内存2.6MB），虚拟机GB级（光OS就1-2GB）</p>
+<p>• 单机密度：Docker数百到上千个（32核128G服务器跑800+容器）， 虚拟机几十个（30个都够呛）</p>
+<p>• 性能损耗：Docker少于5%（接近原生），虚拟机10-20%</p>
+<p>• 镜像大小：Docker几十MB到几百MB，虚拟机几GB到几十GB</p>
+<h2 id="什么时候选Docker，什么时候选虚拟机？"><a href="#什么时候选Docker，什么时候选虚拟机？" class="headerlink" title="什么时候选Docker，什么时候选虚拟机？"></a>什么时候选Docker，什么时候选虚拟机？</h2><p>选Docker：</p>
+<ul>
+<li>微服务架构</li>
+<li>DevOps/CI/CD流水线</li>
+<li>快速部署和弹性扩容</li>
+<li>开发环境统一</li>
+</ul>
+<p>选虚拟机：</p>
+<ul>
+<li>传统单体应用（遗留系统）</li>
+<li>多 操作系统需求（Windows+Linux）</li>
+<li>强隔离需求（云服务商/金融/多租户）</li>
+<li>需要模拟完整OS环境（嵌入式/底层开发）</li>
+</ul>
+<p>大多数公司混合使用：核心系统用虚拟机求稳，新业务用Docker求快。</p>
+<h2 id="Docker的安全性如何？"><a href="#Docker的安全性如何？" class="headerlink" title="Docker的安全性如何？"></a>Docker的安全性如何？</h2><p>隔离级别：</p>
+<ul>
+<li>Docker是进程级隔离（共享内核）</li>
+<li>虚拟机是硬件级隔离（独立内核）</li>
+</ul>
+<p>Docker有容器逃逸风险（如CVE-2024-21626），虚拟机隔离性更强。</p>
+<p>Docker安全加固：</p>
+<ul>
+<li>别用root用户跑容器</li>
+<li>限制容器权限（Capabilities）</li>
+<li>定期扫描镜像漏洞（Trivy）</li>
+</ul>
+<p>内部应用用Docker够了，对外暴露的多租户场景（云服务商/金融/合规要求）必须用虚拟机。</p>
+<h2 id="Docker能跑Windows应用吗？"><a href="#Docker能跑Windows应用吗？" class="headerlink" title="Docker能跑Windows应用吗？"></a>Docker能跑Windows应用吗？</h2><p>Docker主要跑Linux容器，Windows容器支持很差。</p>
+<p>如果需要同时跑Windows应用和Linux应用，必须用虚拟机（一台装Windows，一台装Linux）。</p>
+<p>开发人员在Mac上测试Windows软件，也只能用VMware或VirtualBox开Windows虚拟机。</p>
+<p>Docker不适合多操作系统需求。</p>
+<h2 id="如何做出选择决策？"><a href="#如何做出选择决策？" class="headerlink" title="如何做出选择决策？"></a>如何做出选择决策？</h2><p>决策树：</p>
+<ul>
+<li>新开发应用→微服务架构→选Docker</li>
+<li>需要频繁更新部署→选Docker</li>
+<li>遗留系统→需要特定 OS/内核→选虚拟机</li>
+<li>需要强隔离→选虚拟机</li>
+<li>可以容器化改造→选Docker</li>
+</ul>
+<p>建议：</p>
+<ul>
+<li>评估项目需求</li>
+<li>小步试错（从非核心服务开始）</li>
+<li>大多数公司混合使用（核心系统VM，新业务Docker）</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/6e34/">https://jingluo23.github.io/posts/6e34/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related  no-desc" href="/posts/6505/" title="OpenClaw 八股文面试题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">OpenClaw 八股文面试题</div></div></div></a><a class="pagination-related" href="/posts/cdeb/" title="Docker安装避坑指南2026：从permission denied到成功运行的完整解决方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker安装避坑指南2026：从permission denied到成功运行的完整解决方案</div></div><div class="info-2"><div class="info-item-1">Windows折腾WSL 2，Mac纠结芯片版本，Linux搞权限依赖包？这篇指南把三大平台10+个常见Docker安装报错都整理好了，照着改就行，让你从permission denied到成功运行。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/8180/" title="Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-19</div><div class="info-item-2">Docker数据卷实战指南：5个实例彻底解决容器数据丢失问题</div></div><div class="info-2"><div class="info-item-1">通过5个实战案例手把手教你使用Docker Volume，从基础概念到MySQL、Redis持久化，让容器数据不再随删除而消失，适合Docker初学者和开发者。</div></div></div></a><a class="pagination-related" href="/posts/ea19/" title="Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-03</div><div class="info-item-2">Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战</div></div><div class="info-2"><div class="info-item-1">完整教程：Docker部署Nginx的配置文件挂载、HTTPS证书配置与反向代理。解决配置不生效、容器互联等常见问题，包含Let's Encrypt自动续期和生产环境最佳实践。</div></div></div></a><a class="pagination-related" href="/posts/64d8/" title="Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-08</div><div class="info-item-2">Dockerfile入门教程：从零构建你的第一个Docker镜像（含实例）</div></div><div class="info-2"><div class="info-item-1">手把手教你写Dockerfile，详解FROM、RUN、COPY等核心指令，避开初学者常踩的坑，附Node.js实战案例。看完就能给自己项目写Dockerfile！</div></div></div></a><a class="pagination-related" href="/posts/9f26/" title="Docker logs 命令详解：7个技巧快速定位容器问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-08</div><div class="info-item-2">Docker logs 命令详解：7个技巧快速定位容器问题</div></div><div class="info-2"><div class="info-item-1">详解docker logs命令的7个实用技巧,包括实时查看、时间过滤、grep搜索、日志文件位置和生产环境最佳实践,帮助你快速定位容器问题。</div></div></div></a><a class="pagination-related" href="/posts/438c/" title="Docker Compose 生产部署：健康检查、重启策略与日志管理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-16</div><div class="info-item-2">Docker Compose 生产部署：健康检查、重启策略与日志管理</div></div><div class="info-2"><div class="info-item-1">Docker Compose 生产环境实战指南：健康检查配置、重启策略详解、日志管理完整方案。从容器假死到自动恢复，避免磁盘被日志填满的实用配置。</div></div></div></a><a class="pagination-related" href="/posts/5ff/" title="Docker镜像安全扫描与修复：Trivy实战教程及CI&#x2F;CD集成指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-04</div><div class="info-item-2">Docker镜像安全扫描与修复：Trivy实战教程及CI&#x2F;CD集成指南</div></div><div class="info-2"><div class="info-item-1">Docker Hub上76%的镜像存在安全漏洞。本文详解Trivy扫描工具实战用法、系统性漏洞修复方法和CI/CD自动化集成，附完整命令示例，助你构建安全的容器应用。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%AC%E8%B4%A8%E5%8C%BA%E5%88%AB%E2%80%94%E2%80%94%E9%9B%86%E8%A3%85%E7%AE%B1-vs-%E7%8B%AC%E7%AB%8B%E6%88%BF%E9%97%B4"><span class="toc-number">1.</span> <span class="toc-text">本质区别——集装箱 vs 独立房间</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E5%AF%B9%E5%86%B3%E2%80%94%E2%80%94%E6%95%B0%E6%8D%AE%E8%AF%B4%E8%AF%9D"><span class="toc-number">2.</span> <span class="toc-text">性能对决——数据说话</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8%E9%80%9F%E5%BA%A6%EF%BC%9A%E7%A7%92%E7%BA%A7-vs-%E5%88%86%E9%92%9F%E7%BA%A7"><span class="toc-number">2.1.</span> <span class="toc-text">启动速度：秒级 vs 分钟级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B5%84%E6%BA%90%E5%8D%A0%E7%94%A8%EF%BC%9AMB%E7%BA%A7-vs-GB%E7%BA%A7"><span class="toc-number">2.2.</span> <span class="toc-text">资源占用：MB级 vs GB级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E6%8D%9F%E8%80%97%EF%BC%9A%E6%8E%A5%E8%BF%91%E5%8E%9F%E7%94%9F-vs-%E6%9C%89%E6%84%9F%E7%9F%A5%E7%9A%84%E6%85%A2"><span class="toc-number">2.3.</span> <span class="toc-text">性能损耗：接近原生 vs 有感知的慢</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%9A%94%E7%A6%BB%E6%80%A7%E4%B8%8E%E5%AE%89%E5%85%A8%E6%80%A7%E2%80%94%E2%80%94%E4%B8%8D%E6%98%AF%E8%B6%8A%E5%BC%BA%E8%B6%8A%E5%A5%BD"><span class="toc-number">3.</span> <span class="toc-text">隔离性与安全性——不是越强越好</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%9A%94%E7%A6%BB%E7%BA%A7%E5%88%AB%E7%9A%84%E5%B7%AE%E5%BC%82"><span class="toc-number">3.1.</span> <span class="toc-text">隔离级别的差异</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E5%9C%BA%E6%99%AF%E5%BF%85%E9%A1%BB%E7%94%A8%E8%99%9A%E6%8B%9F%E6%9C%BA%EF%BC%9F"><span class="toc-number">3.2.</span> <span class="toc-text">什么场景必须用虚拟机？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E6%80%8E%E4%B9%88%E5%8A%A0%E5%9B%BA%E5%AE%89%E5%85%A8%EF%BC%9F"><span class="toc-number">3.3.</span> <span class="toc-text">Docker怎么加固安全？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF%E2%80%94%E2%80%94%E5%86%B3%E7%AD%96%E6%A0%91%E6%9D%A5%E4%BA%86"><span class="toc-number">4.</span> <span class="toc-text">使用场景——决策树来了</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%98%E5%85%88%E9%80%89Docker%E7%9A%844%E7%A7%8D%E5%9C%BA%E6%99%AF"><span class="toc-number">4.1.</span> <span class="toc-text">优先选Docker的4种场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BF%85%E9%A1%BB%E9%80%89%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%844%E7%A7%8D%E5%9C%BA%E6%99%AF"><span class="toc-number">4.2.</span> <span class="toc-text">必须选虚拟机的4种场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B7%B7%E5%90%88%E4%BD%BF%E7%94%A8%E6%89%8D%E6%98%AF%E7%8E%8B%E9%81%93"><span class="toc-number">4.3.</span> <span class="toc-text">混合使用才是王道</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9C%9F%E5%AE%9E%E6%A1%88%E4%BE%8B%E2%80%94%E2%80%94%E7%9C%8B%E7%9C%8B%E5%A4%A7%E5%AE%B6%E6%80%8E%E4%B9%88%E9%80%89"><span class="toc-number">4.4.</span> <span class="toc-text">真实案例——看看大家怎么选</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">5.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E5%92%8C%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E6%9C%AC%E8%B4%A8%E5%8C%BA%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">Docker和虚拟机的本质区别是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E5%92%8C%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%9A%84%E6%80%A7%E8%83%BD%E5%B7%AE%E5%BC%82%E6%9C%89%E5%A4%9A%E5%A4%A7%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">Docker和虚拟机的性能差异有多大？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E9%80%89Docker%EF%BC%8C%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E9%80%89%E8%99%9A%E6%8B%9F%E6%9C%BA%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">什么时候选Docker，什么时候选虚拟机？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E7%9A%84%E5%AE%89%E5%85%A8%E6%80%A7%E5%A6%82%E4%BD%95%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">Docker的安全性如何？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E8%83%BD%E8%B7%91Windows%E5%BA%94%E7%94%A8%E5%90%97%EF%BC%9F"><span class="toc-number">6.5.</span> <span class="toc-text">Docker能跑Windows应用吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%81%9A%E5%87%BA%E9%80%89%E6%8B%A9%E5%86%B3%E7%AD%96%EF%BC%9F"><span class="toc-number">6.6.</span> <span class="toc-text">如何做出选择决策？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

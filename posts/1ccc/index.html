@@ -1,0 +1,896 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南） | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="手把手教你用 Ollama 和 Open WebUI 在本地搭建 ChatGPT 风格的 AI 对话界面，涵盖安装部署、模型选择、RAG 知识库、API 集成和性能优化，30 分钟完成本地 AI 助手">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）">
+<meta property="og:url" content="https://jingluo23.github.io/posts/1ccc/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="手把手教你用 Ollama 和 Open WebUI 在本地搭建 ChatGPT 风格的 AI 对话界面，涵盖安装部署、模型选择、RAG 知识库、API 集成和性能优化，30 分钟完成本地 AI 助手">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-24T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.763Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Ollama">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）",
+  "url": "https://jingluo23.github.io/posts/1ccc/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-24T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.763Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/1ccc/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-24T07:06:23.000Z" title="发表于 2026-10-24 15:06:23">2026-10-24</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.763Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Ollama-%E6%9C%AC%E5%9C%B0-LLM-%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/">Ollama 本地 LLM 实战指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>13分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>Ollama 让本地跑大模型变得出乎意料地简单——一条命令就能装好，8GB 内存的老笔记本也能跑起来 7B 模型。Open WebUI 则提供了 ChatGPT 风格的界面，Docker 一键部署，内置知识库、多用户管理、OpenAI 兼容 API。</p>
+<p>这篇文章教你用这两样工具在本地搭一个完整的 AI 对话系统。</p>
+<h1 id="为什么选本地部署？"><a href="#为什么选本地部署？" class="headerlink" title="为什么选本地部署？"></a>为什么选本地部署？</h1><p>ChatGPT、Claude 都挺好用，但有几个地方让我不太舒服。</p>
+<p><strong>费用这事儿</strong>。每个月 20 美元，一年下来 240 美元。如果是重度用户还行，但我就偶尔问问代码问题、查查资料，这笔钱有点冤枉。本地跑模型，下载完就免费了，没 Token 计费，不用操心续费。</p>
+<p><strong>隐私这块</strong>。你输入的东西会上传到 OpenAI 或 Anthropic 的服务器。工作文档、个人笔记、私密对话——说实话，我不太放心。本地部署后，数据全在我自己的硬盘上，哪都不去。</p>
+<p><strong>离线这个</strong>。出门旅行、网不好的时候，云端 AI 就废了。本地模型下载后完全离线跑，没网照样用。</p>
+<p><strong>定制这块</strong>。云端服务的参数都锁死了。Temperature、Prompt 模板——你都没法调。本地跑的话，想怎么改就怎么改。</p>
+<h1 id="核心概念速览"><a href="#核心概念速览" class="headerlink" title="核心概念速览"></a>核心概念速览</h1><p>先搞清楚俩工具是啥，不然后面容易迷糊。</p>
+<p><strong>Ollama</strong> 就是个模型运行器。帮你下载、管理、跑大语言模型，顺便还提供一个 API（默认端口 11434）。你可以把它当成”本地版的 OpenAI API”。</p>
+<p><strong>Open WebUI</strong> 是个 Web 界面。ChatGPT 风格的对话窗口、模型切换、历史管理——全都有。它通过 API 连到 Ollama，把命令行操作变成浏览器里的图形界面。</p>
+<p><strong>架构长这样</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">浏览器 (localhost:3000)</span><br><span class="line">    ↓</span><br><span class="line">Open WebUI (Docker 容器)</span><br><span class="line">    ↓ HTTP API</span><br><span class="line">Ollama (本地服务, 端口 11434)</span><br><span class="line">    ↓</span><br><span class="line">本地模型 (存 ~/.ollama 里)</span><br></pre></td></tr></table></figure>
+<p>打开浏览器 → Open WebUI 调 Ollama API → Ollama 加载模型推理 → 结果返回给你。就这么简单。</p>
+<h1 id="系统要求与准备"><a href="#系统要求与准备" class="headerlink" title="系统要求与准备"></a>系统要求与准备</h1><p>部署前先看看你的硬件够不够劲儿。</p>
+<p><strong>最低要求</strong>：</p>
+<ul>
+<li>处理器：Intel i5 或差不多性能的</li>
+<li>内存：8GB RAM（16GB 以上更稳）</li>
+<li>存储：至少 10GB 空闲（模型文件挺大）</li>
+<li>系统：Windows 10+、macOS 11+、Linux</li>
+</ul>
+<p><strong>推荐配置</strong>：</p>
+<ul>
+<li>GPU：NVIDIA RTX 3060 或更好（推理快很多）</li>
+<li>Apple Silicon Mac：M1/M2/M3 系列，内存统一架构，天生适合跑模型</li>
+</ul>
+<p><strong>软件依赖</strong>：</p>
+<ul>
+<li>Docker：跑 Open WebUI 用的（也可以不用，但 Docker 省事）</li>
+</ul>
+<p>检查 Docker 装没装：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker --version</span><br><span class="line">docker compose version</span><br></pre></td></tr></table></figure>
+<p>输版本号就说明装了。没输的话，先装 Docker Desktop（Windows/macOS）或 Docker Engine（Linux）。</p>
+<h1 id="Step-1-安装-Ollama"><a href="#Step-1-安装-Ollama" class="headerlink" title="Step 1: 安装 Ollama"></a>Step 1: 安装 Ollama</h1><p>Ollama 安装——一条命令就完事儿。</p>
+<h2 id="macOS-和-Linux-安装"><a href="#macOS-和-Linux-安装" class="headerlink" title="macOS 和 Linux 安装"></a>macOS 和 Linux 安装</h2><p>打开终端，跑这个：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -fsSL https://ollama.com/install.sh | sh</span><br></pre></td></tr></table></figure>
+<p>脚本会自动下载 Ollama 并装到系统里。装完后，后台服务自动启动。</p>
+<h2 id="Windows-安装"><a href="#Windows-安装" class="headerlink" title="Windows 安装"></a>Windows 安装</h2><p>PowerShell 里跑这个：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">irm https://ollama.com/install.ps1 | iex</span><br></pre></td></tr></table></figure>
+<p>或者直接去 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://ollama.com/download">ollama.com/download</a> 下个 Windows 安装包，双击运行。都行。</p>
+<h2 id="Docker-安装（可选）"><a href="#Docker-安装（可选）" class="headerlink" title="Docker 安装（可选）"></a>Docker 安装（可选）</h2><p>想把 Ollama 也放容器里？用 Docker：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">docker pull ollama/ollama:latest</span><br><span class="line">docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama</span><br></pre></td></tr></table></figure>
+<p><code>-v ollama:/root/.ollama</code> 把模型存到 Docker 卷里——容器重启后模型不会丢。</p>
+<h2 id="验证安装"><a href="#验证安装" class="headerlink" title="验证安装"></a>验证安装</h2><p>装完了，确认下 Ollama 正常跑着：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama --version</span><br></pre></td></tr></table></figure>
+<p>应该输出类似 <code>ollama version is 0.1.x</code> 的版本号。</p>
+<p>服务没自动启动的话，手动跑一下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama serve</span><br></pre></td></tr></table></figure>
+<p>这会在后台启动 Ollama API 服务，监听 <code>http://localhost:11434</code>。</p>
+<h1 id="Step-2-下载并跑模型"><a href="#Step-2-下载并跑模型" class="headerlink" title="Step 2: 下载并跑模型"></a>Step 2: 下载并跑模型</h1><p>Ollama 装好了，接下来下个模型。</p>
+<h2 id="模型咋选"><a href="#模型咋选" class="headerlink" title="模型咋选"></a>模型咋选</h2><p>不同大小的模型需要不同的硬件。下面这个表帮你快速选：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">硬件配置</th>
+<th style="text-align:center">推荐模型</th>
+<th style="text-align:center">参数量</th>
+<th style="text-align:center">磁盘占用</th>
+<th style="text-align:center">命令</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">8GB RAM，没 GPU</td>
+<td style="text-align:center">Llama 3.2 1B</td>
+<td style="text-align:center">1B</td>
+<td style="text-align:center">740MB</td>
+<td style="text-align:center"><code>ollama run llama3.2:1b</code></td>
+</tr>
+<tr>
+<td style="text-align:center">8GB RAM，没 GPU</td>
+<td style="text-align:center">Gemma 3 2B</td>
+<td style="text-align:center">2B</td>
+<td style="text-align:center">1.4GB</td>
+<td style="text-align:center"><code>ollama run gemma3:2b</code></td>
+</tr>
+<tr>
+<td style="text-align:center">16GB RAM</td>
+<td style="text-align:center">Llama 3.2 3B</td>
+<td style="text-align:center">3B</td>
+<td style="text-align:center">2GB</td>
+<td style="text-align:center"><code>ollama run llama3.2</code></td>
+</tr>
+<tr>
+<td style="text-align:center">16GB RAM</td>
+<td style="text-align:center">Qwen 2.5 7B</td>
+<td style="text-align:center">7B</td>
+<td style="text-align:center">4GB</td>
+<td style="text-align:center"><code>ollama run qwen2.5:7b</code></td>
+</tr>
+<tr>
+<td style="text-align:center">16GB RAM + GPU</td>
+<td style="text-align:center">Llama 3.1 8B</td>
+<td style="text-align:center">8B</td>
+<td style="text-align:center">4.7GB</td>
+<td style="text-align:center"><code>ollama run llama3.1:8b</code></td>
+</tr>
+<tr>
+<td style="text-align:center">32GB RAM + GPU</td>
+<td style="text-align:center">DeepSeek R1 14B</td>
+<td style="text-align:center">14B</td>
+<td style="text-align:center">8GB</td>
+<td style="text-align:center"><code>ollama run deepseek-r1:14b</code></td>
+</tr>
+<tr>
+<td style="text-align:center">64GB RAM + GPU</td>
+<td style="text-align:center">Llama 3.3 70B</td>
+<td style="text-align:center">70B</td>
+<td style="text-align:center">39GB</td>
+<td style="text-align:center"><code>ollama run llama3.3:70b</code></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>按用途选</strong>：</p>
+<ul>
+<li><strong>日常对话、简单任务</strong>：Llama 3.2 1B 或 3B</li>
+<li><strong>中文要好</strong>：Qwen 2.5 系列（阿里出的，中文效果好）</li>
+<li><strong>写代码</strong>：DeepSeek R1 系列（推理强，适合代码生成）</li>
+<li><strong>通用高性能</strong>：Llama 3.1 8B 或 Mistral 7B</li>
+</ul>
+<h2 id="下载模型"><a href="#下载模型" class="headerlink" title="下载模型"></a>下载模型</h2><p>用 <code>ollama pull</code> 命令下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 下 Llama 3.2（默认 3B 版）</span><br><span class="line">ollama pull llama3.2</span><br><span class="line"></span><br><span class="line"># 下 DeepSeek R1 7B</span><br><span class="line">ollama pull deepseek-r1:7b</span><br><span class="line"></span><br><span class="line"># 下 Qwen 2.5 7B（中文好）</span><br><span class="line">ollama pull qwen2.5:7b</span><br></pre></td></tr></table></figure>
+<p>第一次下可能要几分钟——看模型大小和网速。我下 Llama 3.2 的时候大概等了 2 分钟，DeepSeek R1 7B 多等了一会儿。</p>
+<h2 id="跑模型对话"><a href="#跑模型对话" class="headerlink" title="跑模型对话"></a>跑模型对话</h2><p>下完了，直接跑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama run llama3.2</span><br></pre></td></tr></table></figure>
+<p>你会进到一个对话界面：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&gt;&gt;&gt; Send a message (/? for help)</span><br></pre></td></tr></table></figure>
+<p>输入问题，模型会实时回：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&gt;&gt;&gt; 你好，介绍一下你自己</span><br><span class="line"></span><br><span class="line">你好！我是基于 Llama 3.2 模型的本地 AI 助手...</span><br></pre></td></tr></table></figure>
+<p>退出来用 <code>Ctrl + d</code> 或者输 <code>/bye</code>。</p>
+<h2 id="常用管理命令"><a href="#常用管理命令" class="headerlink" title="常用管理命令"></a>常用管理命令</h2><p>看看已下载的模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama list</span><br></pre></td></tr></table></figure>
+<p>删掉某个模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama rm llama3.2:1b</span><br></pre></td></tr></table></figure>
+<p>复制模型（起个别名）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama cp llama3.2 my-llama</span><br></pre></td></tr></table></figure>
+<p>看模型详情：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama show llama3.2</span><br></pre></td></tr></table></figure>
+<h1 id="Step-3-安装-Open-WebUI"><a href="#Step-3-安装-Open-WebUI" class="headerlink" title="Step 3: 安装 Open WebUI"></a>Step 3: 安装 Open WebUI</h1><p>命令行够用了。但如果你想体验 ChatGPT 风格的图形界面——那就装 Open WebUI 吧。</p>
+<h2 id="Docker-单容器部署（快得很）"><a href="#Docker-单容器部署（快得很）" class="headerlink" title="Docker 单容器部署（快得很）"></a>Docker 单容器部署（快得很）</h2><p>先确保 Ollama 服务跑着（<code>ollama serve</code>），然后执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">docker run -d -p 3000:8080 \</span><br><span class="line">  --add-host=host.docker.internal:host-gateway \</span><br><span class="line">  -v open-webui:/app/backend/data \</span><br><span class="line">  --name open-webui \</span><br><span class="line">  --restart unless-stopped \</span><br><span class="line">  ghcr.io/open-webui/open-webui:main</span><br></pre></td></tr></table></figure>
+<p>参数解释下：</p>
+<ul>
+<li><code>-p 3000:8080</code>：把容器的 8080 端口映射到本机的 3000 端口</li>
+<li><code>--add-host=host.docker.internal:host-gateway</code>：让容器能访问宿主机的 Ollama 服务</li>
+<li><code>-v open-webui:/app/backend/data</code>：持久化存数据（对话历史、用户账户）</li>
+<li><code>--restart unless-stopped</code>：Docker 重启后容器自动启动</li>
+</ul>
+<p>部署完了，打开浏览器访问：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://localhost:3000</span><br></pre></td></tr></table></figure>
+<h2 id="Docker-Compose-部署（推荐）"><a href="#Docker-Compose-部署（推荐）" class="headerlink" title="Docker Compose 部署（推荐）"></a>Docker Compose 部署（推荐）</h2><p>想把 Ollama 和 Open WebUI 都用 Docker 管？Docker Compose 更方便。</p>
+<p>先建个目录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mkdir open-webui-project</span><br><span class="line">cd open-webui-project</span><br></pre></td></tr></table></figure>
+<p>建个 <code>compose.yaml</code> 文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  open-webui:</span><br><span class="line">    image: ghcr.io/open-webui/open-webui:main</span><br><span class="line">    container_name: open-webui</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3000:8080&quot;</span><br><span class="line">    volumes:</span><br><span class="line">      - ./data:/app/backend/data</span><br><span class="line">    environment:</span><br><span class="line">      - &quot;OLLAMA_BASE_URL=http://ollama:11434&quot;</span><br><span class="line">    restart: unless-stopped</span><br><span class="line">    depends_on:</span><br><span class="line">      - ollama</span><br><span class="line"></span><br><span class="line">  ollama:</span><br><span class="line">    image: ollama/ollama:latest</span><br><span class="line">    container_name: ollama</span><br><span class="line">    volumes:</span><br><span class="line">      - ./ollama:/root/.ollama</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;11434:11434&quot;</span><br><span class="line">    restart: unless-stopped</span><br></pre></td></tr></table></figure>
+<p>启动服务：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker compose up -d</span><br></pre></td></tr></table></figure>
+<p>看看状态：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker compose ps</span><br></pre></td></tr></table></figure>
+<p>俩容器都显示 <code>running</code> 就成功了。</p>
+<h2 id="首次访问与配置"><a href="#首次访问与配置" class="headerlink" title="首次访问与配置"></a>首次访问与配置</h2><p>打开浏览器访问 <code>http://localhost:3000</code>，第一次会看到账户创建页面。</p>
+<p><strong>创建管理员账户</strong>：</p>
+<ul>
+<li>输用户名、邮箱、密码</li>
+<li>点”Sign Up”</li>
+</ul>
+<p>登录后，Open WebUI 会自动检测 Ollama 服务，列出可用模型。如果你已经下了模型，下拉菜单里会显示类似：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">llama3.2:latest</span><br><span class="line">deepseek-r1:7b</span><br><span class="line">qwen2.5:7b</span><br></pre></td></tr></table></figure>
+<p>没自动检测到？去 Settings → Connections，手动填 Ollama API 地址：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://host.docker.internal:11434</span><br></pre></td></tr></table></figure>
+<p>如果用 Docker Compose，填：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://ollama:11434</span><br></pre></td></tr></table></figure>
+<h1 id="Step-4-基础使用"><a href="#Step-4-基础使用" class="headerlink" title="Step 4: 基础使用"></a>Step 4: 基础使用</h1><p>界面搭好了，看看咋用。</p>
+<h2 id="ChatGPT-风格对话"><a href="#ChatGPT-风格对话" class="headerlink" title="ChatGPT 风格对话"></a>ChatGPT 风格对话</h2><p>界面跟 ChatGPT 很像：</p>
+<ul>
+<li>左边是对话列表，能新建、删、重命名</li>
+<li>顶上是模型选择下拉菜单</li>
+<li>底下是输入框，输完按 Enter 发</li>
+</ul>
+<p>选个模型（比如 <code>llama3.2</code>），输问题，回复会实时显示——跟 ChatGPT 一样流式输出。挺爽的。</p>
+<h2 id="模型切换"><a href="#模型切换" class="headerlink" title="模型切换"></a>模型切换</h2><p>同一个对话能切模型。点顶上的模型下拉菜单，选另一个模型，再继续聊。</p>
+<p>这功能适合对比不同模型的回答。比如：</p>
+<ul>
+<li>问同一个问题，先让 Llama 3.2 回</li>
+<li>切到 DeepSeek R1，看它回得更深不深</li>
+</ul>
+<h2 id="对话管理"><a href="#对话管理" class="headerlink" title="对话管理"></a>对话管理</h2><ul>
+<li><strong>新建对话</strong>：点左边的”New Chat”</li>
+<li><strong>重命名对话</strong>：点对话标题，直接改</li>
+<li><strong>删对话</strong>：右键点对话，选删除</li>
+<li><strong>搜历史对话</strong>：左上角有搜索框</li>
+</ul>
+<p>所有对话都存本地 Docker 卷里，不上传云端。</p>
+<h2 id="参数调整"><a href="#参数调整" class="headerlink" title="参数调整"></a>参数调整</h2><p>点输入框右边的设置图标，能调模型参数：</p>
+<ul>
+<li><strong>Temperature</strong>（温度）：控制输出的随机性。低值（0.1-0.3）更稳，高值（0.7-0.9）更有创意</li>
+<li><strong>Top P</strong>：控制词汇选择的范围</li>
+<li><strong>最大输出长度</strong>：限回复字数</li>
+</ul>
+<p>这些参数对结果影响挺大。写代码用低 Temperature，写创意文案用高的。</p>
+<h1 id="Step-5-进阶功能"><a href="#Step-5-进阶功能" class="headerlink" title="Step 5: 进阶功能"></a>Step 5: 进阶功能</h1><p>基础对话之外，Open WebUI 还有几个实用的高级功能。</p>
+<h2 id="RAG-知识库构建"><a href="#RAG-知识库构建" class="headerlink" title="RAG 知识库构建"></a>RAG 知识库构建</h2><p>RAG（Retrieval-Augmented Generation）——把你的文档变成 AI 可检索的知识库。</p>
+<p><strong>咋用</strong>：</p>
+<ol>
+<li>点左边的”Documents”标签</li>
+<li>点”Upload”，选文件（支持 PDF、Markdown、TXT、DOCX）</li>
+<li>文件上传后，系统自动处理并建索引</li>
+</ol>
+<p>上传完了，对话时勾”Use Documents”，AI 会从你的文档里检索相关信息。</p>
+<p><strong>场景举例</strong>：</p>
+<ul>
+<li>上传公司 API 文档，问”某个接口的参数是啥”</li>
+<li>上传个人笔记，问”上次会议的结论是啥”</li>
+<li>上传技术 PDF，问”某个概念的详细解释”</li>
+</ul>
+<p>这就是本地版的”知识库对话”——文档全在你自己硬盘上。</p>
+<h2 id="多用户管理"><a href="#多用户管理" class="headerlink" title="多用户管理"></a>多用户管理</h2><p>多人共用这个系统？能创建不同账户。</p>
+<p>管理员能在 Settings → Users 里：</p>
+<ul>
+<li>创建新用户</li>
+<li>设置用户权限（普通用户、管理员）</li>
+<li>看用户列表</li>
+</ul>
+<p>每个用户的对话历史独立存，互不干扰。</p>
+<h2 id="API-集成"><a href="#API-集成" class="headerlink" title="API 集成"></a>API 集成</h2><p>Open WebUI 和 Ollama 都提供 OpenAI 兼容的 API，能直接对接现有工具。</p>
+<p><strong>调 Ollama API</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:11434/api/chat -d &#x27;&#123;</span><br><span class="line">  &quot;model&quot;: &quot;llama3.2&quot;,</span><br><span class="line">  &quot;messages&quot;: [</span><br><span class="line">    &#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;&#125;</span><br><span class="line">  ],</span><br><span class="line">  &quot;stream&quot;: false</span><br><span class="line">&#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p><strong>调 Open WebUI API</strong>（要认证的话，先拿 Token）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:3000/api/chat/completions \</span><br><span class="line">  -H &quot;Authorization: Bearer YOUR_TOKEN&quot; \</span><br><span class="line">  -d &#x27;&#123;</span><br><span class="line">    &quot;model&quot;: &quot;llama3.2&quot;,</span><br><span class="line">    &quot;messages&quot;: [&#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Hello&quot;&#125;]</span><br><span class="line">  &#125;&#x27;</span><br></pre></td></tr></table></figure>
+<p><strong>Python 示例</strong>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">import requests</span><br><span class="line"></span><br><span class="line">response = requests.post(&#x27;http://localhost:11434/api/chat&#x27;, json=&#123;</span><br><span class="line">    &#x27;model&#x27;: &#x27;llama3.2&#x27;,</span><br><span class="line">    &#x27;messages&#x27;: [&#123;&#x27;role&#x27;: &#x27;user&#x27;, &#x27;content&#x27;: &#x27;Hello&#x27;&#125;],</span><br><span class="line">    &#x27;stream&#x27;: False</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line">print(response.json()[&#x27;message&#x27;][&#x27;content&#x27;])</span><br></pre></td></tr></table></figure>
+<p>这样一来，你就能把本地模型对接到 VS Code 插件、自动化脚本，或者其他支持 OpenAI API 的工具里。</p>
+<h1 id="Step-6-性能调整"><a href="#Step-6-性能调整" class="headerlink" title="Step 6: 性能调整"></a>Step 6: 性能调整</h1><p>推理速度慢？内存不够？调几个参数试试。</p>
+<h2 id="GPU-加速"><a href="#GPU-加速" class="headerlink" title="GPU 加速"></a>GPU 加速</h2><p>Ollama 会自动检测 GPU 并用。GPU 没被识别？检查驱动装对没。</p>
+<p><strong>NVIDIA GPU</strong>：</p>
+<p>确保装了 NVIDIA 驱动和 CUDA。Ollama 会自动调 <code>nvidia-smi</code> 检测 GPU。</p>
+<p><strong>Apple Silicon Mac</strong>：</p>
+<p>M1/M2/M3 Mac 不用额外配置——Ollama 会自动用 Metal 加速。</p>
+<p><strong>AMD GPU</strong>：</p>
+<p>Linux 上能装 ROCm 版的 Ollama：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">curl -L https://ollama.com/download/ollama-linux-amd64-rocm.tgz -o ollama-linux-amd64-rocm.tgz</span><br><span class="line">sudo tar -C /usr/ -xzf ollama-linux-amd64-rocm.tgz</span><br></pre></td></tr></table></figure>
+<h2 id="并发设置"><a href="#并发设置" class="headerlink" title="并发设置"></a>并发设置</h2><p>想让多个模型同时跑，或者提高并发处理能力？设环境变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 设同时跑的模型数</span><br><span class="line">OLLAMA_NUM_PARALLEL=2 ollama serve</span><br><span class="line"></span><br><span class="line"># 设最大加载模型数</span><br><span class="line">OLLAMA_MAX_LOADED_MODELS=2 ollama serve</span><br></pre></td></tr></table></figure>
+<p>这些参数适合多用户场景，避免频繁切模型时的加载延迟。</p>
+<h2 id="模型量化"><a href="#模型量化" class="headerlink" title="模型量化"></a>模型量化</h2><p>大模型（像 70B）占内存太多？用量化版本减少占用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># 下 4-bit 量化版本（占用减少约 75%）</span><br><span class="line">ollama pull llama3.3:70b-q4_K_M</span><br></pre></td></tr></table></figure>
+<p>量化会轻微降低质量，但速度和内存占用好很多。</p>
+<h1 id="常见问题排查"><a href="#常见问题排查" class="headerlink" title="常见问题排查"></a>常见问题排查</h1><p>部署过程中可能会遇到问题。这里列几个最常见的。</p>
+<h2 id="Q1-模型下载很慢"><a href="#Q1-模型下载很慢" class="headerlink" title="Q1: 模型下载很慢"></a>Q1: 模型下载很慢</h2><p><strong>原因</strong>：Ollama 官方服务器在国外，国内下可能慢。</p>
+<p><strong>解决</strong>：</p>
+<ul>
+<li>用代理</li>
+<li>或者从镜像站下 GGUF 文件，手动导到 Ollama</li>
+</ul>
+<p>手动导入方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 下完 GGUF 文件后，建个 Modelfile</span><br><span class="line">FROM ./llama3.2.gguf</span><br><span class="line"></span><br><span class="line"># 创建模型</span><br><span class="line">ollama create my-llama3.2 -f Modelfile</span><br></pre></td></tr></table></figure>
+<h2 id="Q2-Open-WebUI-连不上-Ollama"><a href="#Q2-Open-WebUI-连不上-Ollama" class="headerlink" title="Q2: Open WebUI 连不上 Ollama"></a>Q2: Open WebUI 连不上 Ollama</h2><p><strong>现象</strong>：界面显示”Ollama connection failed”。</p>
+<p><strong>排查</strong>：</p>
+<ol>
+<li><p>确认 Ollama 服务跑着：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:11434</span><br></pre></td></tr></table></figure>
+<p> 应该返回 <code>&quot;Ollama is running&quot;</code>。</p>
+</li>
+<li><p>用 Docker 的话，检查网络配置：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker exec -it open-webui curl http://host.docker.internal:11434</span><br></pre></td></tr></table></figure>
+<p> 不通的话，可能要手动配 <code>OLLAMA_BASE_URL</code> 环境变量。</p>
+</li>
+</ol>
+<h2 id="Q3-GPU-不被识别"><a href="#Q3-GPU-不被识别" class="headerlink" title="Q3: GPU 不被识别"></a>Q3: GPU 不被识别</h2><p><strong>现象</strong>：推理速度很慢，<code>nvidia-smi</code> 显示 GPU 没被用。</p>
+<p><strong>排查</strong>：</p>
+<ol>
+<li><p>检查 NVIDIA 驱动：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">nvidia-smi</span><br></pre></td></tr></table></figure>
+<p> 应该显示 GPU 信息。</p>
+</li>
+<li><p>检查 Ollama 是否识别 GPU：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama show llama3.2 --system</span><br></pre></td></tr></table></figure>
+<p> 显示 CPU-only 的话，说明 GPU 没被识别。</p>
+</li>
+</ol>
+<p><strong>解决</strong>：</p>
+<ul>
+<li>重装 NVIDIA 驱动</li>
+<li>确认 CUDA 版本兼容</li>
+<li>Linux 上可能要设 <code>CUDA_VISIBLE_DEVICES</code></li>
+</ul>
+<h2 id="Q4-内存不足错误"><a href="#Q4-内存不足错误" class="headerlink" title="Q4: 内存不足错误"></a>Q4: 内存不足错误</h2><p><strong>现象</strong>：跑大模型时报 <code>OOM</code>（Out of Memory）错误。</p>
+<p><strong>解决</strong>：</p>
+<ul>
+<li>换更小的模型（像 1B 或 3B）</li>
+<li>用量化版本（<code>q4_K_M</code>）</li>
+<li>增加 swap 空间（Linux）</li>
+<li>关掉其他占内存的程序</li>
+</ul>
+<h2 id="Q5-Docker-容器启动失败"><a href="#Q5-Docker-容器启动失败" class="headerlink" title="Q5: Docker 容器启动失败"></a>Q5: Docker 容器启动失败</h2><p><strong>现象</strong>：<code>docker ps</code> 显示容器状态为 <code>Exited</code>。</p>
+<p><strong>排查</strong>：</p>
+<p>看容器日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker logs open-webui</span><br></pre></td></tr></table></figure>
+<p>常见原因：</p>
+<ul>
+<li>端口冲突（3000 端口被其他程序占了）</li>
+<li>卷权限问题</li>
+<li>内存不足</li>
+</ul>
+<p><strong>解决</strong>：</p>
+<ul>
+<li>换个端口（像 <code>-p 8080:8080</code>）</li>
+<li>检查 Docker 卷权限</li>
+<li>增加容器内存限制</li>
+</ul>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>用 Ollama + Open WebUI 在本地搭 ChatGPT 界面，核心流程就这么几步：</p>
+<ol>
+<li>装 Ollama（一条命令）</li>
+<li>下合适的模型（看硬件选）</li>
+<li>部署 Open WebUI（Docker 一键启动）</li>
+<li>开始对话</li>
+</ol>
+<p>搭完了，你就有：</p>
+<ul>
+<li>免费的 AI 对话助手</li>
+<li>完全隐私的数据存储</li>
+<li>离线能用</li>
+<li>可定制的模型参数</li>
+<li>可扩展的知识库（RAG）</li>
+<li>可集成的 API 接口</li>
+</ul>
+<p>这套方案适合个人日常用，也适合小团队内部部署。如果想再深入，可以探索：</p>
+<ul>
+<li>Modelfile 自定义模型行为</li>
+<li>多云端模型集成（同时用本地模型和 OpenAI API）</li>
+<li>Kubernetes 生产级部署</li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="本地部署-AI-需要什么硬件配置？"><a href="#本地部署-AI-需要什么硬件配置？" class="headerlink" title="本地部署 AI 需要什么硬件配置？"></a>本地部署 AI 需要什么硬件配置？</h2><p>最低 8GB RAM、Intel i5 处理器、10GB 存储空间。推荐 16GB RAM 以上，如有 NVIDIA RTX 3060 或 Apple Silicon Mac 性能更好。大模型（如 70B）需要 64GB RAM。</p>
+<h2 id="Ollama-支持哪些模型？"><a href="#Ollama-支持哪些模型？" class="headerlink" title="Ollama 支持哪些模型？"></a>Ollama 支持哪些模型？</h2><p>支持主流开源模型：</p>
+<ul>
+<li>Meta Llama 系列（1B-70B）</li>
+<li>DeepSeek R1 推理模型</li>
+<li>阿里 Qwen 系列（中文优化）</li>
+<li>Google Gemma、Mistral 等</li>
+</ul>
+<p>用 ollama list 查看已下载模型，ollama pull 下载新模型</p>
+<h2 id="Open-WebUI-连不上-Ollama-怎么办？"><a href="#Open-WebUI-连不上-Ollama-怎么办？" class="headerlink" title="Open WebUI 连不上 Ollama 怎么办？"></a>Open WebUI 连不上 Ollama 怎么办？</h2><p>先确认 Ollama 服务运行中（<code>curl http://localhost:11434</code>）。Docker 部署时检查网络配置，可能需要手动设置 OLLAMA_BASE_URL 环境变量为 <code>http://host.docker.internal:11434</code></p>
+<h2 id="本地部署的-AI-能离线使用吗？"><a href="#本地部署的-AI-能离线使用吗？" class="headerlink" title="本地部署的 AI 能离线使用吗？"></a>本地部署的 AI 能离线使用吗？</h2><p>可以。模型下载后完全离线运行，不需要网络连接。对话历史、知识库文档都存在本地，适合出差、旅行或网络不稳定的环境</p>
+<h2 id="如何对接现有工具（如-VS-Code-插件）？"><a href="#如何对接现有工具（如-VS-Code-插件）？" class="headerlink" title="如何对接现有工具（如 VS Code 插件）？"></a>如何对接现有工具（如 VS Code 插件）？</h2><p>Ollama 提供 OpenAI 兼容 API（端口 11434）：</p>
+<ul>
+<li>端点：<a target="_blank" rel="external nofollow noopener noreferrer" href="http://localhost:11434/api/chat">http://localhost:11434/api/chat</a></li>
+<li>格式与 OpenAI API 相同</li>
+<li>Python/Node.js 直接调用</li>
+</ul>
+<p>只需把 API 地址从 OpenAI 换成本地地址即可</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/1ccc/">https://jingluo23.github.io/posts/1ccc/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Ollama/">Ollama</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/ccad/" title="Ollama 多模型并行运行：Qwen、Llama、DeepSeek 配置实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Ollama 多模型并行运行：Qwen、Llama、DeepSeek 配置实战</div></div><div class="info-2"><div class="info-item-1">详解 Ollama 多模型并行运行配置方法，对比 Qwen、Llama、DeepSeek 三大模型特点与适用场景，分享 GPU 内存管理技巧，助你打造智能模型切换系统。</div></div></div></a><a class="pagination-related" href="/posts/aa53/" title="Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口</div></div><div class="info-2"><div class="info-item-1">学习 Ollama API 调用的两种方式：原生 REST API（curl）和 OpenAI SDK 兼容接口。包含完整代码示例、流式响应处理和最佳实践指南</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/aa53/" title="Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-26</div><div class="info-item-2">Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口</div></div><div class="info-2"><div class="info-item-1">详解 Ollama API 调用方法，涵盖 Python 与 Node.js SDK 原生调用、流式响应处理、工具调用 Agent Loop、thinking 模式及 OpenAI 兼容方案对比</div></div></div></a><a class="pagination-related" href="/posts/a88d/" title="Ollama Embedding 实战：本地向量检索与 RAG 搭建"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-28</div><div class="info-item-2">Ollama Embedding 实战：本地向量检索与 RAG 搭建</div></div><div class="info-2"><div class="info-item-1">用 Ollama 搭建本地 RAG 系统：mxbai-embed-large vs nomic-embed-text 模型对比，ChromaDB/FAISS/Milvus 向量数据库选型，完整 Python 代码实战</div></div></div></a><a class="pagination-related" href="/posts/87b3/" title="Ollama 硬件选型表：显存、量化、GPU 对照指南（2026）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-19</div><div class="info-item-2">Ollama 硬件选型表：显存、量化、GPU 对照指南（2026）</div></div><div class="info-2"><div class="info-item-1">一张完整的 Ollama 硬件选型对照表：7B/13B/70B 模型显存需求、Q4/Q8 量化对比、NVIDIA CUDA/AMD ROCm/Apple Metal 三大加速技术详解。RTX 3060 到 5090 分级推荐，帮你快速匹配显卡与模型。</div></div></div></a><a class="pagination-related" href="/posts/29a8/" title="LangChain + Ollama 集成实战：本地 LLM 应用开发完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-27</div><div class="info-item-2">LangChain + Ollama 集成实战：本地 LLM 应用开发完全指南</div></div><div class="info-2"><div class="info-item-1">详解 LangChain 与 Ollama 集成的完整方法，包含 Chat、RAG、Agent 三大实战场景的代码示例，对比 OpenAI 与 Ollama 切换策略，助你用本地模型打造企业级 LLM 应用。</div></div></div></a><a class="pagination-related" href="/posts/b204/" title="Llama 70B 本地运行：5700XT、Mac M4、CUDA 三方案对比与选型指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-18</div><div class="info-item-2">Llama 70B 本地运行：5700XT、Mac M4、CUDA 三方案对比与选型指南</div></div><div class="info-2"><div class="info-item-1">想本地运行 Llama 70B？本文对比 AMD 5700XT、Mac M4、NVIDIA CUDA 三种方案，用实测数据帮你判断哪种硬件适合自己，包含显存需求、性能对比和踩坑指南。</div></div></div></a><a class="pagination-related" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-30</div><div class="info-item-2">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</div></div><div class="info-2"><div class="info-item-1">完整 Ollama 生产部署监控方案，包含日志配置、Prometheus 指标采集、AlertManager 告警规则和 Grafana Dashboard 实战配置，实现 GPU 多卡监控与自动故障恢复</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%89%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">为什么选本地部署？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%E9%80%9F%E8%A7%88"><span class="toc-number">2.</span> <span class="toc-text">核心概念速览</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%B3%BB%E7%BB%9F%E8%A6%81%E6%B1%82%E4%B8%8E%E5%87%86%E5%A4%87"><span class="toc-number">3.</span> <span class="toc-text">系统要求与准备</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Step-1-%E5%AE%89%E8%A3%85-Ollama"><span class="toc-number">4.</span> <span class="toc-text">Step 1: 安装 Ollama</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#macOS-%E5%92%8C-Linux-%E5%AE%89%E8%A3%85"><span class="toc-number">4.1.</span> <span class="toc-text">macOS 和 Linux 安装</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Windows-%E5%AE%89%E8%A3%85"><span class="toc-number">4.2.</span> <span class="toc-text">Windows 安装</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E5%AE%89%E8%A3%85%EF%BC%88%E5%8F%AF%E9%80%89%EF%BC%89"><span class="toc-number">4.3.</span> <span class="toc-text">Docker 安装（可选）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AA%8C%E8%AF%81%E5%AE%89%E8%A3%85"><span class="toc-number">4.4.</span> <span class="toc-text">验证安装</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Step-2-%E4%B8%8B%E8%BD%BD%E5%B9%B6%E8%B7%91%E6%A8%A1%E5%9E%8B"><span class="toc-number">5.</span> <span class="toc-text">Step 2: 下载并跑模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E5%92%8B%E9%80%89"><span class="toc-number">5.1.</span> <span class="toc-text">模型咋选</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8B%E8%BD%BD%E6%A8%A1%E5%9E%8B"><span class="toc-number">5.2.</span> <span class="toc-text">下载模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B7%91%E6%A8%A1%E5%9E%8B%E5%AF%B9%E8%AF%9D"><span class="toc-number">5.3.</span> <span class="toc-text">跑模型对话</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E7%AE%A1%E7%90%86%E5%91%BD%E4%BB%A4"><span class="toc-number">5.4.</span> <span class="toc-text">常用管理命令</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Step-3-%E5%AE%89%E8%A3%85-Open-WebUI"><span class="toc-number">6.</span> <span class="toc-text">Step 3: 安装 Open WebUI</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E5%8D%95%E5%AE%B9%E5%99%A8%E9%83%A8%E7%BD%B2%EF%BC%88%E5%BF%AB%E5%BE%97%E5%BE%88%EF%BC%89"><span class="toc-number">6.1.</span> <span class="toc-text">Docker 单容器部署（快得很）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-Compose-%E9%83%A8%E7%BD%B2%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89"><span class="toc-number">6.2.</span> <span class="toc-text">Docker Compose 部署（推荐）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%A6%96%E6%AC%A1%E8%AE%BF%E9%97%AE%E4%B8%8E%E9%85%8D%E7%BD%AE"><span class="toc-number">6.3.</span> <span class="toc-text">首次访问与配置</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Step-4-%E5%9F%BA%E7%A1%80%E4%BD%BF%E7%94%A8"><span class="toc-number">7.</span> <span class="toc-text">Step 4: 基础使用</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#ChatGPT-%E9%A3%8E%E6%A0%BC%E5%AF%B9%E8%AF%9D"><span class="toc-number">7.1.</span> <span class="toc-text">ChatGPT 风格对话</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E5%88%87%E6%8D%A2"><span class="toc-number">7.2.</span> <span class="toc-text">模型切换</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AF%B9%E8%AF%9D%E7%AE%A1%E7%90%86"><span class="toc-number">7.3.</span> <span class="toc-text">对话管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E6%95%B0%E8%B0%83%E6%95%B4"><span class="toc-number">7.4.</span> <span class="toc-text">参数调整</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Step-5-%E8%BF%9B%E9%98%B6%E5%8A%9F%E8%83%BD"><span class="toc-number">8.</span> <span class="toc-text">Step 5: 进阶功能</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#RAG-%E7%9F%A5%E8%AF%86%E5%BA%93%E6%9E%84%E5%BB%BA"><span class="toc-number">8.1.</span> <span class="toc-text">RAG 知识库构建</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86"><span class="toc-number">8.2.</span> <span class="toc-text">多用户管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#API-%E9%9B%86%E6%88%90"><span class="toc-number">8.3.</span> <span class="toc-text">API 集成</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Step-6-%E6%80%A7%E8%83%BD%E8%B0%83%E6%95%B4"><span class="toc-number">9.</span> <span class="toc-text">Step 6: 性能调整</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#GPU-%E5%8A%A0%E9%80%9F"><span class="toc-number">9.1.</span> <span class="toc-text">GPU 加速</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B9%B6%E5%8F%91%E8%AE%BE%E7%BD%AE"><span class="toc-number">9.2.</span> <span class="toc-text">并发设置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E9%87%8F%E5%8C%96"><span class="toc-number">9.3.</span> <span class="toc-text">模型量化</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5"><span class="toc-number">10.</span> <span class="toc-text">常见问题排查</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Q1-%E6%A8%A1%E5%9E%8B%E4%B8%8B%E8%BD%BD%E5%BE%88%E6%85%A2"><span class="toc-number">10.1.</span> <span class="toc-text">Q1: 模型下载很慢</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Q2-Open-WebUI-%E8%BF%9E%E4%B8%8D%E4%B8%8A-Ollama"><span class="toc-number">10.2.</span> <span class="toc-text">Q2: Open WebUI 连不上 Ollama</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Q3-GPU-%E4%B8%8D%E8%A2%AB%E8%AF%86%E5%88%AB"><span class="toc-number">10.3.</span> <span class="toc-text">Q3: GPU 不被识别</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Q4-%E5%86%85%E5%AD%98%E4%B8%8D%E8%B6%B3%E9%94%99%E8%AF%AF"><span class="toc-number">10.4.</span> <span class="toc-text">Q4: 内存不足错误</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Q5-Docker-%E5%AE%B9%E5%99%A8%E5%90%AF%E5%8A%A8%E5%A4%B1%E8%B4%A5"><span class="toc-number">10.5.</span> <span class="toc-text">Q5: Docker 容器启动失败</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">11.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">12.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2-AI-%E9%9C%80%E8%A6%81%E4%BB%80%E4%B9%88%E7%A1%AC%E4%BB%B6%E9%85%8D%E7%BD%AE%EF%BC%9F"><span class="toc-number">12.1.</span> <span class="toc-text">本地部署 AI 需要什么硬件配置？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Ollama-%E6%94%AF%E6%8C%81%E5%93%AA%E4%BA%9B%E6%A8%A1%E5%9E%8B%EF%BC%9F"><span class="toc-number">12.2.</span> <span class="toc-text">Ollama 支持哪些模型？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Open-WebUI-%E8%BF%9E%E4%B8%8D%E4%B8%8A-Ollama-%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">12.3.</span> <span class="toc-text">Open WebUI 连不上 Ollama 怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2%E7%9A%84-AI-%E8%83%BD%E7%A6%BB%E7%BA%BF%E4%BD%BF%E7%94%A8%E5%90%97%EF%BC%9F"><span class="toc-number">12.4.</span> <span class="toc-text">本地部署的 AI 能离线使用吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%AF%B9%E6%8E%A5%E7%8E%B0%E6%9C%89%E5%B7%A5%E5%85%B7%EF%BC%88%E5%A6%82-VS-Code-%E6%8F%92%E4%BB%B6%EF%BC%89%EF%BC%9F"><span class="toc-number">12.5.</span> <span class="toc-text">如何对接现有工具（如 VS Code 插件）？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

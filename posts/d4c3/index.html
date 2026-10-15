@@ -1,0 +1,720 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker Compose 多服务编排：本地开发环境一键启动 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker Compose 多服务编排：本地开发环境一键启动">
+<meta property="og:url" content="https://jingluo23.github.io/posts/d4c3/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-09-13T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:08.666Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker Compose 多服务编排：本地开发环境一键启动",
+  "url": "https://jingluo23.github.io/posts/d4c3/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-09-13T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:08.666Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/d4c3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker Compose 多服务编排：本地开发环境一键启动',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker Compose 多服务编排：本地开发环境一键启动</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker Compose 多服务编排：本地开发环境一键启动</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-09-13T07:06:23.000Z" title="发表于 2026-09-13 15:06:23">2026-09-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:08.666Z" title="更新于 2026-10-15 09:33:08">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.5k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>15分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:08&quot;}" hidden></div><p>入职第一天的下午，我盯着屏幕上第 5 个报错弹窗——MySQL 端口被占用，Redis 版本不兼容，RabbitMQ 死活连不上。旁边的前辈看了眼我的屏幕，叹了口气：“你这是装了多久？”</p>
+<p>“从上午 9 点到现在。” 我小声说。</p>
+<p>4 个小时。装 3 个数据库，花了 4 个小时。而这还只是开始，后面还有 ElasticSearch 和 MongoDB 要装。</p>
+<p>那是我第一次意识到：本地开发环境，真的是个坑。一个巨大的、看不见底的坑。</p>
+<p>后来我们团队换了 Docker Compose。新人 clone 仓库，<code>docker-compose up -d</code>，5 分钟，全部服务启动完毕。MySQL、Redis、RabbitMQ、API、Web，一行命令，干干净净。项目切换？换个目录，启动另一个 compose 文件就行。清理？<code>docker-compose down -v</code>，连数据卷一起删掉，不留痕迹。</p>
+<p>这篇文章，我想分享的就是这个转变：如何用 Docker Compose 编排多服务，让本地开发环境从”噩梦”变成”一行命令的事”。</p>
+<h1 id="为什么需要多服务编排"><a href="#为什么需要多服务编排" class="headerlink" title="为什么需要多服务编排"></a>为什么需要多服务编排</h1><p>说实话，十年前做单体应用的时候，环境配置简单得很——装个 JDK，配个数据库连接字符串，项目就能跑。但现在不一样了。</p>
+<p>大多数项目拆成了微服务架构，或者至少也是前后端分离。一个典型的本地开发环境，至少需要这些东西：前端 Web 服务、后端 API 服务、MySQL 存业务数据、Redis 做缓存和 Session、RabbitMQ 处理异步消息。有的项目还要加 ElasticSearch 做搜索，MongoDB 存日志。</p>
+<p>这时候问题就来了。</p>
+<h2 id="手动安装的痛苦"><a href="#手动安装的痛苦" class="headerlink" title="手动安装的痛苦"></a>手动安装的痛苦</h2><p>每台机器都要装一遍。MySQL 要选版本——5.7 还是 8.0？装错了版本，SQL 语法不兼容。Redis 要配端口——默认 6379，但万一被别的服务占用了呢？RabbitMQ 还要装 Erlang 运行环境……光 RabbitMQ 的安装教程，我就看了半小时。</p>
+<p>装完之后，还有版本冲突的问题。本地跑过别的项目，MySQL 还留着旧版本的数据。端口冲突，服务启动失败。排查半天，发现是某个僵尸进程没杀干净。</p>
+<p>最崩溃的是项目切换。刚做完项目 A，要切换到项目 B。项目 A 的 MySQL 占着 3306，项目 B 也想用 3306。要么改配置文件，要么停掉项目 A 的服务。改完配置，过两天又切回项目 A，配置又要改回来。</p>
+<p>来回折腾。</p>
+<h2 id="团队协作的噩梦"><a href="#团队协作的噩梦" class="headerlink" title="团队协作的噩梦"></a>团队协作的噩梦</h2><p>“在我电脑上能跑啊。”</p>
+<p>这句话，每个团队都听过吧。新人入职，clone 代码，装环境，跑不起来。为什么？老项目的 MySQL 版本是 5.7，新人装了 8.0；老项目的 Redis 没设密码，新人本地的 Redis 设了密码。配置文件改了好几处，还是跑不起来。</p>
+<p>最后前辈过来帮忙，两个人花了大半天，才把环境调通。</p>
+<p>这一天的时间，就这么没了。</p>
+<h2 id="Compose-的解决思路"><a href="#Compose-的解决思路" class="headerlink" title="Compose 的解决思路"></a>Compose 的解决思路</h2><p>Docker Compose 的思路很简单：把所有服务打包成容器，用一份配置文件统一管理。</p>
+<p>你不用关心每个数据库怎么安装、怎么配置版本、怎么分配端口。Compose 文件里写清楚，一键启动，所有服务按配置运行。项目切换？换个目录，启动另一份 Compose 文件。清理？一行命令删掉所有容器和卷。</p>
+<p>这就像从”自己组装电脑”变成了”买整机”。你不用管内存条怎么插、显卡怎么装电源线——厂商已经帮你弄好了，开机就能用。</p>
+<h1 id="docker-compose-yml-核心配置"><a href="#docker-compose-yml-核心配置" class="headerlink" title="docker-compose.yml 核心配置"></a>docker-compose.yml 核心配置</h1><p>先看一份完整的配置文件。假设我们的项目有 4 个服务：Web 前端、API 后端、MySQL 数据库、Redis 缓存。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.yml</span><br><span class="line">version: &quot;3.8&quot;  # Compose 文件版本，3.8 支持大多数配置选项</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  # 前端 Web 服务</span><br><span class="line">  web:</span><br><span class="line">    build: ./frontend  # 从本地 frontend 目录构建镜像</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3000:3000&quot;  # 宿主机 3000 -&gt; 容器 3000</span><br><span class="line">    depends_on:</span><br><span class="line">      - api  # 依赖 api 服务，api 先启动</span><br><span class="line">    environment:</span><br><span class="line">      - API_URL=http://api:8080  # 前端访问后端的地址</span><br><span class="line"></span><br><span class="line">  # 后端 API 服务</span><br><span class="line">  api:</span><br><span class="line">    build: ./backend  # 从本地 backend 目录构建镜像</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;8080:8080&quot;</span><br><span class="line">    depends_on:</span><br><span class="line">      - mysql</span><br><span class="line">      - redis  # 依赖数据库和缓存</span><br><span class="line">    environment:</span><br><span class="line">      - DB_HOST=mysql  # 数据库地址（容器名）</span><br><span class="line">      - DB_PORT=3306</span><br><span class="line">      - DB_USER=root</span><br><span class="line">      - DB_PASSWORD=dev123  # 开发环境密码，生产环境用 .env 文件</span><br><span class="line">      - REDIS_HOST=redis</span><br><span class="line">      - REDIS_PORT=6379</span><br><span class="line"></span><br><span class="line">  # MySQL 数据库</span><br><span class="line">  mysql:</span><br><span class="line">    image: mysql:8.0  # 直接使用官方镜像，不构建</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3306:3306&quot;</span><br><span class="line">    environment:</span><br><span class="line">      - MYSQL_ROOT_PASSWORD=dev123</span><br><span class="line">      - MYSQL_DATABASE=myapp  # 自动创建数据库</span><br><span class="line">    volumes:</span><br><span class="line">      - mysql_data:/var/lib/mysql  # 数据持久化到卷</span><br><span class="line"></span><br><span class="line">  # Redis 缓存</span><br><span class="line">  redis:</span><br><span class="line">    image: redis:7-alpine  # alpine 版本更小</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;6379:6379&quot;</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  mysql_data:  # 定义数据卷，MySQL 数据持久化存储</span><br></pre></td></tr></table></figure>
+<h2 id="核心字段解释"><a href="#核心字段解释" class="headerlink" title="核心字段解释"></a>核心字段解释</h2><ul>
+<li><code>services</code> 下面定义所有服务。每个服务可以有三种来源：<code>build</code> 从本地代码构建，<code>image</code> 直接拉取官方镜像，或者两者结合（本地构建 + 基于某个镜像）。</li>
+<li><code>ports</code> 做端口映射。格式是 <code>&quot;宿主机端口:容器端口&quot;</code>。上面的配置里，Web 映射到 3000，API 映射到 8080，MySQL 映射到 3306，Redis 映射到 6379。如果本地端口被占用，可以改宿主机端口，比如 <code>&quot;13006:3306&quot;</code>，这样你用 localhost:13006 连接 MySQL。</li>
+<li><code>depends_on</code> 控制启动顺序。MySQL 和 Redis 先启动，然后 API（依赖它们），最后 Web（依赖 API）。但有个坑，下面会讲。</li>
+<li><code>environment</code> 设置环境变量。数据库密码、连接地址、端口号都可以在这里配置。注意，生产环境不要把密码写在这里，用 <code>.env</code> 文件或者环境变量注入。</li>
+<li><code>volumes</code> 做数据持久化。MySQL 的数据存到 <code>mysql_data</code> 卷，这样容器删掉后数据不会丢失。下次启动，数据还在。</li>
+</ul>
+<h2 id="一个容易踩的坑"><a href="#一个容易踩的坑" class="headerlink" title="一个容易踩的坑"></a>一个容易踩的坑</h2><p>容器名就是服务名。上面配置里，API 服务连接数据库用的是 <code>DB_HOST=mysql</code>，不是 localhost。为什么？</p>
+<p>因为每个容器都是独立的网络环境。localhost 在 API 容器里指向的是 API 容器自己，不是宿主机，也不是 MySQL 容器。Compose 自动创建一个内部网络，服务之间用服务名互相访问。<code>mysql</code> 这个名字，就是 MySQL 容器在网络里的地址。</p>
+<p>第一次写 Compose 文件的时候，我就踩了这个坑——写了 <code>localhost:3306</code>，死活连不上数据库。后来才发现，要用容器名。</p>
+<h1 id="服务依赖与启动顺序"><a href="#服务依赖与启动顺序" class="headerlink" title="服务依赖与启动顺序"></a>服务依赖与启动顺序</h1><p><code>depends_on</code> 看起来很简单：MySQL 先启动，API 再启动。但实际上有个微妙的问题。</p>
+<p>Compose 的 <code>depends_on</code> 只保证容器启动顺序，不保证服务就绪顺序。换句话说，MySQL 容器启动了，但 MySQL 服务可能还没准备好接受连接——正在初始化数据库、加载配置、启动监听端口。API 服务这时候去连接，大概率会失败。</p>
+<p>我就遇到过这种情况。<code>docker-compose up</code> 之后，API 立即报错：数据库连接失败。过了 10 秒再试，又成功了。原因是 MySQL 容器启动了，但 MySQL 服务还没准备好。</p>
+<h2 id="解决方案一：健康检查"><a href="#解决方案一：健康检查" class="headerlink" title="解决方案一：健康检查"></a>解决方案一：健康检查</h2><p>Compose 支持在配置里加健康检查。只有健康检查通过后，依赖它的服务才会启动。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  mysql:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    healthcheck:</span><br><span class="line">      test: [&quot;CMD&quot;, &quot;mysqladmin&quot;, &quot;ping&quot;, &quot;-h&quot;, &quot;localhost&quot;]</span><br><span class="line">      interval: 5s  # 每 5 秒检查一次</span><br><span class="line">      timeout: 3s   # 超时时间</span><br><span class="line">      retries: 10   # 失败 10 次才认为 unhealthy</span><br><span class="line">    # ... 其他配置</span><br><span class="line"></span><br><span class="line">  api:</span><br><span class="line">    depends_on:</span><br><span class="line">      mysql:</span><br><span class="line">        condition: service_healthy  # 等待 MySQL 健康检查通过</span><br></pre></td></tr></table></figure>
+<p>MySQL 会执行 <code>mysqladmin ping</code> 命令，检查自己是否可以接受连接。5 秒检查一次，最多等 10 次（50 秒）。只有健康检查通过了，API 才启动。</p>
+<p>这个方法有效，但有个缺点：每个服务都要写健康检查配置。有些官方镜像（比如 Redis）没有提供方便的健康检查命令，要自己想办法。</p>
+<h2 id="解决方案二：应用层重试"><a href="#解决方案二：应用层重试" class="headerlink" title="解决方案二：应用层重试"></a>解决方案二：应用层重试</h2><p>更省事的办法是在应用代码里加重试逻辑。连接失败，等几秒再试。MySQL 启动慢，等它准备好就行。</p>
+<p>指数退避是常用的策略：第一次等 1 秒，第二次等 2 秒，第三次等 4 秒……逐渐增加等待时间。大多数数据库在 30 秒内都能准备好。</p>
+<p>Node.js 的话，可以用 <code>mysql2</code> 的连接池配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">const pool = mysql.createPool(&#123;</span><br><span class="line">  host: &#x27;mysql&#x27;,</span><br><span class="line">  port: 3306,</span><br><span class="line">  user: &#x27;root&#x27;,</span><br><span class="line">  password: &#x27;dev123&#x27;,</span><br><span class="line">  database: &#x27;myapp&#x27;,</span><br><span class="line">  waitForConnections: true,  // 等待连接可用</span><br><span class="line">  connectionLimit: 10,</span><br><span class="line">  queueLimit: 0,</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>Python 的话，用 <code>tenacity</code> 库做重试：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">from tenacity import retry, stop_after_attempt, wait_exponential</span><br><span class="line"></span><br><span class="line">@retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=10))</span><br><span class="line">def connect_db():</span><br><span class="line">    return mysql.connector.connect(host=&#x27;mysql&#x27;, ...)</span><br></pre></td></tr></table></figure>
+<h2 id="两种方案的选择"><a href="#两种方案的选择" class="headerlink" title="两种方案的选择"></a>两种方案的选择</h2><p>健康检查更精确——只有数据库真的准备好了，API 才启动。但配置稍麻烦，每个数据库都要写对应的检查命令。</p>
+<p>应用层重试更简单——代码里加几行，不用改 Compose 配置。缺点是 API 启动后会有一段时间不断重试，日志里会有连接失败的报错（虽然不影响最终结果）。</p>
+<p>我个人更喜欢应用层重试，因为更省事，而且大多数情况下都能正常工作。健康检查作为备选，用在启动特别慢的服务上。</p>
+<h1 id="多环境配置策略"><a href="#多环境配置策略" class="headerlink" title="多环境配置策略"></a>多环境配置策略</h1><p>本地开发、测试环境、生产环境，配置通常不一样。比如端口映射——开发环境需要把数据库端口暴露出来，方便本地调试；生产环境不需要，数据库只在容器内部网络访问。</p>
+<p>如果把这些配置都写在一份文件里，切换环境就要改文件，改完又改回来。麻烦，还容易改错。</p>
+<p>Compose 有个设计解决这个问题：基础文件 + 覆盖文件。</p>
+<h2 id="基础文件：公共配置"><a href="#基础文件：公共配置" class="headerlink" title="基础文件：公共配置"></a>基础文件：公共配置</h2><p><code>docker-compose.yml</code>写所有环境共享的配置——服务定义、镜像版本、内部网络、数据卷。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.yml（基础配置）</span><br><span class="line">version: &quot;3.8&quot;</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    build: ./frontend</span><br><span class="line">    # ports 不写，由覆盖文件补充</span><br><span class="line"></span><br><span class="line">  api:</span><br><span class="line">    build: ./backend</span><br><span class="line">    environment:</span><br><span class="line">      - DB_HOST=mysql</span><br><span class="line">      - REDIS_HOST=redis</span><br><span class="line">    # ports 不写</span><br><span class="line"></span><br><span class="line">  mysql:</span><br><span class="line">    image: mysql:8.0</span><br><span class="line">    volumes:</span><br><span class="line">      - mysql_data:/var/lib/mysql</span><br><span class="line">    # ports 不写，生产环境不需要暴露</span><br><span class="line"></span><br><span class="line">  redis:</span><br><span class="line">    image: redis:7-alpine</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  mysql_data:</span><br></pre></td></tr></table></figure>
+<p>端口映射没写，因为不同环境的端口配置不一样。</p>
+<h2 id="开发环境覆盖文件"><a href="#开发环境覆盖文件" class="headerlink" title="开发环境覆盖文件"></a>开发环境覆盖文件</h2><p><code>docker-compose.override.yml</code>补充开发环境的特定配置——端口映射、开发用的密码、调试用的环境变量。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.override.yml（开发环境）</span><br><span class="line">version: &quot;3.8&quot;</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3000:3000&quot;  # 开发环境暴露端口，方便本地访问</span><br><span class="line"></span><br><span class="line">  api:</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;8080:8080&quot;</span><br><span class="line">    environment:</span><br><span class="line">      - DEBUG=true  # 开发环境开启调试模式</span><br><span class="line"></span><br><span class="line">  mysql:</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3306:3306&quot;  # 开发环境暴露数据库端口，方便连接调试</span><br><span class="line">    environment:</span><br><span class="line">      - MYSQL_ROOT_PASSWORD=dev123  # 开发环境简单密码</span><br><span class="line"></span><br><span class="line">  redis:</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;6379:6379&quot;</span><br></pre></td></tr></table></figure>
+<p>Compose 有个默认行为：执行 <code>docker-compose up</code> 时，自动合并 <code>docker-compose.yml</code> 和 <code>docker-compose.override.yml</code>。两份文件的配置叠加，override 的配置覆盖基础配置。</p>
+<p>所以本地开发，直接 <code>docker-compose up</code>，就能拿到开发环境的完整配置。</p>
+<h2 id="生产环境覆盖文件"><a href="#生产环境覆盖文件" class="headerlink" title="生产环境覆盖文件"></a>生产环境覆盖文件</h2><p><code>docker-compose.prod.yml</code> 补充生产环境的配置——不暴露端口、使用生产密码、连接外部服务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.prod.yml（生产环境）</span><br><span class="line">version: &quot;3.8&quot;</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  web:</span><br><span class="line">    # 不暴露端口，由反向代理（nginx）访问</span><br><span class="line"></span><br><span class="line">  api:</span><br><span class="line">    environment:</span><br><span class="line">      - DB_HOST=&amp;#123;&amp;#123;DB_HOST&amp;#125;&amp;#125;  # 从环境变量读取，不在文件里写密码</span><br><span class="line">      - DB_PASSWORD=&amp;#123;&amp;#123;DB_PASSWORD&amp;#125;&amp;#125;</span><br><span class="line"></span><br><span class="line">  mysql:</span><br><span class="line">    # 不暴露端口，外部无法直接连接</span><br><span class="line">    environment:</span><br><span class="line">      - MYSQL_ROOT_PASSWORD=&amp;#123;&amp;#123;MYSQL_ROOT_PASSWORD&amp;#125;&amp;#125;</span><br></pre></td></tr></table></figure>
+<p>生产环境启动时，用 <code>-f</code> 参数指定配置文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d</span><br></pre></td></tr></table></figure>
+<p>两份文件叠加，prod 的配置覆盖基础配置。数据库端口不暴露，密码从环境变量读取。</p>
+<h2 id="环境变量注入"><a href="#环境变量注入" class="headerlink" title="环境变量注入"></a>环境变量注入</h2><p>生产环境的密码不应该写在文件里。Compose 支持从 <code>.env</code> 文件或系统环境变量读取值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># .env 文件（不要提交到 git）</span><br><span class="line">DB_HOST=prod-mysql.internal</span><br><span class="line">DB_PASSWORD=super_secret_password_123</span><br><span class="line">MYSQL_ROOT_PASSWORD=another_secret</span><br></pre></td></tr></table></figure>
+<p>配置文件里用 <code>&amp;#123;&amp;#123;VAR:-default&amp;#125;&amp;#125;</code>语法引用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">environment:</span><br><span class="line">  - DB_HOST=&amp;#123;&amp;#123;DB_HOST:-localhost&amp;#125;&amp;#125;  # 如果 DB_HOST 未设置，用 localhost</span><br><span class="line">  - DB_PASSWORD=&amp;#123;&amp;#123;DB_PASSWORD:-dev123&amp;#125;&amp;#125;</span><br></pre></td></tr></table></figure>
+<p><code>.env</code> 文件不要提交到版本控制，用 <code>.env.example</code> 写示例值，团队成员复制后填自己的实际配置。</p>
+<h1 id="一键命令实战"><a href="#一键命令实战" class="headerlink" title="一键命令实战"></a>一键命令实战</h1><p>配置写好了，接下来就是启动、停止、调试。掌握这几个命令，日常操作基本够用。</p>
+<h2 id="启动全部服务"><a href="#启动全部服务" class="headerlink" title="启动全部服务"></a>启动全部服务</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d</span><br></pre></td></tr></table></figure>
+<p><code>up</code> 启动所有服务。<code>-d</code> 表示后台运行（detached mode），不会占用终端。不加 <code>-d</code>，所有服务的日志会直接打印到终端，Ctrl+C 可以停止。</p>
+<p>启动后，Compose 会拉取镜像（如果用 <code>image</code>）、构建镜像（如果用 <code>build</code>）、创建容器、启动服务。第一次启动会比较慢，因为要拉取镜像。后续启动就快了，镜像已经存在。</p>
+<h2 id="查看服务状态"><a href="#查看服务状态" class="headerlink" title="查看服务状态"></a>查看服务状态</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose ps</span><br></pre></td></tr></table></figure>
+<p>列出所有容器的运行状态。输出类似这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">NAME                COMMAND             SERVICE   STATUS    PORTS</span><br><span class="line">myapp-web-1         &quot;npm start&quot;         web       running   0.0.0.0:3000-&gt;3000/tcp</span><br><span class="line">myapp-api-1         &quot;node index.js&quot;     api       running   0.0.0.0:8080-&gt;8080/tcp</span><br><span class="line">myapp-mysql-1       &quot;mysqld&quot;            mysql     running   0.0.0.0:3306-&gt;3306/tcp</span><br><span class="line">myapp-redis-1       &quot;redis-server&quot;      redis     running   0.0.0.0:6379-&gt;6379/tcp</span><br></pre></td></tr></table></figure>
+<p><code>STATUS</code> 显示 running 表示正常运行。如果显示 exited 或 error，说明服务启动失败。</p>
+<h2 id="查看服务日志"><a href="#查看服务日志" class="headerlink" title="查看服务日志"></a>查看服务日志</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose logs -f api</span><br></pre></td></tr></table></figure>
+<p>查看 API 服务的日志。<code>-f</code> 表示持续跟踪（follow），新日志会实时显示。不加 <code>-f</code> 只显示已有日志。</p>
+<p>不加服务名，<code>docker-compose logs -f</code> 会显示所有服务的日志，但日志量大的时候会很乱。</p>
+<h2 id="停止并清理"><a href="#停止并清理" class="headerlink" title="停止并清理"></a>停止并清理</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down</span><br></pre></td></tr></table></figure>
+<p>停止所有容器，删除容器和网络。但数据卷不会删除——MySQL 的数据还在。</p>
+<p>如果要彻底清理，包括数据卷：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose down -v</span><br></pre></td></tr></table></figure>
+<p><code>-v</code> 删除数据卷。下次启动，MySQL 会重新初始化，数据全部清空。调试的时候经常用这个命令——数据乱了，清掉重来。</p>
+<h2 id="重新构建镜像"><a href="#重新构建镜像" class="headerlink" title="重新构建镜像"></a>重新构建镜像</h2><p>代码改了，要重新构建镜像：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose build api</span><br></pre></td></tr></table></figure>
+<p>只构建 API 服务的镜像。构建完，要重启容器：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d api</span><br></pre></td></tr></table></figure>
+<p>或者一步到位，构建并重启：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">docker-compose up -d --build api</span><br></pre></td></tr></table></figure>
+<p><code>--build</code> 强制重新构建镜像，即使镜像已存在。</p>
+<h2 id="常用命令速查表"><a href="#常用命令速查表" class="headerlink" title="常用命令速查表"></a>常用命令速查表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">命令</th>
+<th style="text-align:center">作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">docker-compose up -d</td>
+<td style="text-align:center">后台启动全部服务</td>
+</tr>
+<tr>
+<td style="text-align:center">docker-compose ps</td>
+<td style="text-align:center">查看运行状态</td>
+</tr>
+<tr>
+<td style="text-align:center">docker-compose logs -f api</td>
+<td style="text-align:center">查看 API 日志</td>
+</tr>
+<tr>
+<td style="text-align:center">docker-compose down</td>
+<td style="text-align:center">停止并删除容器</td>
+</tr>
+<tr>
+<td style="text-align:center">docker-compose down -v</td>
+<td style="text-align:center">停止并删除容器和数据卷</td>
+</tr>
+<tr>
+<td style="text-align:center">docker-compose restart api</td>
+<td style="text-align:center">重启 API 服务</td>
+</tr>
+<tr>
+<td style="text-align:center">docker-compose build api</td>
+<td style="text-align:center">重新构建 API 镜像</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这些命令覆盖了日常 90% 的操作。其他命令（exec、cp、top）用到的时候再查文档。</p>
+<h1 id="结尾"><a href="#结尾" class="headerlink" title="结尾"></a>结尾</h1><p>对比一下传统方式和 Compose 方式的效率：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">操作</th>
+<th style="text-align:center">传统方式</th>
+<th style="text-align:center">Compose 方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">新人入职装环境</td>
+<td style="text-align:center">4-8 小时</td>
+<td style="text-align:center">5 分钟（clone + up）</td>
+</tr>
+<tr>
+<td style="text-align:center">项目切换</td>
+<td style="text-align:center">改配置、停服务、重启</td>
+<td style="text-align:center">切目录、启动另一份 compose</td>
+</tr>
+<tr>
+<td style="text-align:center">清理环境</td>
+<td style="text-align:center">手动卸载、排查残留进程</td>
+<td style="text-align:center">一行命令删容器和卷</td>
+</tr>
+<tr>
+<td style="text-align:center">团队环境一致性</td>
+<td style="text-align:center">每台机器都可能不一样</td>
+<td style="text-align:center">配置文件统一，环境完全一致</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>差距很明显。</p>
+<p>如果你还在手动装数据库、改配置文件、排查端口冲突，试试 Docker Compose。先从简单的项目开始——一个 API + 一个 MySQL。写一份 <code>docker-compose.yml</code>，跑起来。熟练了，再加 Redis、RabbitMQ，做多环境配置。</p>
+<p>团队里推广的话，把 <code>docker-compose.yml</code> 和 <code>docker-compose.override.yml</code> 提交到仓库，加个 README 说明启动步骤。新人入职，clone 代码，一行命令，开发环境就准备好了。</p>
+<p>这比写”环境配置文档”靠谱多了。文档会过期，配置文件不会。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="docker-compose-yml-和-Dockerfile-有什么区别？"><a href="#docker-compose-yml-和-Dockerfile-有什么区别？" class="headerlink" title="docker-compose.yml 和 Dockerfile 有什么区别？"></a>docker-compose.yml 和 Dockerfile 有什么区别？</h2><p>Dockerfile 定义单个镜像的构建步骤，<code>docker-compose.yml</code> 定义多个容器如何协同工作。简单说：Dockerfile 造镜像，Compose 管容器。一个项目通常有一个 Dockerfile（或多个，每个服务一个），和一个 <code>docker-compose.yml</code>。</p>
+<h2 id="depends-on-能保证服务就绪吗？"><a href="#depends-on-能保证服务就绪吗？" class="headerlink" title="depends_on 能保证服务就绪吗？"></a>depends_on 能保证服务就绪吗？</h2><p>不能。depends_on 只保证容器启动顺序，不保证服务就绪。MySQL 容器启动了，但服务可能还在初始化。解决方案有两种：一是在 <code>docker-compose.yml</code> 里加 healthcheck，二是应用代码里加重试逻辑。推荐应用层重试，更简单可靠。</p>
+<h2 id="容器内怎么访问宿主机的服务？"><a href="#容器内怎么访问宿主机的服务？" class="headerlink" title="容器内怎么访问宿主机的服务？"></a>容器内怎么访问宿主机的服务？</h2><p>用 <code>host.docker.internal</code>（Docker Desktop）或宿主机 IP（Linux）。比如宿主机跑了个 Redis，容器内连接 <code>host.docker.internal:6379</code>。注意：Linux 上 <code>host.docker.internal</code> 需要额外配置，更简单的方式是用 <code>--network host</code> 模式（但会失去网络隔离）。</p>
+<h2 id="数据存在哪里？容器删了数据会丢吗？"><a href="#数据存在哪里？容器删了数据会丢吗？" class="headerlink" title="数据存在哪里？容器删了数据会丢吗？"></a>数据存在哪里？容器删了数据会丢吗？</h2><p>volumes 配置的数据存在 Docker 管理的数据卷里，容器删了数据不会丢。<code>docker-compose down</code> 只删容器和网络，不删卷。要清空数据，用 <code>docker-compose down -v</code>。开发环境调试时经常用这个命令：数据乱了，清掉重来。</p>
+<h2 id="多环境配置（dev-test-prod）怎么管理？"><a href="#多环境配置（dev-test-prod）怎么管理？" class="headerlink" title="多环境配置（dev/test/prod）怎么管理？"></a>多环境配置（dev/test/prod）怎么管理？</h2><p>用基础文件 + 覆盖文件策略。docker-compose.yml 写公共配置，<code>docker-compose.override.yml</code> 写开发环境配置（Compose 默认自动加载），<code>docker-compose.prod.yml</code> 写生产环境配置。启动时用 <code>-f</code> 参数指定：<code>docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d</code>。</p>
+<h2 id="端口被占用怎么办？"><a href="#端口被占用怎么办？" class="headerlink" title="端口被占用怎么办？"></a>端口被占用怎么办？</h2><p>改宿主机端口映射。比如 MySQL 默认映射 <code>3306:3306</code>，本地 3306 被占用，改成 <code>13006:3306</code>，用 <code>localhost:13006</code> 连接。或者直接不映射端口（去掉 ports 配置），只在容器内部网络访问，更安全。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/d4c3/">https://jingluo23.github.io/posts/d4c3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/ff6a/" title="Docker构建加速：善用缓存让构建快10倍的实战指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker构建加速：善用缓存让构建快10倍的实战指南</div></div><div class="info-2"><div class="info-item-1">掌握Docker层缓存、.dockerignore配置和Dockerfile优化技巧,让构建速度从10分钟缩短到30秒。附完整代码示例和BuildKit缓存挂载进阶实战。</div></div></div></a><a class="pagination-related" href="/posts/c04c/" title="Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker Compose服务依赖：健康检查配置解决数据库启动顺序问题</div></div><div class="info-2"><div class="info-item-1">详解Docker Compose的depends_on与healthcheck配置，通过实战示例解决数据库未就绪导致的应用启动失败问题，包含PostgreSQL和MySQL完整配置模板</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/ac96/" title="Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-09</div><div class="info-item-2">Docker日志清理完全指南：防止磁盘被json.log撑爆的5种方法</div></div><div class="info-2"><div class="info-item-1">Docker日志文件不断增长导致磁盘满？本文教你如何清理json.log、配置日志轮转、选择合适的日志驱动，彻底解决Docker日志撑爆磁盘的问题。</div></div></div></a><a class="pagination-related" href="/posts/5186/" title="Docker部署MySQL完全指南：数据持久化到主从复制实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-02</div><div class="info-item-2">Docker部署MySQL完全指南：数据持久化到主从复制实战</div></div><div class="info-2"><div class="info-item-1">从Docker MySQL数据持久化到主从复制配置，解决容器重启数据丢失、配置文件挂载、连接失败等常见问题，提供生产级部署完整方案。</div></div></div></a><a class="pagination-related" href="/posts/2b73/" title="Docker Compose 生产部署三要素：健康检查、重启策略与资源限制"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-17</div><div class="info-item-2">Docker Compose 生产部署三要素：健康检查、重启策略与资源限制</div></div><div class="info-2"><div class="info-item-1">详解 Docker Compose 生产部署三要素：健康检查判断服务就绪、重启策略实现自愈、资源限制防止失控。附完整 YAML 配置模板，助你构建稳定可靠的容器化应用。</div></div></div></a><a class="pagination-related" href="/posts/30d7/" title="Docker 镜像源测速实战：3 种方法 + 自动切换脚本"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-29</div><div class="info-item-2">Docker 镜像源测速实战：3 种方法 + 自动切换脚本</div></div><div class="info-2"><div class="info-item-1">Docker 镜像拉取慢？本文详解 3 种测速方法，提供 Shell/Python 双版自动切换脚本，一键配置最优国内镜像源，告别 docker pull 超时。</div></div></div></a><a class="pagination-related" href="/posts/a163/" title="Docker容器调试指南：exec命令进入容器排查问题的正确姿势"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-11</div><div class="info-item-2">Docker容器调试指南：exec命令进入容器排查问题的正确姿势</div></div><div class="info-2"><div class="info-item-1">详解docker exec命令进入容器调试的正确方法，包含exec与attach区别、工具安装技巧、用户权限指定等实用场景，附带完整命令示例助你快速排查容器问题。</div></div></div></a><a class="pagination-related" href="/posts/ff6a/" title="Docker构建加速：善用缓存让构建快10倍的实战指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-12</div><div class="info-item-2">Docker构建加速：善用缓存让构建快10倍的实战指南</div></div><div class="info-2"><div class="info-item-1">掌握Docker层缓存、.dockerignore配置和Dockerfile优化技巧,让构建速度从10分钟缩短到30秒。附完整代码示例和BuildKit缓存挂载进阶实战。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E5%A4%9A%E6%9C%8D%E5%8A%A1%E7%BC%96%E6%8E%92"><span class="toc-number">1.</span> <span class="toc-text">为什么需要多服务编排</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%8B%E5%8A%A8%E5%AE%89%E8%A3%85%E7%9A%84%E7%97%9B%E8%8B%A6"><span class="toc-number">1.1.</span> <span class="toc-text">手动安装的痛苦</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9C%E7%9A%84%E5%99%A9%E6%A2%A6"><span class="toc-number">1.2.</span> <span class="toc-text">团队协作的噩梦</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Compose-%E7%9A%84%E8%A7%A3%E5%86%B3%E6%80%9D%E8%B7%AF"><span class="toc-number">1.3.</span> <span class="toc-text">Compose 的解决思路</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#docker-compose-yml-%E6%A0%B8%E5%BF%83%E9%85%8D%E7%BD%AE"><span class="toc-number">2.</span> <span class="toc-text">docker-compose.yml 核心配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%AD%97%E6%AE%B5%E8%A7%A3%E9%87%8A"><span class="toc-number">2.1.</span> <span class="toc-text">核心字段解释</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E5%AE%B9%E6%98%93%E8%B8%A9%E7%9A%84%E5%9D%91"><span class="toc-number">2.2.</span> <span class="toc-text">一个容易踩的坑</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%8D%E5%8A%A1%E4%BE%9D%E8%B5%96%E4%B8%8E%E5%90%AF%E5%8A%A8%E9%A1%BA%E5%BA%8F"><span class="toc-number">3.</span> <span class="toc-text">服务依赖与启动顺序</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E4%B8%80%EF%BC%9A%E5%81%A5%E5%BA%B7%E6%A3%80%E6%9F%A5"><span class="toc-number">3.1.</span> <span class="toc-text">解决方案一：健康检查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88%E4%BA%8C%EF%BC%9A%E5%BA%94%E7%94%A8%E5%B1%82%E9%87%8D%E8%AF%95"><span class="toc-number">3.2.</span> <span class="toc-text">解决方案二：应用层重试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%A4%E7%A7%8D%E6%96%B9%E6%A1%88%E7%9A%84%E9%80%89%E6%8B%A9"><span class="toc-number">3.3.</span> <span class="toc-text">两种方案的选择</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%E7%AD%96%E7%95%A5"><span class="toc-number">4.</span> <span class="toc-text">多环境配置策略</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%96%87%E4%BB%B6%EF%BC%9A%E5%85%AC%E5%85%B1%E9%85%8D%E7%BD%AE"><span class="toc-number">4.1.</span> <span class="toc-text">基础文件：公共配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%80%E5%8F%91%E7%8E%AF%E5%A2%83%E8%A6%86%E7%9B%96%E6%96%87%E4%BB%B6"><span class="toc-number">4.2.</span> <span class="toc-text">开发环境覆盖文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E8%A6%86%E7%9B%96%E6%96%87%E4%BB%B6"><span class="toc-number">4.3.</span> <span class="toc-text">生产环境覆盖文件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F%E6%B3%A8%E5%85%A5"><span class="toc-number">4.4.</span> <span class="toc-text">环境变量注入</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%80%E9%94%AE%E5%91%BD%E4%BB%A4%E5%AE%9E%E6%88%98"><span class="toc-number">5.</span> <span class="toc-text">一键命令实战</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8%E5%85%A8%E9%83%A8%E6%9C%8D%E5%8A%A1"><span class="toc-number">5.1.</span> <span class="toc-text">启动全部服务</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9F%A5%E7%9C%8B%E6%9C%8D%E5%8A%A1%E7%8A%B6%E6%80%81"><span class="toc-number">5.2.</span> <span class="toc-text">查看服务状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9F%A5%E7%9C%8B%E6%9C%8D%E5%8A%A1%E6%97%A5%E5%BF%97"><span class="toc-number">5.3.</span> <span class="toc-text">查看服务日志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%81%9C%E6%AD%A2%E5%B9%B6%E6%B8%85%E7%90%86"><span class="toc-number">5.4.</span> <span class="toc-text">停止并清理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E6%96%B0%E6%9E%84%E5%BB%BA%E9%95%9C%E5%83%8F"><span class="toc-number">5.5.</span> <span class="toc-text">重新构建镜像</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="toc-number">5.6.</span> <span class="toc-text">常用命令速查表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E5%B0%BE"><span class="toc-number">6.</span> <span class="toc-text">结尾</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#docker-compose-yml-%E5%92%8C-Dockerfile-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">docker-compose.yml 和 Dockerfile 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#depends-on-%E8%83%BD%E4%BF%9D%E8%AF%81%E6%9C%8D%E5%8A%A1%E5%B0%B1%E7%BB%AA%E5%90%97%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">depends_on 能保证服务就绪吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%B9%E5%99%A8%E5%86%85%E6%80%8E%E4%B9%88%E8%AE%BF%E9%97%AE%E5%AE%BF%E4%B8%BB%E6%9C%BA%E7%9A%84%E6%9C%8D%E5%8A%A1%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">容器内怎么访问宿主机的服务？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E5%AD%98%E5%9C%A8%E5%93%AA%E9%87%8C%EF%BC%9F%E5%AE%B9%E5%99%A8%E5%88%A0%E4%BA%86%E6%95%B0%E6%8D%AE%E4%BC%9A%E4%B8%A2%E5%90%97%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">数据存在哪里？容器删了数据会丢吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE%EF%BC%88dev-test-prod%EF%BC%89%E6%80%8E%E4%B9%88%E7%AE%A1%E7%90%86%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">多环境配置（dev&#x2F;test&#x2F;prod）怎么管理？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AB%AF%E5%8F%A3%E8%A2%AB%E5%8D%A0%E7%94%A8%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">端口被占用怎么办？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

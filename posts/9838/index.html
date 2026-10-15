@@ -1,0 +1,813 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Ollama 生产环境监控：日志配置与 Prometheus 告警实战 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="完整 Ollama 生产部署监控方案，包含日志配置、Prometheus 指标采集、AlertManager 告警规则和 Grafana Dashboard 实战配置，实现 GPU 多卡监控与自动故障恢复">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">
+<meta property="og:url" content="https://jingluo23.github.io/posts/9838/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="完整 Ollama 生产部署监控方案，包含日志配置、Prometheus 指标采集、AlertManager 告警规则和 Grafana Dashboard 实战配置，实现 GPU 多卡监控与自动故障恢复">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-30T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.782Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Ollama">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Ollama 生产环境监控：日志配置与 Prometheus 告警实战",
+  "url": "https://jingluo23.github.io/posts/9838/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-30T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.782Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/9838/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Ollama 生产环境监控：日志配置与 Prometheus 告警实战',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.782Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Ollama-%E6%9C%AC%E5%9C%B0-LLM-%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/">Ollama 本地 LLM 实战指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>18分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>凌晨三点十七分。Slack 红色告警：<code>Ollama API timeout - service unavailable</code>。客服系统上线两周，每天几百次调用。部署时只配了基本日志记录，没有任何监控告警。GPU 内存满了？进程挂了？网络问题？两眼一抹黑。折腾到早上六点才恢复。</p>
+<p>监控缺失是主要原因之一。</p>
+<p>这篇文章分享从日志配置到 Prometheus + Grafana 监控、再到 AlertManager 告警的完整方案——都是可以直接复制使用的配置文件。按照这个方案，大概 30 分钟就能搭起生产级监控体系。</p>
+<h1 id="生产环境监控的核心挑战"><a href="#生产环境监控的核心挑战" class="headerlink" title="生产环境监控的核心挑战"></a>生产环境监控的核心挑战</h1><p>Ollama 和普通的 Web 服务不太一样。它是个”吃资源大户”。每个加载的模型，光是内存就要占 4 到 16 GB（数据来自 Markaicode 的实测）。而且模型冷启动——也就是从硬盘加载到内存——要 10 到 30 秒。这意味着如果你的服务挂了重启，用户得等半分钟才能收到响应。</p>
+<p>我踩过的坑主要有这几个：</p>
+<p><strong>内存泄漏和 GPU 耗尽</strong>。长时间运行后，Ollama 有时候会”忘记”释放显存。我见过一台 24GB 显存的机器，跑了两天后只剩下 2GB 可用，新请求全被拒绝。问题在于我根本不知道发生了什么，直到用户投诉。</p>
+<p><strong>请求队列堆积</strong>。推理本身慢，一个请求可能要 5-20 秒。如果同时来几十个请求，队列会越积越长，最后超时。但你怎么知道队列是不是在堆积？只能靠猜。</p>
+<p><strong>模型加载延迟</strong>。多个模型切换的时候，加载时间是个黑箱。用户不知道为什么响应慢，你也不知道。</p>
+<p>所以监控的目标就很清晰了：服务可用性（进程还在跑吗？）、性能指标（响应要多快？）、资源利用率（GPU 内存还剩多少？）、错误率（有多少请求失败了？）。这四个维度搞清楚了，心里才有底。</p>
+<p>监控方案选型上，我试过几种组合。小团队用 Prometheus + Grafana 就够了；如果要追踪 LLM 的 Prompt 和响应，Langfuse 很好用；企业级环境可以考虑 SigNoz，它基于 OpenTelemetry，统一了日志、指标和追踪。接下来我重点讲 Prometheus 方案，因为这是最通用的基础。</p>
+<h1 id="日志配置与-systemd-服务优化"><a href="#日志配置与-systemd-服务优化" class="headerlink" title="日志配置与 systemd 服务优化"></a>日志配置与 systemd 服务优化</h1><p>把 Ollama 跑起来容易，但要让它稳定跑下去，第一件事就是把日志搞对。我之前吃过亏——出问题了去翻日志，结果发现什么都没记，或者日志文件几十 GB 把磁盘撑爆了。</p>
+<h2 id="systemd-服务配置"><a href="#systemd-服务配置" class="headerlink" title="systemd 服务配置"></a>systemd 服务配置</h2><p>如果你是直接用官方脚本安装的 Ollama，它已经帮你创建了 systemd 服务。但默认配置比较简单，生产环境需要加点料：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"># /etc/systemd/system/ollama.service</span><br><span class="line"></span><br><span class="line">[Unit]</span><br><span class="line">Description=Ollama Service</span><br><span class="line">After=network.target</span><br><span class="line"></span><br><span class="line">[Service]</span><br><span class="line">Type=simple</span><br><span class="line">User=ollama</span><br><span class="line">Group=ollama</span><br><span class="line"></span><br><span class="line"># 工作目录</span><br><span class="line">WorkingDirectory=/usr/share/ollama</span><br><span class="line"></span><br><span class="line"># 环境变量</span><br><span class="line">Environment=&quot;OLLAMA_HOST=0.0.0.0:11434&quot;</span><br><span class="line">Environment=&quot;OLLAMA_MODELS=/data/ollama/models&quot;</span><br><span class="line">Environment=&quot;OLLAMA_DEBUG=1&quot;</span><br><span class="line">Environment=&quot;OLLAMA_LOG_FORMAT=json&quot;</span><br><span class="line"></span><br><span class="line"># 资源限制（根据你的硬件调整）</span><br><span class="line">LimitNOFILE=65535</span><br><span class="line">LimitNPROC=4096</span><br><span class="line">MemoryMax=32G</span><br><span class="line"></span><br><span class="line"># 自动重启策略</span><br><span class="line">Restart=always</span><br><span class="line">RestartSec=10</span><br><span class="line"></span><br><span class="line"># 启动命令</span><br><span class="line">ExecStart=/usr/local/bin/ollama serve</span><br><span class="line"></span><br><span class="line"># 标准输出和错误输出</span><br><span class="line">StandardOutput=journal</span><br><span class="line">StandardError=journal</span><br><span class="line"></span><br><span class="line">[Install]</span><br><span class="line">WantedBy=multi-user.target</span><br></pre></td></tr></table></figure>
+<p>几个关键点说说我的经验：</p>
+<p><code>Restart=always</code><strong> 和 </strong><code>RestartSec=10</code>：进程异常退出后自动重启，等 10 秒是给系统一点喘息时间。我有次遇到过内存耗尽导致的反复崩溃，没有这个间隔的话，它会疯狂重启，日志直接爆炸。</p>
+<p><code>MemoryMax=32G</code>：限制 Ollama 能用的最大内存。如果你的机器还有其他服务，这个很重要。我试过不加限制，结果 Ollama 把 64GB 内存吃满，连 SSH 都登不进去。</p>
+<p><code>OLLAMA_DEBUG=1</code><strong> 和 </strong><code>OLLAMA_LOG_FORMAT=json</code>：生产环境建议开 debug 模式，出问题才好排查。JSON 格式的日志方便后续用工具解析。</p>
+<p>改完配置别忘了重载：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo systemctl daemon-reload</span><br><span class="line">sudo systemctl restart ollama</span><br><span class="line">sudo systemctl enable ollama  # 开机自启</span><br></pre></td></tr></table></figure>
+<h2 id="Docker-部署的日志配置"><a href="#Docker-部署的日志配置" class="headerlink" title="Docker 部署的日志配置"></a>Docker 部署的日志配置</h2><p>用 Docker 跑的话，日志管理更容易翻车。Docker 默认把日志写在 <code>/var/lib/docker/containers/</code> 下，不加限制的话会无限增长。</p>
+<p>我的 docker-compose 配置长这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"># docker-compose.yml</span><br><span class="line">version: &#x27;3.8&#x27;</span><br><span class="line"></span><br><span class="line">services:</span><br><span class="line">  ollama:</span><br><span class="line">    image: ollama/ollama:latest</span><br><span class="line">    container_name: ollama</span><br><span class="line">    restart: always</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;11434:11434&quot;</span><br><span class="line">    volumes:</span><br><span class="line">      - ./ollama_data:/root/.ollama</span><br><span class="line">    environment:</span><br><span class="line">      - OLLAMA_HOST=0.0.0.0:11434</span><br><span class="line">      - OLLAMA_DEBUG=1</span><br><span class="line">    deploy:</span><br><span class="line">      resources:</span><br><span class="line">        limits:</span><br><span class="line">          memory: 32G</span><br><span class="line">    logging:</span><br><span class="line">      driver: &quot;json-file&quot;</span><br><span class="line">      options:</span><br><span class="line">        max-size: &quot;100m&quot;</span><br><span class="line">        max-file: &quot;5&quot;</span><br></pre></td></tr></table></figure>
+<p><code>max-size: &quot;100m&quot;</code> 表示单个日志文件最大 100MB，<code>max-file: &quot;5&quot;</code> 保留 5 个文件。算下来最多 500MB 日志，够用也不会撑爆磁盘。</p>
+<h2 id="日志级别说明"><a href="#日志级别说明" class="headerlink" title="日志级别说明"></a>日志级别说明</h2><p>Ollama 支持的环境变量：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">变量</th>
+<th style="text-align:center">说明</th>
+<th style="text-align:center">生产建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>OLLAMA_DEBUG</code></td>
+<td style="text-align:center">设为 1 开启详细日志</td>
+<td style="text-align:center">建议开启</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>OLLAMA_LOG_LEVEL</code></td>
+<td style="text-align:center">日志级别（INFO/DEBUG/WARN）</td>
+<td style="text-align:center">INFO 或 DEBUG</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>OLLAMA_LOG_FORMAT</code></td>
+<td style="text-align:center">日志格式（text/json）</td>
+<td style="text-align:center">JSON</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>我一般都开着 DEBUG，硬盘不差这点空间，排查问题的时候能省好多时间。</p>
+<h2 id="journalctl-查日志实战"><a href="#journalctl-查日志实战" class="headerlink" title="journalctl 查日志实战"></a>journalctl 查日志实战</h2><p>配置好后，查日志用 <code>journalctl</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"># 实时查看日志</span><br><span class="line">sudo journalctl -u ollama -f</span><br><span class="line"></span><br><span class="line"># 查最近 100 行</span><br><span class="line">sudo journalctl -u ollama -n 100</span><br><span class="line"></span><br><span class="line"># 查今天的日志</span><br><span class="line">sudo journalctl -u ollama --since today</span><br><span class="line"></span><br><span class="line"># 搜索特定关键词</span><br><span class="line">sudo journalctl -u ollama | grep -i &quot;error&quot;</span><br><span class="line"></span><br><span class="line"># 导出日志到文件</span><br><span class="line">sudo journalctl -u ollama --since &quot;2026-04-12 00:00:00&quot; &gt; ollama-debug.log</span><br></pre></td></tr></table></figure>
+<p>有个技巧：如果你开了 JSON 格式日志，可以用 <code>jq</code> 来解析：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sudo journalctl -u ollama -o json | jq &#x27;select(.level==&quot;error&quot;)&#x27;</span><br></pre></td></tr></table></figure>
+<p>这样就能只看错误级别的日志，不用在一堆 INFO 里翻。</p>
+<h1 id="Prometheus-Grafana-监控方案"><a href="#Prometheus-Grafana-监控方案" class="headerlink" title="Prometheus + Grafana 监控方案"></a>Prometheus + Grafana 监控方案</h1><p>日志算是事后复盘的工具，监控才是提前预警的眼睛。Prometheus + Grafana 这套组合，我自己用了两年多，虽然配置起来有点繁琐，但稳定可靠，社区资源也多。</p>
+<h2 id="ollama-exporter-部署"><a href="#ollama-exporter-部署" class="headerlink" title="ollama-exporter 部署"></a>ollama-exporter 部署</h2><p>Ollama 本身不直接暴露 Prometheus 指标，需要用 exporter 来采集。我用的是 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/frcooper/ollama-exporter">frcooper/ollama-exporter</a>，虽然 Star 数不多（36 个），但功能够用。</p>
+<p>部署方式有两种：直接跑二进制，或者用 Docker。我推荐 Docker：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># 在 docker-compose.yml 中添加 exporter 服务</span><br><span class="line">services:</span><br><span class="line">  ollama-exporter:</span><br><span class="line">    image: frazco/ollama-exporter:latest</span><br><span class="line">    container_name: ollama-exporter</span><br><span class="line">    restart: always</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;9101:9101&quot;</span><br><span class="line">    environment:</span><br><span class="line">      - OLLAMA_HOST=ollama:11434  # 指向 ollama 容器</span><br><span class="line">    depends_on:</span><br><span class="line">      - ollama</span><br></pre></td></tr></table></figure>
+<p>然后是 Prometheus 的配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># prometheus.yml</span><br><span class="line">global:</span><br><span class="line">  scrape_interval: 30s  # 采样间隔，Markaicode 建议用 30 秒</span><br><span class="line">  evaluation_interval: 30s</span><br><span class="line"></span><br><span class="line">scrape_configs:</span><br><span class="line">  - job_name: &#x27;ollama-exporter&#x27;</span><br><span class="line">    static_configs:</span><br><span class="line">      - targets: [&#x27;ollama-exporter:9101&#x27;]</span><br><span class="line">        labels:</span><br><span class="line">          instance: &#x27;ollama-prod&#x27;</span><br><span class="line"></span><br><span class="line">  # GPU 监控（如果用 NVIDIA）</span><br><span class="line">  - job_name: &#x27;nvidia-gpu&#x27;</span><br><span class="line">    static_configs:</span><br><span class="line">      - targets: [&#x27;localhost:9835&#x27;]</span><br></pre></td></tr></table></figure>
+<p>把 Prometheus 也加到 docker-compose 里：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  prometheus:</span><br><span class="line">    image: prom/prometheus:latest</span><br><span class="line">    container_name: prometheus</span><br><span class="line">    restart: always</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;9090:9090&quot;</span><br><span class="line">    volumes:</span><br><span class="line">      - ./prometheus.yml:/etc/prometheus/prometheus.yml</span><br><span class="line">      - prometheus_data:/prometheus</span><br><span class="line">    command:</span><br><span class="line">      - &#x27;--config.file=/etc/prometheus/prometheus.yml&#x27;</span><br><span class="line">      - &#x27;--storage.tsdb.path=/prometheus&#x27;</span><br><span class="line"></span><br><span class="line">volumes:</span><br><span class="line">  prometheus_data:</span><br></pre></td></tr></table></figure>
+<h2 id="关键监控指标"><a href="#关键监控指标" class="headerlink" title="关键监控指标"></a>关键监控指标</h2><p>ollama-exporter 会采集这些指标，我把重点的列出来：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">指标名</th>
+<th style="text-align:center">说明</th>
+<th style="text-align:center">关注点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>ollama_requests_total</code></td>
+<td style="text-align:center">总请求数</td>
+<td style="text-align:center">错误率计算</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>ollama_requests_failed</code></td>
+<td style="text-align:center">失败请求数</td>
+<td style="text-align:center">直接监控</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>ollama_model_load_duration_seconds</code></td>
+<td style="text-align:center">模型加载耗时</td>
+<td style="text-align:center">冷启动性能</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>ollama_request_duration_seconds</code></td>
+<td style="text-align:center">请求响应时间</td>
+<td style="text-align:center">P95/P99 延迟</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>ollama_tokens_per_second</code></td>
+<td style="text-align:center">推理速度</td>
+<td style="text-align:center">throughput</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>还有系统层面的指标（需要 node-exporter 配合）：</p>
+<ul>
+<li>CPU 使用率：<code>node_cpu_seconds_total</code></li>
+<li>内存使用率：<code>node_memory_MemAvailable_bytes</code></li>
+<li>网络流量：<code>node_network_receive_bytes_total</code></li>
+</ul>
+<h2 id="GPU-监控配置"><a href="#GPU-监控配置" class="headerlink" title="GPU 监控配置"></a>GPU 监控配置</h2><p>GPU 是 LLM 服务的心脏，监控必须到位。我用 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/NVIDIA/gpu-monitoring-tools">nvidia_gpu_prometheus_exporter</a>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 安装 NVIDIA GPU exporter</span><br><span class="line">docker run -d \</span><br><span class="line">  --name nvidia-exporter \</span><br><span class="line">  --restart always \</span><br><span class="line">  -p 9835:9835 \</span><br><span class="line">  --gpus all \</span><br><span class="line">  nvidia/gpu-prometheus-exporter:latest</span><br></pre></td></tr></table></figure>
+<p>它会输出这些关键指标：</p>
+<ul>
+<li><code>nvidia_gpu_utilization</code>：GPU 利用率</li>
+<li><code>nvidia_gpu_memory_used_bytes</code>：显存使用量</li>
+<li><code>nvidia_gpu_memory_free_bytes</code>：剩余显存</li>
+<li><code>nvidia_gpu_temperature</code>：GPU 温度</li>
+</ul>
+<p>多卡环境的话，指标会带 <code>gpu_id</code> 标签，可以在 Grafana 里按显卡分别展示。</p>
+<h2 id="Grafana-Dashboard-配置"><a href="#Grafana-Dashboard-配置" class="headerlink" title="Grafana Dashboard 配置"></a>Grafana Dashboard 配置</h2><p>Grafana 的 Dashboard 我直接给你一个可以导入的 JSON。把这个保存成文件，然后在 Grafana 里点 Import Dashboard 就能用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;dashboard&quot;: &#123;</span><br><span class="line">    &quot;title&quot;: &quot;Ollama Production Monitor&quot;,</span><br><span class="line">    &quot;panels&quot;: [</span><br><span class="line">      &#123;</span><br><span class="line">        &quot;title&quot;: &quot;Request Rate&quot;,</span><br><span class="line">        &quot;type&quot;: &quot;graph&quot;,</span><br><span class="line">        &quot;targets&quot;: [</span><br><span class="line">          &#123;</span><br><span class="line">            &quot;expr&quot;: &quot;rate(ollama_requests_total[5m])&quot;,</span><br><span class="line">            &quot;legendFormat&quot;: &quot;Requests/sec&quot;</span><br><span class="line">          &#125;</span><br><span class="line">        ],</span><br><span class="line">        &quot;gridPos&quot;: &#123;&quot;x&quot;: 0, &quot;y&quot;: 0, &quot;w&quot;: 12, &quot;h&quot;: 6&#125;</span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        &quot;title&quot;: &quot;Error Rate&quot;,</span><br><span class="line">        &quot;type&quot;: &quot;gauge&quot;,</span><br><span class="line">        &quot;targets&quot;: [</span><br><span class="line">          &#123;</span><br><span class="line">            &quot;expr&quot;: &quot;rate(ollama_requests_failed[5m]) / rate(ollama_requests_total[5m]) * 100&quot;,</span><br><span class="line">            &quot;legendFormat&quot;: &quot;Error %&quot;</span><br><span class="line">          &#125;</span><br><span class="line">        ],</span><br><span class="line">        &quot;gridPos&quot;: &#123;&quot;x&quot;: 12, &quot;y&quot;: 0, &quot;w&quot;: 6, &quot;h&quot;: 6&#125;</span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        &quot;title&quot;: &quot;GPU Memory Usage&quot;,</span><br><span class="line">        &quot;type&quot;: &quot;graph&quot;,</span><br><span class="line">        &quot;targets&quot;: [</span><br><span class="line">          &#123;</span><br><span class="line">            &quot;expr&quot;: &quot;nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes * 100&quot;,</span><br><span class="line">            &quot;legendFormat&quot;: &quot;GPU &#123;&#123;gpu_id&#125;&#125;&quot;</span><br><span class="line">          &#125;</span><br><span class="line">        ],</span><br><span class="line">        &quot;gridPos&quot;: &#123;&quot;x&quot;: 0, &quot;y&quot;: 6, &quot;w&quot;: 12, &quot;h&quot;: 6&#125;</span><br><span class="line">      &#125;,</span><br><span class="line">      &#123;</span><br><span class="line">        &quot;title&quot;: &quot;Response Latency P95&quot;,</span><br><span class="line">        &quot;type&quot;: &quot;stat&quot;,</span><br><span class="line">        &quot;targets&quot;: [</span><br><span class="line">          &#123;</span><br><span class="line">            &quot;expr&quot;: &quot;histogram_quantile(0.95, rate(ollama_request_duration_seconds_bucket[5m]))&quot;,</span><br><span class="line">            &quot;legendFormat&quot;: &quot;P95 Latency&quot;</span><br><span class="line">          &#125;</span><br><span class="line">        ],</span><br><span class="line">        &quot;gridPos&quot;: &#123;&quot;x&quot;: 12, &quot;y&quot;: 6, &quot;w&quot;: 6, &quot;h&quot;: 6&#125;</span><br><span class="line">      &#125;</span><br><span class="line">    ]</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;overwrite&quot;: true</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>实际效果差不多是这样：</p>
+<ul>
+<li>左上：请求速率曲线，能看到峰值时段</li>
+<li>右上：错误率仪表盘，超过 5% 会变红</li>
+<li>左下：多卡 GPU 内存使用曲线</li>
+<li>右下：P95 延迟数值</li>
+</ul>
+<p>我还会加一个 Tokens/s 的面板，方便横向对比不同模型的推理速度。</p>
+<h2 id="Grafana-数据源配置"><a href="#Grafana-数据源配置" class="headerlink" title="Grafana 数据源配置"></a>Grafana 数据源配置</h2><p>Grafana 容器启动后，需要手动配置 Prometheus 数据源：</p>
+<ol>
+<li>登录 Grafana（默认 admin/admin）</li>
+<li>Configuration -&gt; Data Sources -&gt; Add data source</li>
+<li>选 Prometheus，URL 填 <code>http://prometheus:9090</code></li>
+<li>Save &amp; Test</li>
+</ol>
+<p>如果用 docker-compose 一起部署，网络互通直接用容器名就行。</p>
+<h1 id="告警规则与-AlertManager-配置"><a href="#告警规则与-AlertManager-配置" class="headerlink" title="告警规则与 AlertManager 配置"></a>告警规则与 AlertManager 配置</h1><p>监控能看到问题，但告警才能让你知道”现在就要处理”。我之前犯过一个错：把所有告警都设成 critical，结果手机一天震动几十次，最后麻木了，真正出问题反而没反应。</p>
+<h2 id="告警分级策略"><a href="#告警分级策略" class="headerlink" title="告警分级策略"></a>告警分级策略</h2><p>我把告警分成三级，这个逻辑是经过几次事故迭代出来的：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">级别</th>
+<th style="text-align:center">触发条件</th>
+<th style="text-align:center">响应要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>Critical</strong></td>
+<td style="text-align:center">服务宕机、GPU 内存超95%、错误率超20%</td>
+<td style="text-align:center">立即处理（Slack + 手机推送）</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Warning</strong></td>
+<td style="text-align:center">响应时间超60s、GPU 内存超80%、错误率超5%</td>
+<td style="text-align:center">1 小时内查看（Slack only）</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>Info</strong></td>
+<td style="text-align:center">模型切换、新版本部署</td>
+<td style="text-align:center">仅记录（邮件汇总）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>关键原则：<strong>Critical 告警必须少，要让你一看到就紧张</strong>。</p>
+<h2 id="Prometheus-告警规则"><a href="#Prometheus-告警规则" class="headerlink" title="Prometheus 告警规则"></a>Prometheus 告警规则</h2><p>在 <code>prometheus.yml</code> 里加上告警规则：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">rule_files:</span><br><span class="line">  - &#x27;ollama_alerts.yml&#x27;</span><br></pre></td></tr></table></figure>
+<p>然后单独写一个 <code>ollama_alerts.yml</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"># ollama_alerts.yml</span><br><span class="line">groups:</span><br><span class="line">  - name: ollama_critical</span><br><span class="line">    rules:</span><br><span class="line">      # 服务宕机告警</span><br><span class="line">      - alert: OllamaServiceDown</span><br><span class="line">        expr: up&#123;job=&quot;ollama-exporter&quot;&#125; == 0</span><br><span class="line">        for: 1m</span><br><span class="line">        labels:</span><br><span class="line">          severity: critical</span><br><span class="line">        annotations:</span><br><span class="line">          summary: &quot;Ollama 服务宕机&quot;</span><br><span class="line">          description: &quot;Ollama exporter 无法连接，服务可能已停止&quot;</span><br><span class="line"></span><br><span class="line">      # GPU 内存告警（&gt;95%）</span><br><span class="line">      - alert: GPUMemoryCritical</span><br><span class="line">        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes &gt; 0.95</span><br><span class="line">        for: 2m</span><br><span class="line">        labels:</span><br><span class="line">          severity: critical</span><br><span class="line">        annotations:</span><br><span class="line">          summary: &quot;GPU 内存即将耗尽&quot;</span><br><span class="line">          description: &quot;GPU &#123;&#123; gpu_id &#125;&#125; 内存使用率超过 95%，当前 &#123;&#123; $value | humanizePercentage &#125;&#125;&quot;</span><br><span class="line"></span><br><span class="line">      # 高错误率告警</span><br><span class="line">      - alert: HighErrorRate</span><br><span class="line">        expr: rate(ollama_requests_failed[5m]) / rate(ollama_requests_total[5m]) &gt; 0.20</span><br><span class="line">        for: 3m</span><br><span class="line">        labels:</span><br><span class="line">          severity: critical</span><br><span class="line">        annotations:</span><br><span class="line">          summary: &quot;请求错误率过高&quot;</span><br><span class="line">          description: &quot;过去 5 分钟错误率超过 20%，请检查日志&quot;</span><br><span class="line"></span><br><span class="line">  - name: ollama_warning</span><br><span class="line">    rules:</span><br><span class="line">      # 响应时间告警</span><br><span class="line">      - alert: SlowResponseTime</span><br><span class="line">        expr: histogram_quantile(0.95, rate(ollama_request_duration_seconds_bucket[5m])) &gt; 60</span><br><span class="line">        for: 5m</span><br><span class="line">        labels:</span><br><span class="line">          severity: warning</span><br><span class="line">        annotations:</span><br><span class="line">          summary: &quot;P95 响应时间过慢&quot;</span><br><span class="line">          description: &quot;95% 请求响应时间超过 60 秒&quot;</span><br><span class="line"></span><br><span class="line">      # GPU 内存预警</span><br><span class="line">      - alert: GPUMemoryWarning</span><br><span class="line">        expr: nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes &gt; 0.80</span><br><span class="line">        for: 5m</span><br><span class="line">        labels:</span><br><span class="line">          severity: warning</span><br><span class="line">        annotations:</span><br><span class="line">          summary: &quot;GPU 内存使用率较高&quot;</span><br><span class="line">          description: &quot;GPU &#123;&#123; gpu_id &#125;&#125; 内存使用率超过 80%&quot;</span><br><span class="line"></span><br><span class="line">      # 错误率预警</span><br><span class="line">      - alert: ErrorRateWarning</span><br><span class="line">        expr: rate(ollama_requests_failed[5m]) / rate(ollama_requests_total[5m]) &gt; 0.05</span><br><span class="line">        for: 5m</span><br><span class="line">        labels:</span><br><span class="line">          severity: warning</span><br><span class="line">        annotations:</span><br><span class="line">          summary: &quot;请求错误率上升&quot;</span><br><span class="line">          description: &quot;过去 5 分钟错误率超过 5%&quot;</span><br></pre></td></tr></table></figure>
+<p>几个注意点：</p>
+<ul>
+<li><code>for: Xm</code>：持续 X 分钟才触发，避免瞬时波动误报</li>
+<li>GPU 告警阈值 95%：实测下来，超过 95% 后基本马上就要出问题</li>
+<li>错误率告警用了 <code>rate()</code>：因为绝对数量没意义，要看趋势</li>
+</ul>
+<h2 id="AlertManager-配置"><a href="#AlertManager-配置" class="headerlink" title="AlertManager 配置"></a>AlertManager 配置</h2><p>AlertManager 负责把告警发出去。配置文件 <code>alertmanager.yml</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">global:</span><br><span class="line">  resolve_timeout: 5m</span><br><span class="line"></span><br><span class="line"># 路由配置</span><br><span class="line">route:</span><br><span class="line">  group_by: [&#x27;severity&#x27;, &#x27;alertname&#x27;]</span><br><span class="line">  group_wait: 30s      # 等待 30 秒收集同组告警</span><br><span class="line">  group_interval: 5m   # 同组告警间隔</span><br><span class="line">  repeat_interval: 3h  # 未解决的告警重复发送间隔</span><br><span class="line">  routes:</span><br><span class="line">    - match:</span><br><span class="line">        severity: critical</span><br><span class="line">      receiver: &#x27;critical-alerts&#x27;</span><br><span class="line">      continue: false</span><br><span class="line">    - match:</span><br><span class="line">        severity: warning</span><br><span class="line">      receiver: &#x27;warning-alerts&#x27;</span><br><span class="line">      continue: false</span><br><span class="line">    - match:</span><br><span class="line">        severity: info</span><br><span class="line">      receiver: &#x27;info-alerts&#x27;</span><br><span class="line"></span><br><span class="line"># 接收器配置</span><br><span class="line">receivers:</span><br><span class="line">  - name: &#x27;critical-alerts&#x27;</span><br><span class="line">    slack_configs:</span><br><span class="line">      - api_url: &#x27;https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK&#x27;</span><br><span class="line">        channel: &#x27;#ollama-critical&#x27;</span><br><span class="line">        send_resolved: true</span><br><span class="line">        title: &#x27;&#123;&#123; .Status | toUpper &#125;&#125;: &#123;&#123; .CommonAnnotations.summary &#125;&#125;&#x27;</span><br><span class="line">        text: &#x27;&#123;&#123; .CommonAnnotations.description &#125;&#125;&#x27;</span><br><span class="line"></span><br><span class="line">  - name: &#x27;warning-alerts&#x27;</span><br><span class="line">    slack_configs:</span><br><span class="line">      - api_url: &#x27;https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK&#x27;</span><br><span class="line">        channel: &#x27;#ollama-monitor&#x27;</span><br><span class="line">        send_resolved: true</span><br><span class="line"></span><br><span class="line">  - name: &#x27;info-alerts&#x27;</span><br><span class="line">    email_configs:</span><br><span class="line">      - to: &#x27;[email protected]&#x27;</span><br><span class="line">        send_resolved: true</span><br></pre></td></tr></table></figure>
+<h2 id="Slack-Webhook-配置步骤"><a href="#Slack-Webhook-配置步骤" class="headerlink" title="Slack Webhook 配置步骤"></a>Slack Webhook 配置步骤</h2><ol>
+<li>在 Slack 里创建一个 App（或者用 Incoming Webhooks）</li>
+<li>添加 Webhook URL 到 <code>api_url</code> 字段</li>
+<li>建议分开 channel：critical 用专门的频道，warning 用普通频道</li>
+</ol>
+<p>我还会加一个手机推送。如果你用 PagerDuty 或 OpsGenie，AlertManager 都有集成支持。不想花钱的话，可以用 Telegram Bot，配置也不复杂。</p>
+<h2 id="静默和抑制规则"><a href="#静默和抑制规则" class="headerlink" title="静默和抑制规则"></a>静默和抑制规则</h2><p>有时候需要临时静默告警，比如维护期间。在 AlertManager UI 里可以直接操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 访问 AlertManager UI</span><br><span class="line">http://your-server:9093</span><br><span class="line"></span><br><span class="line"># 点击 Silences -&gt; New Silence</span><br><span class="line"># 设置持续时间、匹配标签</span><br></pre></td></tr></table></figure>
+<p>也可以用 API：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">curl -X POST http://localhost:9093/api/v1/silences \</span><br><span class="line">  -d &#x27;&#123;</span><br><span class="line">    &quot;matchers&quot;: [&#123;&quot;name&quot;: &quot;alertname&quot;, &quot;value&quot;: &quot;OllamaServiceDown&quot;, &quot;isRegex&quot;: false&#125;],</span><br><span class="line">    &quot;startsAt&quot;: &quot;2026-04-12T10:00:00Z&quot;,</span><br><span class="line">    &quot;endsAt&quot;: &quot;2026-04-12T12:00:00Z&quot;,</span><br><span class="line">    &quot;createdBy&quot;: &quot;admin&quot;,</span><br><span class="line">    &quot;comment&quot;: &quot;Scheduled maintenance&quot;</span><br><span class="line">  &#125;&#x27;</span><br></pre></td></tr></table></figure>
+<h1 id="LLM-专用监控工具进阶"><a href="#LLM-专用监控工具进阶" class="headerlink" title="LLM 专用监控工具进阶"></a>LLM 专用监控工具进阶</h1><p>Prometheus + Grafana 是通用方案，但 LLM 有一些特殊的监控需求：Prompt 追踪、Token 成本、响应质量评估。这些指标用传统监控工具不太好搞。</p>
+<h2 id="Langfuse：LLM-追踪和-Prompt-管理"><a href="#Langfuse：LLM-追踪和-Prompt-管理" class="headerlink" title="Langfuse：LLM 追踪和 Prompt 管理"></a>Langfuse：LLM 追踪和 Prompt 管理</h2><p>Langfuse 是专门为 LLM 应用设计的监控平台，MIT 开源，支持自托管。它能做的事：</p>
+<ul>
+<li><strong>追踪每次对话</strong>：记录输入 Prompt、输出内容、Token 数量、耗时</li>
+<li><strong>Prompt 版本管理</strong>：你的 Prompt 改了之后，能对比新旧版本的效果</li>
+<li><strong>质量评估</strong>：记录用户反馈、人工标注，追踪模型输出质量</li>
+</ul>
+<p>集成方式很简单，Langfuse 官方有 Ollama 适配：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"># Python 集成示例</span><br><span class="line">from langfuse import Langfuse</span><br><span class="line">import requests</span><br><span class="line"></span><br><span class="line">langfuse = Langfuse(</span><br><span class="line">    public_key=&quot;pk-xxx&quot;,</span><br><span class="line">    secret_key=&quot;sk-xxx&quot;,</span><br><span class="line">    host=&quot;https://cloud.langfuse.com&quot;  # 或自托管地址</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 每次调用记录</span><br><span class="line">trace = langfuse.trace(</span><br><span class="line">    name=&quot;ollama-chat&quot;,</span><br><span class="line">    input=&#123;&quot;prompt&quot;: user_prompt&#125;,</span><br><span class="line">    metadata=&#123;&quot;model&quot;: &quot;llama3.1&quot;&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">response = requests.post(</span><br><span class="line">    &quot;http://localhost:11434/api/generate&quot;,</span><br><span class="line">    json=&#123;&quot;model&quot;: &quot;llama3.1&quot;, &quot;prompt&quot;: user_prompt&#125;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">trace.update(</span><br><span class="line">    output=response.json()[&quot;response&quot;],</span><br><span class="line">    metadata=&#123;&quot;tokens&quot;: response.json().get(&quot;eval_count&quot;, 0)&#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>部署 Langfuse 自托管版本可以用 Docker：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">services:</span><br><span class="line">  langfuse-server:</span><br><span class="line">    image: langfuse/langfuse:latest</span><br><span class="line">    ports:</span><br><span class="line">      - &quot;3000:3000&quot;</span><br><span class="line">    environment:</span><br><span class="line">      - DATABASE_URL=postgres://user:pass@db:5432/langfuse</span><br><span class="line">      - NEXTAUTH_SECRET=your-secret</span><br></pre></td></tr></table></figure>
+<p>如果你用 LangChain，集成更简单，Langfuse 有官方的 callback handler。</p>
+<h2 id="SigNoz：OpenTelemetry-统一监控"><a href="#SigNoz：OpenTelemetry-统一监控" class="headerlink" title="SigNoz：OpenTelemetry 统一监控"></a>SigNoz：OpenTelemetry 统一监控</h2><p>SigNoz 是一个基于 OpenTelemetry 的可观测性平台，把日志、指标、追踪统一在一块。好处是你不用分别维护 Prometheus、Jaeger、ELK 三套系统。</p>
+<p>对于 LLM 应用，SigNoz 的追踪功能很实用：能看到一个请求从 API 入口到模型推理到数据库查询的完整链路。</p>
+<p>部署 SigNoz 需要的资源比较多，建议至少 4GB 内存。官方有 Docker Compose 一键部署：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/SigNoz/signoz.git</span><br><span class="line">cd signoz/deploy/docker</span><br><span class="line">docker compose up -d</span><br></pre></td></tr></table></figure>
+<h2 id="工具选型建议"><a href="#工具选型建议" class="headerlink" title="工具选型建议"></a>工具选型建议</h2><p>我根据不同场景给个参考：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐方案</th>
+<th style="text-align:center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">小团队（少于5人）</td>
+<td style="text-align:center">Prometheus + Grafana</td>
+<td style="text-align:center">简单够用，社区资源丰富</td>
+</tr>
+<tr>
+<td style="text-align:center">需要 Prompt 追踪</td>
+<td style="text-align:center">Prometheus + Langfuse</td>
+<td style="text-align:center">Langfuse 专注 LLM，互补</td>
+</tr>
+<tr>
+<td style="text-align:center">企业级多服务</td>
+<td style="text-align:center">SigNoz + OpenTelemetry</td>
+<td style="text-align:center">统一平台，运维成本更低</td>
+</tr>
+<tr>
+<td style="text-align:center">纯云原生</td>
+<td style="text-align:center">直接用托管服务</td>
+<td style="text-align:center">省运维精力</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>我自己目前用的是 Prometheus + Grafana + Langfuse 的组合。Prometheus 管基础设施指标，Langfuse 管 LLM 应用层，职责分开，心里清楚。</p>
+<h1 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h1><p>说了这么多，其实就一句话：<strong>别等出事了再想监控</strong>。</p>
+<p>我那次凌晨三点的教训，换来的是这套完整的监控方案。现在我的 Ollama 服务跑了一年多，中间遇到过几次 GPU 内存告警，但都在 Warning 级别就处理掉了，没再半夜被叫醒。</p>
+<p>这套方案的搭建成本其实不高。我整理了所有配置文件，你可以直接下载使用：</p>
+<ul>
+<li>systemd 服务配置</li>
+<li>Docker Compose 完整部署（Ollama + Exporter + Prometheus + Grafana）</li>
+<li>Prometheus 告警规则</li>
+<li>AlertManager 配置模板</li>
+<li>Grafana Dashboard JSON</li>
+</ul>
+<p>配套的 GitHub 仓库我放在文章最后了。按照这个配置，熟练的话 20 分钟就能跑起来，新手大概半小时。</p>
+<p>下一步建议你：</p>
+<ol>
+<li>先用最基础的 Prometheus + Grafana 把指标跑起来</li>
+<li>观察 3-5 天，熟悉正常状态的数据范围</li>
+<li>根据实际情况调整告警阈值</li>
+<li>如果需要追踪 Prompt，再加 Langfuse</li>
+</ol>
+<p>监控这件事，投入一次，收益是持续的。希望你不需要像我一样，用凌晨三点的教训来换这个经验。</p>
+<p><strong>配置文件仓库</strong>：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/yourname/ollama-monitoring-config">github.com/yourname/ollama-monitoring-config</a>（示例链接，实际部署请替换）</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Ollama-生产环境监控需要哪些核心指标？"><a href="#Ollama-生产环境监控需要哪些核心指标？" class="headerlink" title="Ollama 生产环境监控需要哪些核心指标？"></a>Ollama 生产环境监控需要哪些核心指标？</h2><p>四大维度：服务可用性（进程存活状态）、性能指标（P95/P99 响应延迟）、GPU 内存利用率（防止耗尽）、请求错误率（追踪异常趋势）。</p>
+<h2 id="Prometheus-Grafana-和-Langfuse-有什么区别？"><a href="#Prometheus-Grafana-和-Langfuse-有什么区别？" class="headerlink" title="Prometheus + Grafana 和 Langfuse 有什么区别？"></a>Prometheus + Grafana 和 Langfuse 有什么区别？</h2><p>Prometheus + Grafana 监控基础设施指标（CPU、GPU、内存、请求量），Langfuse 专注 LLM 应用层（Prompt 追踪、Token 成本、响应质量评估）。两者互补，建议组合使用。</p>
+<h2 id="告警阈值怎么设置才合理？"><a href="#告警阈值怎么设置才合理？" class="headerlink" title="告警阈值怎么设置才合理？"></a>告警阈值怎么设置才合理？</h2><p>建议分三级：Critical（GPU 内存超过95%、错误率超过20%、服务宕机）立即处理；Warning（GPU 内存超过80%、错误率超过5%）1小时内查看。关键是 Critical 要少，看到就紧张。</p>
+<h2 id="Docker-部署时日志文件无限增长怎么办？"><a href="#Docker-部署时日志文件无限增长怎么办？" class="headerlink" title="Docker 部署时日志文件无限增长怎么办？"></a>Docker 部署时日志文件无限增长怎么办？</h2><p>在 docker-compose.yml 的 logging 配置中加上 max-size: “100m” 和 max-file: “5”，限制单个日志文件 100MB、最多保留 5 个文件，总共不超过 500MB。</p>
+<h2 id="GPU-多卡环境怎么分别监控每张显卡？"><a href="#GPU-多卡环境怎么分别监控每张显卡？" class="headerlink" title="GPU 多卡环境怎么分别监控每张显卡？"></a>GPU 多卡环境怎么分别监控每张显卡？</h2><p>nvidia_gpu_prometheus_exporter 的指标会带 gpu_id 标签。在 Grafana 的 PromQL 里用 <code>&#123;&#123;gpu_id&#125;&#125;</code> 作为 legendFormat，就能按显卡分别展示。</p>
+<h2 id="凌晨三点收到告警后怎么快速定位问题？"><a href="#凌晨三点收到告警后怎么快速定位问题？" class="headerlink" title="凌晨三点收到告警后怎么快速定位问题？"></a>凌晨三点收到告警后怎么快速定位问题？</h2><p>先看 GPU 内存曲线（是不是被吃满了），再看错误率趋势（是突然飙升还是慢慢恶化），最后查 journalctl 日志找具体报错信息。这套顺序能帮你在 10 分钟内定位根因。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/9838/">https://jingluo23.github.io/posts/9838/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Ollama/">Ollama</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</div></div><div class="info-2"><div class="info-item-1">详解 Ollama GGUF 量化原理，引用 Red Hat 500K+ 评估数据揭示精度损失真相，提供不同硬件配置的量化选择建议，帮助你在消费级显卡上运行大模型。</div></div></div></a><a class="pagination-related" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</div></div><div class="info-2"><div class="info-item-1">解析 Mnemo 如何用 Rust、SQLite 与知识图谱为 Ollama 提供跨会话记忆，附 Docker 最小验证、当前 API、性能口径，以及噪声、撤回、迁移和多 Agent 共享边界。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/aa53/" title="Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-26</div><div class="info-item-2">Ollama API 调用：从 curl 到 OpenAI SDK 兼容接口</div></div><div class="info-2"><div class="info-item-1">详解 Ollama API 调用方法，涵盖 Python 与 Node.js SDK 原生调用、流式响应处理、工具调用 Agent Loop、thinking 模式及 OpenAI 兼容方案对比</div></div></div></a><a class="pagination-related" href="/posts/29a8/" title="LangChain + Ollama 集成实战：本地 LLM 应用开发完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-27</div><div class="info-item-2">LangChain + Ollama 集成实战：本地 LLM 应用开发完全指南</div></div><div class="info-2"><div class="info-item-1">详解 LangChain 与 Ollama 集成的完整方法，包含 Chat、RAG、Agent 三大实战场景的代码示例，对比 OpenAI 与 Ollama 切换策略，助你用本地模型打造企业级 LLM 应用。</div></div></div></a><a class="pagination-related" href="/posts/229/" title="Ollama 入门：本地运行大语言模型的第一步"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-14</div><div class="info-item-2">Ollama 入门：本地运行大语言模型的第一步</div></div><div class="info-2"><div class="info-item-1">想在自己的电脑上运行大语言模型？本指南手把手教你安装配置 Ollama，从零开始体验本地 LLM 的强大功能，涵盖多平台安装、模型管理、GPU加速和 API 集成的完整教程</div></div></div></a><a class="pagination-related" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-29</div><div class="info-item-2">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</div></div><div class="info-2"><div class="info-item-1">详解 Ollama GGUF 量化原理，引用 Red Hat 500K+ 评估数据揭示精度损失真相，提供不同硬件配置的量化选择建议，帮助你在消费级显卡上运行大模型。</div></div></div></a><a class="pagination-related" href="/posts/1ccc/" title="Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-24</div><div class="info-item-2">Ollama + Open WebUI：搭建本地 ChatGPT 界面（完整指南）</div></div><div class="info-2"><div class="info-item-1">手把手教你用 Ollama 和 Open WebUI 在本地搭建 ChatGPT 风格的 AI 对话界面，涵盖安装部署、模型选择、RAG 知识库、API 集成和性能优化，30 分钟完成本地 AI 助手</div></div></div></a><a class="pagination-related" href="/posts/333e/" title="Ollama Modelfile 参数详解：创建专属定制模型的完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-17</div><div class="info-item-2">Ollama Modelfile 参数详解：创建专属定制模型的完整指南</div></div><div class="info-2"><div class="info-item-1">详解 Ollama Modelfile 的 10 个核心参数配置，包含 temperature、num_ctx 等调优技巧，提供 4 个可直接使用的实战模板，帮助你创建专属定制模型</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E7%9B%91%E6%8E%A7%E7%9A%84%E6%A0%B8%E5%BF%83%E6%8C%91%E6%88%98"><span class="toc-number">1.</span> <span class="toc-text">生产环境监控的核心挑战</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE%E4%B8%8E-systemd-%E6%9C%8D%E5%8A%A1%E4%BC%98%E5%8C%96"><span class="toc-number">2.</span> <span class="toc-text">日志配置与 systemd 服务优化</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#systemd-%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AE"><span class="toc-number">2.1.</span> <span class="toc-text">systemd 服务配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E9%83%A8%E7%BD%B2%E7%9A%84%E6%97%A5%E5%BF%97%E9%85%8D%E7%BD%AE"><span class="toc-number">2.2.</span> <span class="toc-text">Docker 部署的日志配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%97%A5%E5%BF%97%E7%BA%A7%E5%88%AB%E8%AF%B4%E6%98%8E"><span class="toc-number">2.3.</span> <span class="toc-text">日志级别说明</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#journalctl-%E6%9F%A5%E6%97%A5%E5%BF%97%E5%AE%9E%E6%88%98"><span class="toc-number">2.4.</span> <span class="toc-text">journalctl 查日志实战</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Prometheus-Grafana-%E7%9B%91%E6%8E%A7%E6%96%B9%E6%A1%88"><span class="toc-number">3.</span> <span class="toc-text">Prometheus + Grafana 监控方案</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#ollama-exporter-%E9%83%A8%E7%BD%B2"><span class="toc-number">3.1.</span> <span class="toc-text">ollama-exporter 部署</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E7%9B%91%E6%8E%A7%E6%8C%87%E6%A0%87"><span class="toc-number">3.2.</span> <span class="toc-text">关键监控指标</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GPU-%E7%9B%91%E6%8E%A7%E9%85%8D%E7%BD%AE"><span class="toc-number">3.3.</span> <span class="toc-text">GPU 监控配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Grafana-Dashboard-%E9%85%8D%E7%BD%AE"><span class="toc-number">3.4.</span> <span class="toc-text">Grafana Dashboard 配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Grafana-%E6%95%B0%E6%8D%AE%E6%BA%90%E9%85%8D%E7%BD%AE"><span class="toc-number">3.5.</span> <span class="toc-text">Grafana 数据源配置</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%91%8A%E8%AD%A6%E8%A7%84%E5%88%99%E4%B8%8E-AlertManager-%E9%85%8D%E7%BD%AE"><span class="toc-number">4.</span> <span class="toc-text">告警规则与 AlertManager 配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%91%8A%E8%AD%A6%E5%88%86%E7%BA%A7%E7%AD%96%E7%95%A5"><span class="toc-number">4.1.</span> <span class="toc-text">告警分级策略</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Prometheus-%E5%91%8A%E8%AD%A6%E8%A7%84%E5%88%99"><span class="toc-number">4.2.</span> <span class="toc-text">Prometheus 告警规则</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AlertManager-%E9%85%8D%E7%BD%AE"><span class="toc-number">4.3.</span> <span class="toc-text">AlertManager 配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Slack-Webhook-%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4"><span class="toc-number">4.4.</span> <span class="toc-text">Slack Webhook 配置步骤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%9D%99%E9%BB%98%E5%92%8C%E6%8A%91%E5%88%B6%E8%A7%84%E5%88%99"><span class="toc-number">4.5.</span> <span class="toc-text">静默和抑制规则</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#LLM-%E4%B8%93%E7%94%A8%E7%9B%91%E6%8E%A7%E5%B7%A5%E5%85%B7%E8%BF%9B%E9%98%B6"><span class="toc-number">5.</span> <span class="toc-text">LLM 专用监控工具进阶</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Langfuse%EF%BC%9ALLM-%E8%BF%BD%E8%B8%AA%E5%92%8C-Prompt-%E7%AE%A1%E7%90%86"><span class="toc-number">5.1.</span> <span class="toc-text">Langfuse：LLM 追踪和 Prompt 管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SigNoz%EF%BC%9AOpenTelemetry-%E7%BB%9F%E4%B8%80%E7%9B%91%E6%8E%A7"><span class="toc-number">5.2.</span> <span class="toc-text">SigNoz：OpenTelemetry 统一监控</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E9%80%89%E5%9E%8B%E5%BB%BA%E8%AE%AE"><span class="toc-number">5.3.</span> <span class="toc-text">工具选型建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">6.</span> <span class="toc-text">写在最后</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Ollama-%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E7%9B%91%E6%8E%A7%E9%9C%80%E8%A6%81%E5%93%AA%E4%BA%9B%E6%A0%B8%E5%BF%83%E6%8C%87%E6%A0%87%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">Ollama 生产环境监控需要哪些核心指标？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Prometheus-Grafana-%E5%92%8C-Langfuse-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">Prometheus + Grafana 和 Langfuse 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%91%8A%E8%AD%A6%E9%98%88%E5%80%BC%E6%80%8E%E4%B9%88%E8%AE%BE%E7%BD%AE%E6%89%8D%E5%90%88%E7%90%86%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">告警阈值怎么设置才合理？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E9%83%A8%E7%BD%B2%E6%97%B6%E6%97%A5%E5%BF%97%E6%96%87%E4%BB%B6%E6%97%A0%E9%99%90%E5%A2%9E%E9%95%BF%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">Docker 部署时日志文件无限增长怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GPU-%E5%A4%9A%E5%8D%A1%E7%8E%AF%E5%A2%83%E6%80%8E%E4%B9%88%E5%88%86%E5%88%AB%E7%9B%91%E6%8E%A7%E6%AF%8F%E5%BC%A0%E6%98%BE%E5%8D%A1%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">GPU 多卡环境怎么分别监控每张显卡？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%87%8C%E6%99%A8%E4%B8%89%E7%82%B9%E6%94%B6%E5%88%B0%E5%91%8A%E8%AD%A6%E5%90%8E%E6%80%8E%E4%B9%88%E5%BF%AB%E9%80%9F%E5%AE%9A%E4%BD%8D%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">凌晨三点收到告警后怎么快速定位问题？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

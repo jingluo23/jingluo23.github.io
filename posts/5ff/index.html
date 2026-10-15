@@ -1,0 +1,886 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="Docker Hub上76%的镜像存在安全漏洞。本文详解Trivy扫描工具实战用法、系统性漏洞修复方法和CI&#x2F;CD自动化集成，附完整命令示例，助你构建安全的容器应用。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker镜像安全扫描与修复：Trivy实战教程及CI&#x2F;CD集成指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/5ff/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="Docker Hub上76%的镜像存在安全漏洞。本文详解Trivy扫描工具实战用法、系统性漏洞修复方法和CI&#x2F;CD自动化集成，附完整命令示例，助你构建安全的容器应用。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-04T07:06:23.000Z">
+<meta property="article:modified_time" content="2026-10-15T01:33:25.743Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Docker">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南",
+  "url": "https://jingluo23.github.io/posts/5ff/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-04T07:06:23.000Z",
+  "dateModified": "2026-10-15T01:33:25.743Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/5ff/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Docker镜像安全扫描与修复：Trivy实战教程及CI/CD集成指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-04T07:06:23.000Z" title="发表于 2026-10-04 15:06:23">2026-10-04</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T01:33:25.743Z" title="更新于 2026-10-15 09:33:25">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Docker-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E7%BD%91%E7%BB%9C%E3%80%81%E6%8A%A5%E9%94%99%E4%B8%8E%E7%94%9F%E4%BA%A7%E5%AE%9E%E8%B7%B5/">Docker 专题：安装、网络、报错与生产实践</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">7.5k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>24分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 09:33:25&quot;}" hidden></div><p>2021年12月10号，监控大屏上的告警曲线突然飙红。运维群里有人甩出了一个CVE编号：CVE-2021-44228，后来震惊整个技术圈的Log4Shell漏洞。有十几个微服务都用了带有这个漏洞的基础镜像，整个团队连夜紧急升级镜像、重新部署。</p>
+<p>事后复盘，老板问了一句：“我们怎么连自己用的镜像有什么漏洞都不知道？”</p>
+<p>绿盟科技的一项研究显示，Docker Hub上76%的镜像都存在已知安全漏洞。现在用的那个python:3.9镜像？nginx:latest？很可能就藏着几十个CVE漏洞。</p>
+<p>你肯定想问：我怎么知道镜像里有哪些漏洞？发现漏洞后怎么修复？如何在CI/CD流程中自动检测，避免把有漏洞的镜像部署到生产环境？</p>
+<p>这些问题，我花了两年时间在生产环境踩坑才摸索出答案。这篇文章会手把手教你：</p>
+<ul>
+<li>用Trivy等工具快速扫描Docker镜像漏洞</li>
+<li>系统性修复漏洞的方法（不只是”更新镜像版本”那么简单）</li>
+<li>在GitHub Actions、GitLab CI等CI/CD平台集成自动化扫描</li>
+</ul>
+<p>所有命令和配置都是可以直接复制运行的实战代码。相信我，看完这篇，你能少走很多弯路。</p>
+<h1 id="Docker镜像安全威胁全景"><a href="#Docker镜像安全威胁全景" class="headerlink" title="Docker镜像安全威胁全景"></a>Docker镜像安全威胁全景</h1><h2 id="Docker镜像到底会有哪些安全问题？"><a href="#Docker镜像到底会有哪些安全问题？" class="headerlink" title="Docker镜像到底会有哪些安全问题？"></a>Docker镜像到底会有哪些安全问题？</h2><p>老实讲，刚开始接触容器的时候，我也以为Docker镜像就是个”打包好的程序”，能跑就行。直到有一次线上被扫了3天才发现，原来镜像里的漏洞可以分好几类，每一类都够你喝一壶的。</p>
+<p><strong>操作系统包漏洞</strong> - 这是最常见的。你用的Alpine、Ubuntu基础镜像里，那些OpenSSL、glibc、curl等系统库，每隔一段时间就会爆出新漏洞。比如2022年的OpenSSL 3.0.x高危漏洞，影响了一大批镜像。</p>
+<p><strong>应用依赖漏洞</strong> - 这个更隐蔽。你的Python项目依赖Flask，Flask又依赖Werkzeug，Werkzeug某个版本有个代码执行漏洞。你以为升级了Python版本就安全了？不一定，依赖树里藏着的漏洞可能根本没注意到。Log4j就是典型案例，多少Java项目连自己用了Log4j都不知道。</p>
+<p><strong>配置错误和敏感信息泄露</strong> - 有的开发图方便，把数据库密码直接写Dockerfile里，或者忘记删.git目录就打包了。还有人用root用户跑容器，权限给得比自己家门钥匙还大方。</p>
+<p><strong>供应链风险</strong> - 这个最防不胜防。你从Docker Hub拉个看起来很正常的镜像，说不定哪天就被发现被人植入了挖矿程序或者后门。2018年有研究发现，Docker Hub上有不少”恶意镜像”，专门钓那些图省事直接pull的人。</p>
+<h2 id="为什么Docker-Hub的镜像不能盲目信任？"><a href="#为什么Docker-Hub的镜像不能盲目信任？" class="headerlink" title="为什么Docker Hub的镜像不能盲目信任？"></a>为什么Docker Hub的镜像不能盲目信任？</h2><p>76%这个数字我第一次看到时真的被震到了。</p>
+<p>你可能会想，这数据有点老了吧？但问题是，那些老镜像现在还有人在用。而且很多”官方镜像”也不是实时更新的。你看到python:3.9这个标签，可能是半年前构建的，里面的系统包早就过时了。</p>
+<p>更头疼的是，Docker Hub上的镜像质量参差不齐。有的是个人开发者维护的，可能半年没更新；有的标着”官方”，但其实只是某个公司自己上传的。没有统一的安全审计标准，用起来完全靠运气。</p>
+<p>我之前有个同事，为了图方便，从Docker Hub拉了个带Node.js环境的镜像，结果后来扫出来有30多个高危漏洞。问镜像作者，人家回了句：“这镜像两年没维护了，你自己改改吧。“哭笑不得。</p>
+<p>所以现在我的原则是：Docker Hub上拉下来的镜像，一定要先扫一遍再用，哪怕是”官方”标签的也不例外。</p>
+<h1 id="主流镜像扫描工具对比与选择"><a href="#主流镜像扫描工具对比与选择" class="headerlink" title="主流镜像扫描工具对比与选择"></a>主流镜像扫描工具对比与选择</h1><h2 id="Trivy：我最推荐的开源工具"><a href="#Trivy：我最推荐的开源工具" class="headerlink" title="Trivy：我最推荐的开源工具"></a>Trivy：我最推荐的开源工具</h2><p>说到Docker镜像安全扫描工具，市面上选择不少，但我现在几乎只用Trivy。不是说别的工具不好，而是Trivy真的把”易用性”和”功能性”平衡得太好了。</p>
+<p>第一次用Trivy的时候，我被它的速度惊到了。扫描一个几百MB的镜像，首次扫描大概10秒，后续扫描更是只要几秒钟。关键是不用维护什么本地数据库，也不需要额外配置服务，装完就能用。</p>
+<p>Trivy能检测什么？说实话，比我预想的多：</p>
+<ul>
+<li><strong>漏洞检测</strong>：支持各种操作系统包（Alpine、Ubuntu、Debian、CentOS等）和应用依赖（npm、pip、Maven、Go Modules等）</li>
+<li><strong>错误配置扫描</strong>：能检查Dockerfile、Kubernetes配置文件的安全问题</li>
+<li><strong>Secret泄露检测</strong>：会提醒你镜像里有没有意外打包了密钥、密码之类的敏感信息</li>
+<li><strong>许可证合规</strong>：还能检查依赖包的开源许可证，避免法律风险</li>
+</ul>
+<p>最让我满意的是，Trivy已经被GitHub Actions、Harbor这些主流平台集成了。也就是说，你不用自己折腾集成方案，官方已经给你铺好路了。</p>
+<h2 id="其他工具简单了解下"><a href="#其他工具简单了解下" class="headerlink" title="其他工具简单了解下"></a>其他工具简单了解下</h2><p><strong>Snyk</strong> - 这是个商业产品，功能确实很全面。它能直接集成到IDE里，你写代码的时候就能实时提示依赖有没有漏洞。还支持自动生成修复PR，很智能。但问题是免费版限制挺多的，真要深度用起来得花钱，适合预算充足的大公司。</p>
+<p><strong>Clair</strong> - 这是Quay镜像仓库的扫描引擎，开源的，可以深度定制。但说实话，配置起来比较复杂。它的工作方式是从各种Linux发行版的安全团队拉取CVE信息，专注于威胁检测。如果你的团队有专门的安全工程师，想要高度定制化的方案，Clair是个好选择。但对于普通开发团队来说，学习成本有点高。</p>
+<p><strong>Anchore</strong> - 企业级解决方案，支持策略管理。比如你可以设置规则：“发现CRITICAL级别漏洞就阻止部署”。适合对合规要求特别严格的场景，比如金融、医疗行业。不过同样的问题，配置和维护比较重。</p>
+<p><strong>Docker Scout / Hardened Images (DHI)</strong> - 这是Docker官方在2025年5月推出的新产品，号称能做到CVE接近零，镜像体积还能缩小95%。我看了下技术方案，用的是distroless运行时，确实很有前景。不过因为刚推出不久，生态还在建设中，可以保持关注。</p>
+<h2 id="我的选择建议"><a href="#我的选择建议" class="headerlink" title="我的选择建议"></a>我的选择建议</h2><p>如果你是中小团队或者个人开发者，<strong>直接用Trivy</strong>，免费、易用、功能够用。安装一条命令，扫描一条命令，10分钟就能上手。</p>
+<p>如果你是大型企业，安全合规要求高，预算也充足，可以考虑<strong>Snyk</strong>。它的漏洞数据库更新及时，支持团队也很专业，还能和各种开发工具深度集成。</p>
+<p>如果你们团队有专门的安全工程师，想要一个可以深度定制的开源方案，<strong>Clair</strong>值得研究。但要做好花时间折腾配置的准备。</p>
+<p>追求极致安全和极简镜像的话，关注<strong>Docker Hardened Images</strong>的发展，说不定就是未来的标准方案。</p>
+<p>我自己的实践是：日常开发和CI/CD用Trivy，快速反馈；生产环境部署前，再用Harbor集成的Clair做二次扫描，双保险。</p>
+<h1 id="Trivy实战教程"><a href="#Trivy实战教程" class="headerlink" title="Trivy实战教程"></a>Trivy实战教程</h1><h2 id="安装和基础使用"><a href="#安装和基础使用" class="headerlink" title="安装和基础使用"></a>安装和基础使用</h2><p>Trivy的安装简单到我第一次都觉得有点不真实。如果你用macOS：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install trivy</span><br></pre></td></tr></table></figure>
+<p>Linux用户可以直接下载二进制文件，或者用包管理器安装，GitHub releases页面有详细说明：<code>https://github.com/aquasecurity/trivy/releases</code></p>
+<p>装好后，立刻来扫个镜像试试水：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 扫描Docker Hub上的镜像</span><br><span class="line">trivy image python:3.9</span><br><span class="line"></span><br><span class="line"># 扫描本地构建的镜像</span><br><span class="line">trivy image myapp:latest</span><br><span class="line"></span><br><span class="line"># 扫描保存为tar文件的镜像</span><br><span class="line">trivy image --input ruby-3.1.tar</span><br></pre></td></tr></table></figure>
+<p>第一次运行时，Trivy会自动下载漏洞数据库（trivy-db），大概几十MB，需要等一小会儿。下载完成后，扫描速度就飞快了。</p>
+<p>扫描结果会按漏洞严重程度分类显示：</p>
+<ul>
+<li><strong>CRITICAL（严重）</strong>：必须立即修复，可能导致系统被完全控制</li>
+<li><strong>HIGH（高危）</strong>：应尽快修复，可能被利用进行攻击</li>
+<li><strong>MEDIUM（中危）</strong>：建议修复，有一定安全风险</li>
+<li><strong>LOW（低危）</strong>：优先级较低，可以排期处理</li>
+</ul>
+<p>每个漏洞都会显示CVE编号、受影响的包名、当前版本、修复版本（如果有的话）。</p>
+<h2 id="高级扫描选项：让Trivy更好用"><a href="#高级扫描选项：让Trivy更好用" class="headerlink" title="高级扫描选项：让Trivy更好用"></a>高级扫描选项：让Trivy更好用</h2><p>实际工作中，你可能不想看到所有漏洞，尤其是那些”无法修复”的低危漏洞，看着闹心。这时候就需要一些高级选项了：</p>
+<p><strong>只显示高危和严重漏洞</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trivy image --severity HIGH,CRITICAL nginx:latest</span><br></pre></td></tr></table></figure>
+<p>这个我在CI/CD里常用。毕竟要求所有漏洞都修复不现实，先把高危的解决掉是当务之急。</p>
+<p><strong>忽略未修复的漏洞</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trivy image --ignore-unfixed redis:latest</span><br></pre></td></tr></table></figure>
+<p>有些漏洞官方还没发布补丁，你急也没用。加上这个参数，Trivy只会显示那些已经有修复方案的漏洞，让你把精力花在能解决的问题上。</p>
+<p><strong>发现严重漏洞时让命令退出码非零</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trivy image --exit-code 1 --severity CRITICAL myapp:latest</span><br></pre></td></tr></table></figure>
+<p>这个超级实用！在CI/CD pipeline里，如果扫出严重漏洞，这条命令会返回非零退出码，导致构建失败。等于是给你的镜像加了一道安全关卡，有漏洞的镜像根本进不了生产环境。</p>
+<p><strong>输出JSON格式，便于集成到其他工具</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trivy image -f json -o results.json myapp:latest</span><br></pre></td></tr></table></figure>
+<p>如果你想把扫描结果导入到安全平台、或者做进一步的自动化处理，JSON格式很方便。</p>
+<p><strong>离线环境下扫描</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">trivy image --skip-db-update myapp:latest</span><br></pre></td></tr></table></figure>
+<p>有的公司内网环境不能访问外网，可以先在能联网的机器上下载好漏洞数据库，然后拷贝到内网机器，加上这个参数就不会尝试更新了。</p>
+<h2 id="看懂扫描结果：重点关注什么"><a href="#看懂扫描结果：重点关注什么" class="headerlink" title="看懂扫描结果：重点关注什么"></a>看懂扫描结果：重点关注什么</h2><p>我第一次扫描一个生产镜像时，结果刷了满屏，有100多个漏洞。当时心都凉了，心想这得修到什么时候？</p>
+<p>后来经验多了才明白，看扫描结果有窍门：</p>
+<p><strong>优先看有修复版本的漏洞</strong>。如果”Fixed Version”这一列显示”none”或者空着，说明目前还没补丁，你也做不了什么。先把有修复方案的漏洞解决掉。</p>
+<p><strong>重点关注CRITICAL和HIGH</strong>。LOW和MEDIUM级别的漏洞，如果不是面向公网的服务，可以适当延后处理。但CRITICAL必须马上修，这种漏洞往往有公开的exploit代码，黑客可以直接利用。</p>
+<p><strong>查CVE详情</strong>。如果你对某个漏洞拿不准，去<strong><a target="_blank" rel="external nofollow noopener noreferrer" href="https://cve.mitre.org/查查那个CVE编号，看看具体是什么问题、影响范围、利用难度。有时候看起来很吓人的漏洞，其实需要很苛刻的利用条件">https://cve.mitre.org/查查那个CVE编号，看看具体是什么问题、影响范围、利用难度。有时候看起来很吓人的漏洞，其实需要很苛刻的利用条件</a></strong>。</p>
+<p><strong>理解Trivy的工作原理</strong>。Trivy会下载一个漏洞数据库（其实就是一个JSON文件，里面记录了各种软件包的已知漏洞），然后把你镜像里的软件包列表（通过分析包管理器的数据库得到）拿来对照。只要包名和版本号匹配上了某个已知漏洞，就会报出来。</p>
+<p>所以有时候会有误报。比如你的镜像里有个漏洞包，但实际代码根本没调用那个有问题的函数，Trivy也会报警。这种情况你需要结合实际代码来判断风险。</p>
+<h1 id="漏洞修复的系统性方法"><a href="#漏洞修复的系统性方法" class="headerlink" title="漏洞修复的系统性方法"></a>漏洞修复的系统性方法</h1><h2 id="从选对基础镜像开始"><a href="#从选对基础镜像开始" class="headerlink" title="从选对基础镜像开始"></a>从选对基础镜像开始</h2><p>修复漏洞，其实很多时候不是”修”，而是”换”。扫出几十个系统包漏洞？别去一个个升级了，直接换个更安全的基础镜像效率高多了。</p>
+<p>我之前的团队习惯用Alpine Linux做基础镜像，因为它只有5.87MB，特别小巧。但后来发现Alpine也有自己的问题：它用的是muslc标准库而不是常见的glibc，有时候会有兼容性问题。而且小归小，漏洞该有还是有。</p>
+<p>现在我更倾向于用<strong>Distroless</strong>镜像。这玩意儿只有3.06MB，比Alpine还小，关键是它做了极致的精简：没有Shell、没有包管理器、没有任何不必要的工具。</p>
+<p>为什么这样更安全？很简单，黑客就算发现了你应用程序的一个漏洞，也没法在容器里执行shell命令，因为根本就没有shell。攻击面被压缩到了最小。</p>
+<p>Google的Distroless镜像有各种语言版本：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># Python应用</span><br><span class="line">FROM gcr.io/distroless/python3</span><br><span class="line"></span><br><span class="line"># Node.js应用</span><br><span class="line">FROM gcr.io/distroless/nodejs</span><br><span class="line"></span><br><span class="line"># Go应用（静态编译的话甚至可以用static版本）</span><br><span class="line">FROM gcr.io/distroless/static</span><br></pre></td></tr></table></figure>
+<p>当然，Distroless也有不方便的地方：调试很麻烦，因为连ls、cat这些基本命令都没有。我的做法是，开发环境用普通镜像方便调试，生产环境切换到Distroless保证安全。</p>
+<p>2025年Docker官方推出的 <strong>Hardened Images (DHI)</strong> 更激进，号称CVE接近零，镜像还能再缩小95%。虽然现在生态还不成熟，但很值得关注，可能就是下一代的标准方案。</p>
+<h2 id="升级依赖包修复漏洞的实战方法"><a href="#升级依赖包修复漏洞的实战方法" class="headerlink" title="升级依赖包修复漏洞的实战方法"></a>升级依赖包修复漏洞的实战方法</h2><p>换了基础镜像还不够，应用层的依赖也得管。这里有几个实用技巧：</p>
+<p><strong>方法一：更新基础镜像版本</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 别用latest，太模糊了</span><br><span class="line">FROM python:3.9</span><br><span class="line"></span><br><span class="line"># 改用具体的小版本号，并定期更新</span><br><span class="line">FROM python:3.11.7</span><br></pre></td></tr></table></figure>
+<p>很多人喜欢用<code>latest</code>标签图省事，但这是个坏习惯。<code>latest</code>可能几个月都不更新，里面的系统包早就过时了。用具体版本号，然后每个月主动检查一次有没有更新的小版本。</p>
+<p><strong>方法二：在Dockerfile中升级系统包</strong></p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">FROM ubuntu:22.04</span><br><span class="line"></span><br><span class="line"># 构建镜像时更新所有系统包</span><br><span class="line">RUN apt-get update &amp;&amp; \</span><br><span class="line">    apt-get upgrade -y &amp;&amp; \</span><br><span class="line">    apt-get clean &amp;&amp; \</span><br><span class="line">    rm -rf /var/lib/apt/lists/*</span><br></pre></td></tr></table></figure>
+<p>注意这里的技巧：把update、upgrade、clean放在一个RUN指令里，可以减少镜像层数。最后删掉apt缓存，能再省几十MB空间。</p>
+<p><strong>方法三：更新应用依赖版本</strong></p>
+<p>这个是最常见的场景。Trivy扫出来Flask有漏洞，你就去<code>requirements.txt</code>里把版本号改了：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 修改前</span><br><span class="line">Flask==2.0.1</span><br><span class="line"></span><br><span class="line"># 修改后（假设2.3.0修复了漏洞）</span><br><span class="line">Flask==2.3.0</span><br></pre></td></tr></table></figure>
+<p>但这里有个坑：你直接升级Flask可能会带来兼容性问题。所以最好先在测试环境跑一遍，确认没问题再推生产。</p>
+<p>更稳妥的方式是只升级补丁版本。比如Flask 2.0.1有漏洞，先试试2.0.x的最新版本，而不是直接跳到2.3.0。</p>
+<h2 id="不要忽视的最佳实践"><a href="#不要忽视的最佳实践" class="headerlink" title="不要忽视的最佳实践"></a>不要忽视的最佳实践</h2><p>除了修复具体漏洞，还有些好习惯能让你的镜像长期保持安全：</p>
+<p><strong>用多阶段构建</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"># 构建阶段</span><br><span class="line">FROM golang:1.21 AS builder</span><br><span class="line">WORKDIR /app</span><br><span class="line">COPY . .</span><br><span class="line">RUN go build -o myapp</span><br><span class="line"></span><br><span class="line"># 运行阶段（只要编译好的二进制文件）</span><br><span class="line">FROM gcr.io/distroless/static</span><br><span class="line">COPY --from=builder /app/myapp /</span><br><span class="line">CMD [&quot;/myapp&quot;]</span><br></pre></td></tr></table></figure>
+<p>这样最终镜像里不会包含Go编译器、源代码、中间文件，干干净净，攻击面小得多。</p>
+<p><strong>不要以root用户运行</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">RUN useradd -m myuser</span><br><span class="line">USER myuser</span><br></pre></td></tr></table></figure>
+<p>很多镜像默认用root跑应用，这简直是在作死。黑客攻破应用后就直接拿到了root权限，可以为所欲为。创建一个普通用户，让应用用这个身份跑，安全多了。</p>
+<p><strong>定期重新构建镜像</strong>：</p>
+<p>这个容易被忽略。你的代码可能半年没动，但基础镜像的系统包一直在更新补丁。每个月至少重新build一次，把最新的安全补丁打进去。</p>
+<p>我们团队设了个定时任务，每周日自动重新构建所有生产镜像，扫描一遍，有问题的周一就能发现并修复。</p>
+<p><strong>用</strong><code>.dockerignore</code><strong>避免打包敏感文件</strong>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">.git</span><br><span class="line">.env</span><br><span class="line">*.log</span><br><span class="line">secrets/</span><br></pre></td></tr></table></figure>
+<p>不小心把.env文件打进镜像里，数据库密码就泄露了。.dockerignore就像.gitignore，防止敏感文件被打包。</p>
+<p><strong>永远不要用latest标签</strong>：</p>
+<p>这个我要再强调一次。<code>FROM python:latest</code>就是个定时炸弹，你根本不知道拉下来的是哪个版本，有没有漏洞。用<code>FROM python:3.11.7-slim</code>这样明确的标签，可预测、可追溯。</p>
+<h1 id="构建自动化安全扫描的CI-CD流程"><a href="#构建自动化安全扫描的CI-CD流程" class="headerlink" title="构建自动化安全扫描的CI/CD流程"></a>构建自动化安全扫描的CI/CD流程</h1><h2 id="GitHub-Actions集成：五分钟搞定"><a href="#GitHub-Actions集成：五分钟搞定" class="headerlink" title="GitHub Actions集成：五分钟搞定"></a>GitHub Actions集成：五分钟搞定</h2><p>手动扫描镜像太麻烦，而且容易忘。最靠谱的方式是把扫描集成到CI/CD里，每次代码提交或构建镜像时自动检查。</p>
+<p>GitHub Actions集成Trivy简单到不敢相信。在你的仓库里创建<code>.github/workflows/docker-scan.yml</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">name</span><span class="punctuation">: </span>Docker Security Scan</span><br><span class="line"></span><br><span class="line"><span class="attribute">on</span>:</span><br><span class="line">  push:</span><br><span class="line">    branches: [ main, develop ]</span><br><span class="line">  pull_request:</span><br><span class="line">    branches: [ main ]</span><br><span class="line"></span><br><span class="line"><span class="attribute">jobs</span>:</span><br><span class="line">  scan:</span><br><span class="line">    runs-on: ubuntu-latest</span><br><span class="line">    steps:</span><br><span class="line">      - name: Checkout code</span><br><span class="line">        uses: actions/checkout@v3</span><br><span class="line"></span><br><span class="line">      - name: Build Docker image</span><br><span class="line">        run: docker build -t myapp:$&#123;&#123; github.sha &#125;&#125; .</span><br><span class="line"></span><br><span class="line">      - name: Run Trivy vulnerability scanner</span><br><span class="line">        uses: aquasecurity/trivy-action@master</span><br><span class="line">        with:</span><br><span class="line">          image-ref: &#x27;myapp:$&#123;&#123; github.sha &#125;&#125;&#x27;</span><br><span class="line">          format: &#x27;table&#x27;</span><br><span class="line">          severity: &#x27;CRITICAL,HIGH&#x27;</span><br><span class="line">          exit-code: &#x27;1&#x27;  # 发现严重漏洞时构建失败</span><br><span class="line"></span><br><span class="line">      - name: Upload scan results</span><br><span class="line">        if: always()</span><br><span class="line">        uses: github/codeql-action/upload-sarif@v2</span><br><span class="line">        with:</span><br><span class="line">          sarif_file: &#x27;trivy-results.sarif&#x27;</span><br></pre></td></tr></table></figure>
+<p>这个配置做了什么？</p>
+<ul>
+<li>每次push到main或develop分支，或者有PR时自动触发</li>
+<li>构建Docker镜像（用commit SHA作为标签，确保每次构建是唯一的）</li>
+<li>用Trivy扫描镜像，只检查CRITICAL和HIGH级别的漏洞</li>
+<li>如果发现严重漏洞，<code>exit-code: &#39;1&#39;</code>会让workflow失败，阻止这次提交合并</li>
+<li>把扫描结果上传到GitHub Security标签页，方便查看</li>
+</ul>
+<p>第一次配置完，推一次代码试试，你会在GitHub Actions标签页看到扫描结果。如果有漏洞，这次构建会标红，不会被合并进主分支。等于给你的代码库加了一道自动安全门。</p>
+<h2 id="GitLab-CI-CD集成：同样简单"><a href="#GitLab-CI-CD集成：同样简单" class="headerlink" title="GitLab CI/CD集成：同样简单"></a>GitLab CI/CD集成：同样简单</h2><p>如果你用GitLab，集成方式也差不多。在仓库根目录创建或修改<code>.gitlab-ci.yml</code>：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="attribute">stages</span>:</span><br><span class="line">  - build</span><br><span class="line">  - test</span><br><span class="line">  - security</span><br><span class="line"></span><br><span class="line">build_image:</span><br><span class="line">  stage: build</span><br><span class="line">  image: docker:latest</span><br><span class="line">  services:</span><br><span class="line">    - docker:dind</span><br><span class="line">  script:</span><br><span class="line">    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .</span><br><span class="line">    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA</span><br><span class="line"></span><br><span class="line">security_scan:</span><br><span class="line">  stage: security</span><br><span class="line">  image: aquasec/trivy:latest</span><br><span class="line">  script:</span><br><span class="line">    - trivy image --exit-code 1 --severity HIGH,CRITICAL $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA</span><br><span class="line">  allow_failure: false</span><br><span class="line">  dependencies:</span><br><span class="line">    - build_image</span><br></pre></td></tr></table></figure>
+<p>注意<code>allow_failure: false</code>这行，意思是安全扫描失败就让整个pipeline失败。不想这么严格的话，可以改成<code>allow_failure: true</code>，扫出漏洞只是警告，不阻止部署。</p>
+<p>但我建议生产环境的pipeline一定要设成false。开发环境可以宽松点，但生产环境不能妥协。</p>
+<h2 id="Harbor镜像仓库的双重保险"><a href="#Harbor镜像仓库的双重保险" class="headerlink" title="Harbor镜像仓库的双重保险"></a>Harbor镜像仓库的双重保险</h2><p>如果你的公司用Harbor做私有镜像仓库（很多大公司都在用），那就更省心了。Harbor从v1.2开始就集成了Trivy和Clair，可以自动扫描推送上去的镜像。</p>
+<p>在Harbor的项目设置里，你可以配置扫描策略：</p>
+<ul>
+<li>镜像推送时自动扫描</li>
+<li>每天定时扫描所有镜像（防止新漏洞被发现）</li>
+<li>设置漏洞阈值：比如有CRITICAL漏洞的镜像禁止拉取</li>
+</ul>
+<p>我们团队的策略是：</p>
+<ol>
+<li>开发环境push镜像到Harbor，自动触发Trivy扫描</li>
+<li>发现HIGH及以上漏洞时，Harbor会打上”存在漏洞”标签</li>
+<li>生产环境的K8s集群配置admission webhook，拒绝部署有漏洞标签的镜像</li>
+</ol>
+<p>这样即使有人绕过CI/CD直接部署，Harbor也会在最后一道关卡拦住。</p>
+<h2 id="完整的安全扫描流程建议"><a href="#完整的安全扫描流程建议" class="headerlink" title="完整的安全扫描流程建议"></a>完整的安全扫描流程建议</h2><p>把前面的内容串起来，一个完整的镜像安全流程应该是这样的：</p>
+<p><strong>开发阶段</strong>：</p>
+<ul>
+<li>IDE集成Snyk或Trivy插件，写代码时就能看到依赖有没有漏洞</li>
+<li>本地构建镜像后，手动跑一次<code>trivy image</code>检查</li>
+</ul>
+<p><strong>构建阶段</strong>：</p>
+<ul>
+<li>GitHub Actions / GitLab CI自动扫描新构建的镜像</li>
+<li>发现CRITICAL漏洞立即失败，阻止合并</li>
+<li>扫描结果上传到Security Dashboard，方便团队查看趋势</li>
+</ul>
+<p><strong>仓库阶段</strong>：</p>
+<ul>
+<li>Harbor等镜像仓库二次扫描（有时候CI/CD漏掉了，或者新漏洞被披露）</li>
+<li>设置漏洞策略，阻止拉取高危镜像</li>
+</ul>
+<p><strong>运行时</strong>：</p>
+<ul>
+<li>定期扫描生产环境正在运行的镜像（每周一次）</li>
+<li>发现新漏洞时触发告警，排期修复</li>
+</ul>
+<p><strong>定期回顾</strong>：</p>
+<ul>
+<li>每月review一次漏洞修复情况</li>
+<li>更新扫描策略和漏洞阈值</li>
+</ul>
+<p>这套流程看起来复杂，但配置一次之后就全自动了。我们团队从配置到稳定运行，大概花了一个Sprint（两周），但换来的是长期的安全保障。</p>
+<p>说实话，自从配了这套流程，我晚上睡觉都踏实多了。至少不用担心哪天突然爆个大漏洞，发现自己的镜像早就中招了。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>回到文章开头那个Log4Shell的故事。如果当时我们有这套镜像安全扫描流程，漏洞在CI/CD阶段就会被发现，根本不会进入生产环境。也就不会有那个惊心动魄的凌晨，不会有老板那句灵魂拷问。</p>
+<p>Docker镜像安全不是什么高深的技术，核心就三件事：</p>
+<ul>
+<li><strong>用Trivy等工具扫描镜像漏洞</strong>（安装简单、速度快、够用）</li>
+<li><strong>系统性修复漏洞</strong>（选安全的基础镜像、升级依赖、遵循最佳实践）</li>
+<li><strong>在CI/CD里自动化扫描</strong>（GitHub Actions / GitLab CI五分钟集成）</li>
+</ul>
+<p>说实话，76%的Docker Hub镜像存在漏洞这个数字，刚开始确实吓到我了。但现在想想，这也说明大部分团队都还没重视起来。如果你现在就开始行动，至少能比76%的人做得好，这不是挺有成就感的吗？</p>
+<p>我的建议是：别想着一口气把所有漏洞都修完，那不现实。先从最简单的开始：</p>
+<ol>
+<li><strong>今天下班前</strong>：装个Trivy，扫一下你项目的Docker镜像，看看有多少漏洞</li>
+<li><strong>这周内</strong>：把CRITICAL级别的漏洞修掉，可能就是升级个基础镜像版本的事儿</li>
+<li><strong>下个Sprint</strong>：在CI/CD里集成Trivy，配置成发现严重漏洞就阻止部署</li>
+<li><strong>这个月</strong>：制定镜像安全基线，定期review和更新</li>
+</ol>
+<p>容器安全是个持续的过程，不是一劳永逸的事儿。但只要建立了流程，后续维护真的不费劲。我们团队现在每周自动扫描，有问题周会上看一眼，基本半小时就能处理完。</p>
+<p>最后再强调一次：生产环境的镜像，一定要扫描！Docker Hub拉下来的镜像，一定要扫描！不要等到出事了才后悔，那时候就晚了。</p>
+<p>如果你有什么Docker安全的实践经验或者踩坑故事，欢迎在评论区分享。我们一起进步，让容器化应用更安全。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Docker镜像会有哪些安全问题？"><a href="#Docker镜像会有哪些安全问题？" class="headerlink" title="Docker镜像会有哪些安全问题？"></a>Docker镜像会有哪些安全问题？</h2><p>四类安全问题：</p>
+<ul>
+<li>操作系统包漏洞：<ul>
+<li>Alpine、Ubuntu基础镜像里的OpenSSL、glibc、curl等系统库</li>
+<li>如2022年OpenSSL 3.0.x高危漏洞</li>
+</ul>
+</li>
+<li>应用依赖漏洞：<ul>
+<li>依赖树里藏着的漏洞，如Log4j案例</li>
+<li>很多Java项目连自己用了Log4j都不知道</li>
+</ul>
+</li>
+<li>配置错误和敏感信息泄露：<ul>
+<li>数据库密码写Dockerfile里</li>
+<li>忘记删.git目录</li>
+<li>用root用户跑容器</li>
+</ul>
+</li>
+<li>供应链风险：<ul>
+<li>Docker Hub上的恶意镜像</li>
+<li>2018年研究发现有专门钓人的恶意镜像</li>
+</ul>
+</li>
+</ul>
+<h2 id="为什么Docker-Hub的镜像不能盲目信任？76-这个数字准确吗？"><a href="#为什么Docker-Hub的镜像不能盲目信任？76-这个数字准确吗？" class="headerlink" title="为什么Docker Hub的镜像不能盲目信任？76%这个数字准确吗？"></a>为什么Docker Hub的镜像不能盲目信任？76%这个数字准确吗？</h2><p>绿盟科技2018年3月的研究报告显示，Docker Hub上随机抽查的镜像里，超过四分之三（76%）都存在已知安全漏洞。</p>
+<p>虽然数据有点老，但那些老镜像现在还有人在用。很多”官方镜像”也不是实时更新的，python:3.9标签可能是半年前构建的，系统包早就过时了。</p>
+<p>Docker Hub镜像质量参差不齐：</p>
+<ul>
+<li>有的是个人开发者维护可能半年没更新</li>
+<li>有的标着”官方”但其实只是某个公司自己上传的</li>
+<li>没有统一的安全审计标准</li>
+</ul>
+<p>原则：Docker Hub拉下来的镜像，一定要先扫一遍再用，哪怕是”官方”标签的也不例外。</p>
+<h2 id="Trivy和其他扫描工具（Snyk、Clair、Anchore）有什么区别？应该选择哪个？"><a href="#Trivy和其他扫描工具（Snyk、Clair、Anchore）有什么区别？应该选择哪个？" class="headerlink" title="Trivy和其他扫描工具（Snyk、Clair、Anchore）有什么区别？应该选择哪个？"></a>Trivy和其他扫描工具（Snyk、Clair、Anchore）有什么区别？应该选择哪个？</h2><p>Trivy：</p>
+<ul>
+<li>最推荐的开源工具，免费易用功能够用</li>
+<li>安装简单（brew install trivy）</li>
+<li>扫描速度快（首次10秒后续几秒）</li>
+<li>支持漏洞检测、错误配置扫描、Secret泄露检测、许可证合规</li>
+<li>已被GitHub Actions、Harbor集成</li>
+<li>10分钟就能上手，适合中小团队或个人开发者</li>
+</ul>
+<p>Snyk：</p>
+<ul>
+<li>商业产品功能全面</li>
+<li>能集成到IDE实时提示</li>
+<li>支持自动生成修复PR</li>
+<li>但免费版限制多，适合预算充足的大公司</li>
+</ul>
+<p>Clair：</p>
+<ul>
+<li>Quay镜像仓库的扫描引擎，开源可深度定制</li>
+<li>但配置复杂学习成本高</li>
+<li>适合有专门安全工程师的团队</li>
+</ul>
+<p>Anchore：</p>
+<ul>
+<li>企业级解决方案支持策略管理</li>
+<li>适合合规要求严格的金融医疗行业</li>
+</ul>
+<p>建议：中小团队用Trivy，大企业考虑Snyk，有安全工程师的团队研究Clair。</p>
+<h2 id="如何看懂Trivy扫描结果？重点关注什么？"><a href="#如何看懂Trivy扫描结果？重点关注什么？" class="headerlink" title="如何看懂Trivy扫描结果？重点关注什么？"></a>如何看懂Trivy扫描结果？重点关注什么？</h2><p>扫描结果按严重程度分类：</p>
+<ul>
+<li>CRITICAL（必须立即修复，可能导致系统被完全控制）</li>
+<li>HIGH（应尽快修复，可能被利用进行攻击）</li>
+<li>MEDIUM（建议修复，有一定安全风险）</li>
+<li>LOW（优先级较低可排期处理）</li>
+</ul>
+<p>看结果窍门：</p>
+<ol>
+<li>优先看有修复版本的漏洞（Fixed Version显示none或空着说明目前还没补丁，先把有修复方案的解决掉）</li>
+<li>重点关注CRITICAL和HIGH（CRITICAL必须马上修，往往有公开exploit代码黑客可直接利用）</li>
+<li>查CVE详情（去<a target="_blank" rel="external nofollow noopener noreferrer" href="https://cve.mitre.org/">https://cve.mitre.org/</a>查CVE编号看具体问题、影响范围、利用难度）</li>
+<li>理解Trivy工作原理（下载漏洞数据库JSON文件，对照镜像里的软件包列表，包名和版本号匹配已知漏洞就报警，可能有误报需结合实际代码判断风险）</li>
+</ol>
+<h2 id="如何系统性修复Docker镜像漏洞？"><a href="#如何系统性修复Docker镜像漏洞？" class="headerlink" title="如何系统性修复Docker镜像漏洞？"></a>如何系统性修复Docker镜像漏洞？</h2><p>修复方法：</p>
+<ul>
+<li>选安全的基础镜像：<ul>
+<li>Distroless镜像只有3.06MB比Alpine还小，无Shell无包管理器攻击面最小</li>
+<li>Google的Distroless有python3/nodejs/static版本</li>
+<li>2025年Docker Hardened Images号称CVE接近零镜像还能缩小95%</li>
+</ul>
+</li>
+<li>更新基础镜像版本：<ul>
+<li>用具体版本号python:3.11.7不用latest</li>
+<li>latest可能几个月不更新系统包早就过时</li>
+<li>每个月主动检查一次有没有更新的小版本</li>
+</ul>
+</li>
+<li>在Dockerfile中升级系统包：</li>
+<li><code>RUN apt-get update &amp;&amp; apt-get upgrade -y &amp;&amp; apt-get clean &amp;&amp; rm -rf /var/lib/apt/lists/*</code></li>
+<li>把<code>update/upgrade/clean</code>放一个RUN指令减少镜像层数</li>
+<li>更新应用依赖版本：<ul>
+<li>修改requirements.txt等</li>
+<li>优先升级补丁版本如Flask 2.0.1有漏洞先试试2.0.x最新版本而不是直接跳到2.3.0</li>
+<li>先在测试环境跑一遍确认没问题再推生产</li>
+</ul>
+</li>
+</ul>
+<p>最佳实践：用多阶段构建、不要以root用户运行、定期重新构建镜像（每月至少一次）、用.dockerignore避免打包敏感文件、永远不要用latest标签。</p>
+<h2 id="如何在CI-CD中集成自动化安全扫描？"><a href="#如何在CI-CD中集成自动化安全扫描？" class="headerlink" title="如何在CI/CD中集成自动化安全扫描？"></a>如何在CI/CD中集成自动化安全扫描？</h2><p>GitHub Actions集成：</p>
+<ul>
+<li>创建<code>.github/workflows/docker-scan.yml</code></li>
+<li>配置<code>on push/pull_request</code>触发</li>
+<li>构建Docker镜像，使用aquasecurity/trivy-action扫描</li>
+<li>设置<code>severity: &#39;CRITICAL,HIGH&#39;</code>和<code>exit-code: &#39;1&#39;</code>（发现严重漏洞时构建失败）</li>
+<li>上传扫描结果到GitHub Security标签页</li>
+</ul>
+<p>GitLab CI集成：</p>
+<ul>
+<li>创建或修改<code>.gitlab-ci.yml</code></li>
+<li>配置stages包括build/test/security</li>
+<li>security阶段使用aquasec/trivy:latest镜像</li>
+<li>运行<code>trivy image --exit-code 1 --severity HIGH,CRITICAL</code>命令</li>
+<li>设置<code>allow_failure: false</code>（安全扫描失败让整个pipeline失败，生产环境必须设false）</li>
+</ul>
+<p>Harbor镜像仓库：</p>
+<ul>
+<li>从v1.2开始集成Trivy和Clair</li>
+<li>可配置镜像推送时自动扫描、每天定时扫描所有镜像</li>
+<li>设置漏洞阈值（如有CRITICAL漏洞的镜像禁止拉取）</li>
+<li>开发环境push镜像自动触发扫描，发现HIGH及以上漏洞打上”存在漏洞”标签</li>
+<li>生产环境K8s集群配置admission webhook拒绝部署有漏洞标签的镜像</li>
+</ul>
+<h2 id="完整的Docker镜像安全扫描流程应该是什么样的？"><a href="#完整的Docker镜像安全扫描流程应该是什么样的？" class="headerlink" title="完整的Docker镜像安全扫描流程应该是什么样的？"></a>完整的Docker镜像安全扫描流程应该是什么样的？</h2><p>完整流程：</p>
+<p>开发阶段：</p>
+<ul>
+<li>IDE集成Snyk或Trivy插件，写代码时就能看到依赖有没有漏洞</li>
+<li>本地构建镜像后手动跑一次trivy image检查</li>
+</ul>
+<p>构建阶段：</p>
+<ul>
+<li>GitHub Actions/GitLab CI自动扫描新构建的镜像</li>
+<li>发现CRITICAL漏洞立即失败阻止合并</li>
+<li>扫描结果上传到Security Dashboard方便团队查看趋势</li>
+</ul>
+<p>仓库阶段：</p>
+<ul>
+<li>Harbor等镜像仓库二次扫描</li>
+<li>有时候CI/CD漏掉了或新漏洞被披露</li>
+<li>设置漏洞策略阻止拉取高危镜像</li>
+</ul>
+<p>运行时：</p>
+<ul>
+<li>定期扫描生产环境正在运行的镜像每周一次</li>
+<li>发现新漏洞时触发告警排期修复</li>
+</ul>
+<p>定期回顾：</p>
+<ul>
+<li>每月review一次漏洞修复情况</li>
+<li>更新扫描策略和漏洞阈值</li>
+</ul>
+<p>这套流程配置一次之后就全自动了，团队从配置到稳定运行大概花一个Sprint（两周），但换来的是长期的安全保障。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/5ff/">https://jingluo23.github.io/posts/5ff/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Docker/">Docker</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/ea19/" title="Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker部署Nginx完全指南：配置文件挂载、HTTPS配置与反向代理实战</div></div><div class="info-2"><div class="info-item-1">完整教程：Docker部署Nginx的配置文件挂载、HTTPS证书配置与反向代理。解决配置不生效、容器互联等常见问题，包含Let's Encrypt自动续期和生产环境最佳实践。</div></div></div></a><a class="pagination-related" href="/posts/6b3b/" title="Docker安全配置：避免用root运行容器的完整实践指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Docker安全配置：避免用root运行容器的完整实践指南</div></div><div class="info-2"><div class="info-item-1">Docker容器默认root运行存在严重安全风险。本文详解容器逃逸原理，提供Dockerfile USER指令、--user参数、Capabilities精细化权限控制、AppArmor配置等完整安全方案，帮助开发者构建生产级安全容器。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/9f26/" title="Docker logs 命令详解：7个技巧快速定位容器问题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-08</div><div class="info-item-2">Docker logs 命令详解：7个技巧快速定位容器问题</div></div><div class="info-2"><div class="info-item-1">详解docker logs命令的7个实用技巧,包括实时查看、时间过滤、grep搜索、日志文件位置和生产环境最佳实践,帮助你快速定位容器问题。</div></div></div></a><a class="pagination-related" href="/posts/cdeb/" title="Docker安装避坑指南2026：从permission denied到成功运行的完整解决方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-07</div><div class="info-item-2">Docker安装避坑指南2026：从permission denied到成功运行的完整解决方案</div></div><div class="info-2"><div class="info-item-1">Windows折腾WSL 2，Mac纠结芯片版本，Linux搞权限依赖包？这篇指南把三大平台10+个常见Docker安装报错都整理好了，照着改就行，让你从permission denied到成功运行。</div></div></div></a><a class="pagination-related" href="/posts/8b27/" title="自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-13</div><div class="info-item-2">自托管 Dev Sandbox：用 Docker 和 Go 搭一套带预览链接的开发环境</div></div><div class="info-2"><div class="info-item-1">想给 AI Agent、内部工具或 SaaS demo 提供自托管 Dev Sandbox？这篇文章用 Docker、Go 和 Traefik 拆解预览 URL、资源限制、安全边界和生产前检查清单。</div></div></div></a><a class="pagination-related" href="/posts/1820/" title="2026年国内 Docker 镜像源指南：5分钟解决 pull 超时"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-28</div><div class="info-item-2">2026年国内 Docker 镜像源指南：5分钟解决 pull 超时</div></div><div class="info-2"><div class="info-item-1">2026 年 Docker mirror China 最新可用性判断：配置 daemon.json、测速镜像源、处理企业代理和 pull-through cache，并区分 Docker Hub 限速（429）与镜像源失效，5 分钟定位 docker pull timeout。</div></div></div></a><a class="pagination-related" href="/posts/4fb6/" title="Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-10-12</div><div class="info-item-2">Docker容器启动就退出?完整排查指南(含退出码137&#x2F;1解决方案)</div></div><div class="info-2"><div class="info-item-1">Docker容器启动后立即退出变Exited状态?本文提供系统性排查方法,详解退出码137/1含义,四步排查法和五大常见失败场景解决方案,帮你快速定位并修复容器启动问题</div></div></div></a><a class="pagination-related" href="/posts/d4c3/" title="Docker Compose 多服务编排：本地开发环境一键启动"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-09-13</div><div class="info-item-2">Docker Compose 多服务编排：本地开发环境一键启动</div></div><div class="info-2"><div class="info-item-1">用 Docker Compose 编排多服务，一键启动 Web、API、MySQL、Redis 本地开发环境。彻底解决手动安装繁琐、版本冲突、端口占用问题，团队新人 clone 仓库 5 分钟即可开始开发，项目切换秒级完成。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">73</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">19</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E5%A8%81%E8%83%81%E5%85%A8%E6%99%AF"><span class="toc-number">1.</span> <span class="toc-text">Docker镜像安全威胁全景</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E9%95%9C%E5%83%8F%E5%88%B0%E5%BA%95%E4%BC%9A%E6%9C%89%E5%93%AA%E4%BA%9B%E5%AE%89%E5%85%A8%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="toc-number">1.1.</span> <span class="toc-text">Docker镜像到底会有哪些安全问题？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88Docker-Hub%E7%9A%84%E9%95%9C%E5%83%8F%E4%B8%8D%E8%83%BD%E7%9B%B2%E7%9B%AE%E4%BF%A1%E4%BB%BB%EF%BC%9F"><span class="toc-number">1.2.</span> <span class="toc-text">为什么Docker Hub的镜像不能盲目信任？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BB%E6%B5%81%E9%95%9C%E5%83%8F%E6%89%AB%E6%8F%8F%E5%B7%A5%E5%85%B7%E5%AF%B9%E6%AF%94%E4%B8%8E%E9%80%89%E6%8B%A9"><span class="toc-number">2.</span> <span class="toc-text">主流镜像扫描工具对比与选择</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Trivy%EF%BC%9A%E6%88%91%E6%9C%80%E6%8E%A8%E8%8D%90%E7%9A%84%E5%BC%80%E6%BA%90%E5%B7%A5%E5%85%B7"><span class="toc-number">2.1.</span> <span class="toc-text">Trivy：我最推荐的开源工具</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%B7%A5%E5%85%B7%E7%AE%80%E5%8D%95%E4%BA%86%E8%A7%A3%E4%B8%8B"><span class="toc-number">2.2.</span> <span class="toc-text">其他工具简单了解下</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E7%9A%84%E9%80%89%E6%8B%A9%E5%BB%BA%E8%AE%AE"><span class="toc-number">2.3.</span> <span class="toc-text">我的选择建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Trivy%E5%AE%9E%E6%88%98%E6%95%99%E7%A8%8B"><span class="toc-number">3.</span> <span class="toc-text">Trivy实战教程</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85%E5%92%8C%E5%9F%BA%E7%A1%80%E4%BD%BF%E7%94%A8"><span class="toc-number">3.1.</span> <span class="toc-text">安装和基础使用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AB%98%E7%BA%A7%E6%89%AB%E6%8F%8F%E9%80%89%E9%A1%B9%EF%BC%9A%E8%AE%A9Trivy%E6%9B%B4%E5%A5%BD%E7%94%A8"><span class="toc-number">3.2.</span> <span class="toc-text">高级扫描选项：让Trivy更好用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9C%8B%E6%87%82%E6%89%AB%E6%8F%8F%E7%BB%93%E6%9E%9C%EF%BC%9A%E9%87%8D%E7%82%B9%E5%85%B3%E6%B3%A8%E4%BB%80%E4%B9%88"><span class="toc-number">3.3.</span> <span class="toc-text">看懂扫描结果：重点关注什么</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%BC%8F%E6%B4%9E%E4%BF%AE%E5%A4%8D%E7%9A%84%E7%B3%BB%E7%BB%9F%E6%80%A7%E6%96%B9%E6%B3%95"><span class="toc-number">4.</span> <span class="toc-text">漏洞修复的系统性方法</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E%E9%80%89%E5%AF%B9%E5%9F%BA%E7%A1%80%E9%95%9C%E5%83%8F%E5%BC%80%E5%A7%8B"><span class="toc-number">4.1.</span> <span class="toc-text">从选对基础镜像开始</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%87%E7%BA%A7%E4%BE%9D%E8%B5%96%E5%8C%85%E4%BF%AE%E5%A4%8D%E6%BC%8F%E6%B4%9E%E7%9A%84%E5%AE%9E%E6%88%98%E6%96%B9%E6%B3%95"><span class="toc-number">4.2.</span> <span class="toc-text">升级依赖包修复漏洞的实战方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8D%E8%A6%81%E5%BF%BD%E8%A7%86%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">4.3.</span> <span class="toc-text">不要忽视的最佳实践</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9E%84%E5%BB%BA%E8%87%AA%E5%8A%A8%E5%8C%96%E5%AE%89%E5%85%A8%E6%89%AB%E6%8F%8F%E7%9A%84CI-CD%E6%B5%81%E7%A8%8B"><span class="toc-number">5.</span> <span class="toc-text">构建自动化安全扫描的CI&#x2F;CD流程</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#GitHub-Actions%E9%9B%86%E6%88%90%EF%BC%9A%E4%BA%94%E5%88%86%E9%92%9F%E6%90%9E%E5%AE%9A"><span class="toc-number">5.1.</span> <span class="toc-text">GitHub Actions集成：五分钟搞定</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GitLab-CI-CD%E9%9B%86%E6%88%90%EF%BC%9A%E5%90%8C%E6%A0%B7%E7%AE%80%E5%8D%95"><span class="toc-number">5.2.</span> <span class="toc-text">GitLab CI&#x2F;CD集成：同样简单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Harbor%E9%95%9C%E5%83%8F%E4%BB%93%E5%BA%93%E7%9A%84%E5%8F%8C%E9%87%8D%E4%BF%9D%E9%99%A9"><span class="toc-number">5.3.</span> <span class="toc-text">Harbor镜像仓库的双重保险</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E7%9A%84%E5%AE%89%E5%85%A8%E6%89%AB%E6%8F%8F%E6%B5%81%E7%A8%8B%E5%BB%BA%E8%AE%AE"><span class="toc-number">5.4.</span> <span class="toc-text">完整的安全扫描流程建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker%E9%95%9C%E5%83%8F%E4%BC%9A%E6%9C%89%E5%93%AA%E4%BA%9B%E5%AE%89%E5%85%A8%E9%97%AE%E9%A2%98%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">Docker镜像会有哪些安全问题？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88Docker-Hub%E7%9A%84%E9%95%9C%E5%83%8F%E4%B8%8D%E8%83%BD%E7%9B%B2%E7%9B%AE%E4%BF%A1%E4%BB%BB%EF%BC%9F76-%E8%BF%99%E4%B8%AA%E6%95%B0%E5%AD%97%E5%87%86%E7%A1%AE%E5%90%97%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">为什么Docker Hub的镜像不能盲目信任？76%这个数字准确吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Trivy%E5%92%8C%E5%85%B6%E4%BB%96%E6%89%AB%E6%8F%8F%E5%B7%A5%E5%85%B7%EF%BC%88Snyk%E3%80%81Clair%E3%80%81Anchore%EF%BC%89%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F%E5%BA%94%E8%AF%A5%E9%80%89%E6%8B%A9%E5%93%AA%E4%B8%AA%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">Trivy和其他扫描工具（Snyk、Clair、Anchore）有什么区别？应该选择哪个？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E7%9C%8B%E6%87%82Trivy%E6%89%AB%E6%8F%8F%E7%BB%93%E6%9E%9C%EF%BC%9F%E9%87%8D%E7%82%B9%E5%85%B3%E6%B3%A8%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">如何看懂Trivy扫描结果？重点关注什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E7%B3%BB%E7%BB%9F%E6%80%A7%E4%BF%AE%E5%A4%8DDocker%E9%95%9C%E5%83%8F%E6%BC%8F%E6%B4%9E%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">如何系统性修复Docker镜像漏洞？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%9C%A8CI-CD%E4%B8%AD%E9%9B%86%E6%88%90%E8%87%AA%E5%8A%A8%E5%8C%96%E5%AE%89%E5%85%A8%E6%89%AB%E6%8F%8F%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">如何在CI&#x2F;CD中集成自动化安全扫描？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%8C%E6%95%B4%E7%9A%84Docker%E9%95%9C%E5%83%8F%E5%AE%89%E5%85%A8%E6%89%AB%E6%8F%8F%E6%B5%81%E7%A8%8B%E5%BA%94%E8%AF%A5%E6%98%AF%E4%BB%80%E4%B9%88%E6%A0%B7%E7%9A%84%EF%BC%9F"><span class="toc-number">7.7.</span> <span class="toc-text">完整的Docker镜像安全扫描流程应该是什么样的？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
