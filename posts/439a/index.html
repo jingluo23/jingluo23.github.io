@@ -1,0 +1,765 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>DeepAgents 架构解析：规划工具、子代理与文件系统 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="深度解析 DeepAgents 四大支柱架构：Planning Tools、Sub-agents、File System 和 System Prompts，对比 LangGraph、AutoGen 等框架，提供实战代码示例和最佳实践">
+<meta property="og:type" content="article">
+<meta property="og:title" content="DeepAgents 架构解析：规划工具、子代理与文件系统">
+<meta property="og:url" content="https://jingluo23.github.io/posts/439a/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="深度解析 DeepAgents 四大支柱架构：Planning Tools、Sub-agents、File System 和 System Prompts，对比 LangGraph、AutoGen 等框架，提供实战代码示例和最佳实践">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-13T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T13:06:05.294Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "DeepAgents 架构解析：规划工具、子代理与文件系统",
+  "url": "https://jingluo23.github.io/posts/439a/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-13T07:12:21.000Z",
+  "dateModified": "2026-10-15T13:06:05.294Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/439a/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'DeepAgents 架构解析：规划工具、子代理与文件系统',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">DeepAgents 架构解析：规划工具、子代理与文件系统</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">DeepAgents 架构解析：规划工具、子代理与文件系统</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-13T07:12:21.000Z" title="发表于 2026-08-13 15:12:21">2026-08-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T13:06:05.294Z" title="更新于 2026-10-15 21:06:05">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>18分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 21:06:05&quot;}" hidden></div><p>你的 AI Agent 为什么总是在复杂任务中崩溃？</p>
+<p>让它研究一个技术主题，跑了 20 步后输出质量就开始下滑。让它重构一个代码库，改了半天连原本的功能都搞丢了。让它写一篇长篇报告，写到一半就开始重复废话。</p>
+<p>我之前踩过这个坑。那时候用传统 Agent 做深度研究，想让它帮我调研 LangGraph 的最佳实践。刚开始输出挺有条理，但跑了三十多步之后，它就开始”失忆”——前面查过的资料忘了，原本的分析框架也乱了，最后给我的报告东拼西凑，前后矛盾。</p>
+<p>这些问题的根源都是同一个：传统 Agent 是”Shallow”的。它们只会单步反应式执行，没有规划能力，没有记忆系统，没有子任务拆分。就像你让一个人写 5000 字的报告却不给大纲，写到一半肯定跑偏。</p>
+<p>但 Claude Code、Deep Research、Manus 这些 Agent 却能完成复杂任务——几千行代码的项目重构、几十页的深度研究报告。它们用了什么方法？</p>
+<p>答案就是 Deep Agent 架构。LangChain 官方把这个架构封装成了 DeepAgents 包，今天来拆解它的四大支柱：规划工具、子代理、文件系统和系统提示。</p>
+<h1 id="为什么需要-Deep-Agents？"><a href="#为什么需要-Deep-Agents？" class="headerlink" title="为什么需要 Deep Agents？"></a>为什么需要 Deep Agents？</h1><p>先说一个事实：传统 Agent 在超过 10 步的任务中成功率会掉一半以上。</p>
+<p>这不是瞎说。Prompting Guide 的研究数据显示，当任务步骤超过 10 个，Shallow Agent 的输出质量就开始明显下滑。为什么？因为它没有”脑子”。</p>
+<p>传统的 Agent 设计是反应式的：收到指令 → 调用工具 → 返回结果。每一步都是独立的，没有长期规划，没有中间状态管理。打个比方，就像你让一个人打扫整个房子，却不告诉他打扫顺序，也不让他记录哪些房间已经打扫过了。他可能先把厨房扫了一半，突然跑去客厅，然后又忘记厨房还没做完。</p>
+<p>三个最典型的崩溃场景：</p>
+<p><strong>深度研究任务</strong>。你让 Agent 调研某个技术主题，比如”LangGraph 在生产环境中的最佳实践”。它开始搜索、读取文档、提取信息。20 步之后，原本查过的资料已经被挤出 Context Window，新的搜索结果覆盖了之前的分析框架。最后输出一份前言不搭后语的报告。</p>
+<p><strong>代码重构任务</strong>。你让 Agent 重构一个有几千行代码的项目。它改了一个模块，又改另一个模块，但两个模块之间有依赖关系——它忘了。改到最后，原本能跑的功能全挂了。</p>
+<p><strong>长篇内容生成</strong>。你让 Agent 写一篇 5000 字的技术文章。写到第 2000 字的时候，它开始重复前面说过的话，或者偏离原本的选题方向。</p>
+<p>这些问题的核心都是 Context 失控。</p>
+<p>Claude Code 能处理几千行代码的项目重构，Deep Research 能产出几十页的结构化报告，Manus 能完成复杂的多步骤任务。它们不是魔法，而是用了一套统一的结构：Deep Agent 架构。</p>
+<p>Deep Agent 就是让 Agent 有”脑子”——会规划、会拆分任务、会管理记忆、会检查进度。LangChain 把这套架构封装成 DeepAgents，来看看它的具体设计。</p>
+<h1 id="DeepAgents-四大支柱架构"><a href="#DeepAgents-四大支柱架构" class="headerlink" title="DeepAgents 四大支柱架构"></a>DeepAgents 四大支柱架构</h1><p>DeepAgents 的设计哲学很清晰：把复杂任务拆成可管理的单元，每个单元有明确职责。</p>
+<p>四个支柱相互配合：Planning Tools 管规划和进度追踪，Sub-agents 实现专业分工和 Context 隔离，File System 解决记忆存储问题，System Prompts 定义行为边界。它们像交响乐团——有指挥（Planning）、有不同乐器组（Sub-agents）、有乐谱存储（File System）、有演奏规则（System Prompts）。</p>
+<h2 id="Planning-Tools：让-Agent-有个”脑子”"><a href="#Planning-Tools：让-Agent-有个”脑子”" class="headerlink" title="Planning Tools：让 Agent 有个”脑子”"></a>Planning Tools：让 Agent 有个”脑子”</h2><p>Planning Tools 的核心是 todo_write。</p>
+<p>它的工作原理很有意思——本质上是个 no-op（空操作）。它不执行任何实际任务，只是创建和更新任务列表。但这些任务列表通过 Context Window 作为 working memory，让 Agent 在整个执行过程中都能”看到”自己的计划和进度。</p>
+<p>举个例子：你让 Agent 做一个技术调研。它会先用 todo_write 创建一个计划：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">- [ ] 搜索 LangGraph 官方文档</span><br><span class="line">- [ ] 阅读 LangGraph State Machine 设计</span><br><span class="line">- [ ] 提取最佳实践案例</span><br><span class="line">- [ ] 总结核心设计模式</span><br><span class="line">- [ ] 输出结构化报告</span><br></pre></td></tr></table></figure>
+<p>每完成一个任务，Agent 就更新这个列表，把 <code>[ ]</code> 改成 <code>[x]</code>。这样一来，不管执行了多少步，Agent 都能随时看到自己的进度——哪些做完，哪些还没开始，哪些正在进行。</p>
+<p>这解决了一个核心问题：长期目标一致性。</p>
+<p>传统 Agent 执行到第 20 步的时候，可能已经忘了第 1 步定下的目标是什么。但 Deep Agent 的 todo list 像是贴在冰箱上的备忘条，随时提醒它”你到底要干什么”。</p>
+<blockquote>
+<p>“Claude Code 和 Manus 的 planning tool 都是这个原理——用 Context Window 作为 working memory，保持 Agent 不迷失方向”</p>
+</blockquote>
+<h2 id="Sub-agents：专业分工，Context-隔离"><a href="#Sub-agents：专业分工，Context-隔离" class="headerlink" title="Sub-agents：专业分工，Context 隔离"></a>Sub-agents：专业分工，Context 隔离</h2><p>Sub-agents 是 Deep Agent 的第二个支柱。</p>
+<p>它的设计逻辑是这样的：一个主编排器（Orchestrator）负责整体规划和任务分配，多个专业化子代理负责执行具体任务。每个子代理有独立的 Context Window，执行完之后只返回最终结果给编排器。</p>
+<p>这带来四个关键优势：</p>
+<p><strong>Context Preservation</strong>。编排器的 Context Window 不会被子代理的中间步骤污染。传统 Agent 执行搜索任务时，会把所有搜索结果、网页内容、提取过程都塞进 Context。但 Sub-agent 执行完之后，只返回一个干净的结果——“我找到了这些关键信息”。编排器的 Context 保持清爽。</p>
+<p><strong>Specialized Expertise</strong>。每个子代理可以专注一个领域。research_subagent 专门做信息检索和提取，writer_subagent 专门做内容组织，coder_subagent 专门做代码分析。专业化分工让每个子代理在自己的领域做得更好。</p>
+<p><strong>Reusability</strong>。同一个子代理可以被多个编排器调用。比如 research_subagent 可以用在调研任务、写作任务、分析任务中。写一次，到处用。</p>
+<p><strong>Fine-Grained Permissions</strong>。子代理可以有不同的权限边界。有的子代理只能读文件，有的可以写文件，有的可以访问网络。精细化权限控制降低安全风险。</p>
+<blockquote>
+<p>“推荐 Orchestrator-Sub-agent 架构，也称为 Task Decomposition Pattern——把复杂任务分解成子任务，每个子任务交给专门的处理单元”</p>
+</blockquote>
+<p>具体怎么实现？DeepAgents 提供了简单的 API：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">from deepagents import create_deep_agent, create_subagent</span><br><span class="line"></span><br><span class="line"># 定义子代理</span><br><span class="line">research_subagent = create_subagent(</span><br><span class="line">    name=&quot;research&quot;,</span><br><span class="line">    tools=[internet_search, read_url],</span><br><span class="line">    description=&quot;专门负责信息检索和提取&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">writer_subagent = create_subagent(</span><br><span class="line">    name=&quot;writer&quot;,</span><br><span class="line">    tools=[write_file],</span><br><span class="line">    description=&quot;专门负责内容组织和输出&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 创建主 Agent</span><br><span class="line">agent = create_deep_agent(</span><br><span class="line">    subagents=[research_subagent, writer_subagent],</span><br><span class="line">    tools=[todo_write, read_file, write_file]</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>编排器调用子代理时，DeepAgents 会自动处理 Context 切换和结果传递。</p>
+<h2 id="File-System：突破-Context-Window-限制"><a href="#File-System：突破-Context-Window-限制" class="headerlink" title="File System：突破 Context Window 限制"></a>File System：突破 Context Window 限制</h2><p>这是 Deep Agent 解决记忆问题的核心方案。</p>
+<p>Context Window 有大小限制。Claude 大概 200K tokens，GPT-4 约 128K tokens。对于短任务，这足够用。但对于长任务——比如处理几千行代码、阅读几十篇文档——这些空间很快就被撑爆了。</p>
+<p>File System Backend 的解决思路很聪明：用文件引用代替直接加载。</p>
+<p>Agent 不把所有内容都塞进 Context Window，而是把中间结果存储到文件系统。需要用到某个文件时，再通过 read_file 工具按需读取。就像你做研究时不会把所有参考文献都背在脑子里，而是把它们整理成文档，需要时打开查看。</p>
+<p>DeepAgents 支持三种 Backend：</p>
+<p><strong>StateBackend</strong>。内存存储，适合测试环境和短期任务。Agent 的状态和中间结果存储在内存中，会话结束后就没了。快速但不持久。</p>
+<p><strong>FilesystemBackend</strong>。本地文件系统存储，适合生产环境和需要持久化的场景。Agent 的中间结果写入本地文件，下次运行时还能读取。持久但依赖本地存储。</p>
+<p><strong>StoreBackend</strong>。云端存储，适合企业级部署和需要审计追踪的场景。Agent 的状态存储在云端数据库，支持版本控制和审计日志。可靠但配置复杂。</p>
+<p>选择哪种 Backend 取决于你的场景。如果是快速测试，用 StateBackend；如果是生产部署，用 FilesystemBackend；如果是企业级应用需要审计，用 StoreBackend。</p>
+<p>FlowHunt 的 Context Management Strategy 对比表格把这三种模式讲得很清楚：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">模式</th>
+<th style="text-align:center">优点</th>
+<th style="text-align:center">缺点</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">All-in-Context</td>
+<td style="text-align:center">简单直接</td>
+<td style="text-align:center">Context 容易溢出</td>
+<td style="text-align:center">短任务</td>
+</tr>
+<tr>
+<td style="text-align:center">File-Based References</td>
+<td style="text-align:center">节省 Context 空间</td>
+<td style="text-align:center">需要文件管理逻辑</td>
+<td style="text-align:center">长任务、生产环境</td>
+</tr>
+<tr>
+<td style="text-align:center">Hybrid</td>
+<td style="text-align:center">平衡灵活性和效率</td>
+<td style="text-align:center">配置复杂</td>
+<td style="text-align:center">企业级应用</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>DeepAgents 默认用 Hybrid 模式——关键信息保持在 Context，大量数据存储在文件系统。</p>
+<h2 id="System-Prompts：被低估的关键"><a href="#System-Prompts：被低估的关键" class="headerlink" title="System Prompts：被低估的关键"></a>System Prompts：被低估的关键</h2><p>System Prompts 是四大支柱里最容易被忽视的一个。</p>
+<p>很多人以为 System Prompt 就是几句简单指令，比如”你是一个有用的助手”。但 Deep Agent 的 System Prompts 实际上是数百到数千行的工程化文档。</p>
+<p>Claude Code 的 System Prompt 有几百行，定义了完整的工具调用规范、文件操作流程、代码风格约束。Deep Research 的 System Prompt 有上千行，包含研究方法论、信息提取规范、输出格式模板。</p>
+<p>为什么需要这么详细的 System Prompt？</p>
+<p>因为 Agent 在长任务中会遇到各种边界情况。简短的指令无法覆盖所有场景。详细 System Prompt 的作用是：</p>
+<p><strong>定义行为边界</strong>。什么情况下应该调用 todo_write，什么情况下应该交给 sub-agent，什么情况下应该直接返回结果。这些规则要写得足够详细，Agent 才能做出正确判断。</p>
+<p><strong>规范工具调用</strong>。每个工具怎么用，参数格式是什么，返回结果怎么处理。比如 read_file 工具的参数是文件路径还是文件 ID，返回的是原始内容还是摘要。</p>
+<p><strong>设定输出格式</strong>。不同任务类型有不同的输出格式要求。研究报告用 Markdown 结构，代码重构用 diff 格式，内容生成用特定模板。</p>
+<p>DeepAgents 的 Middleware Architecture 会自动注入 System Prompts。你不需要手动写几千行，框架会根据你的配置自动生成。但理解 System Prompts 的作用很重要——它是 Agent 行为的”宪法”。</p>
+<p>四个支柱都讲完了。下面看实战代码。</p>
+<h1 id="DeepAgents-实战代码解析"><a href="#DeepAgents-实战代码解析" class="headerlink" title="DeepAgents 实战代码解析"></a>DeepAgents 实战代码解析</h1><p>来看一个完整的代码示例，实现一个技术调研 Agent。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">from deepagents import create_deep_agent, create_subagent</span><br><span class="line">from langchain_community.tools import TavilyInternetSearch</span><br><span class="line"></span><br><span class="line"># 1. 定义工具</span><br><span class="line">search_tool = TavilyInternetSearch(</span><br><span class="line">    name=&quot;internet_search&quot;,</span><br><span class="line">    description=&quot;搜索互联网获取信息&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 2. 定义子代理</span><br><span class="line">research_subagent = create_subagent(</span><br><span class="line">    name=&quot;research&quot;,</span><br><span class="line">    tools=[search_tool],</span><br><span class="line">    system_prompt=&quot;你是信息检索专家。\</span><br><span class="line">                   你的任务是搜索和提取关键信息。\</span><br><span class="line">                   只返回结构化的研究结果，不要包含中间步骤。&quot;,</span><br><span class="line">    description=&quot;负责信息检索的子代理&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">writer_subagent = create_subagent(</span><br><span class="line">    name=&quot;writer&quot;,</span><br><span class="line">    tools=[],  # writer 不需要外部工具</span><br><span class="line">    system_prompt=&quot;你是内容组织专家。\</span><br><span class="line">                   你的任务是整理研究结果，输出结构化报告。\</span><br><span class="line">                   使用 Markdown 格式，包含清晰的章节结构。&quot;,</span><br><span class="line">    description=&quot;负责内容输出的子代理&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 3. 创建 Deep Agent</span><br><span class="line">agent = create_deep_agent(</span><br><span class="line">    subagents=[research_subagent, writer_subagent],</span><br><span class="line">    tools=[todo_write, read_file, write_file],</span><br><span class="line">    backend=&quot;filesystem&quot;  # 使用文件系统存储</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 4. 执行任务</span><br><span class="line">result = agent.invoke(</span><br><span class="line">    &quot;调研 LangGraph 的最佳实践，\</span><br><span class="line">     输出一份结构化的研究报告&quot;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>执行流程是这样的：</p>
+<p><strong>第一步：Plan</strong>。Agent 调用 todo_write 创建计划列表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">todo_write([</span><br><span class="line">    &quot;搜索 LangGraph 官方文档&quot;,</span><br><span class="line">    &quot;阅读核心架构设计&quot;,</span><br><span class="line">    &quot;提取最佳实践案例&quot;,</span><br><span class="line">    &quot;总结设计模式&quot;,</span><br><span class="line">    &quot;输出结构化报告&quot;</span><br><span class="line">])</span><br></pre></td></tr></table></figure>
+<p><strong>第二步：Delegate</strong>。Agent 调用 research_subagent 执行检索任务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">call_subagent(&quot;research&quot;, &quot;搜索 LangGraph 最佳实践相关文档&quot;)</span><br></pre></td></tr></table></figure>
+<p>research_subagent 会调用 internet_search 工具，获取搜索结果，提取关键信息，然后返回一个干净的结构化结果给编排器。编排器的 Context Window 只收到”这里找到 5 个关键最佳实践”这样的摘要，而不是所有搜索结果的原始内容。</p>
+<p><strong>第三步：Update</strong>。Agent 更新 todo list，标记完成状态。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">todo_write([</span><br><span class="line">    &quot;[x] 搜索 LangGraph 官方文档&quot;,</span><br><span class="line">    &quot;[x] 阅读核心架构设计&quot;,</span><br><span class="line">    &quot;[ ] 提取最佳实践案例&quot;,</span><br><span class="line">    ...</span><br><span class="line">])</span><br></pre></td></tr></table></figure>
+<p><strong>第四步：继续执行</strong>。Agent 调用 writer_subagent 组织内容，然后 write_file 输出最终报告。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">call_subagent(&quot;writer&quot;, &quot;整理研究结果，输出报告&quot;)</span><br><span class="line">write_file(&quot;langgraph_best_practices.md&quot;, report_content)</span><br></pre></td></tr></table></figure>
+<p>执行日志看起来是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">[Step 1] todo_write: 创建 5 个任务项</span><br><span class="line">[Step 2] call_subagent(research): 开始信息检索</span><br><span class="line">[Step 3] internet_search: 搜索 &quot;LangGraph best practices&quot;</span><br><span class="line">[Step 4] read_url: 读取 3 篇官方文档</span><br><span class="line">[Step 5] subagent_complete: research 返回结构化结果</span><br><span class="line">[Step 6] todo_write: 更新进度，完成 2 项</span><br><span class="line">[Step 7] call_subagent(writer): 开始内容组织</span><br><span class="line">[Step 8] subagent_complete: writer 返回 Markdown 报告</span><br><span class="line">[Step 9] write_file: 输出报告到文件</span><br><span class="line">[Step 10] todo_write: 全部任务完成</span><br></pre></td></tr></table></figure>
+<p>整个流程中，编排器的 Context Window 始终保持干净——只有任务列表、子代理返回的摘要结果，没有中间步骤的噪音。</p>
+<p>这就是 Deep Agent 的威力：结构化流程、Context 管理、专业分工。</p>
+<h1 id="与其他-Agent-框架对比"><a href="#与其他-Agent-框架对比" class="headerlink" title="与其他 Agent 框架对比"></a>与其他 Agent 框架对比</h1><p>DeepAgents 不是唯一的选择。市面上还有 LangGraph、AutoGen、CrewAI、SmolAgents 等框架。它们各有侧重，适用场景不同。</p>
+<p>一张对比表说清楚：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">框架</th>
+<th style="text-align:center">核心特性</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">学习曲线</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><strong>DeepAgents</strong></td>
+<td style="text-align:center">Planning + Memory + Sub-agents，封装完整</td>
+<td style="text-align:center">复杂推理工作流，快速上手</td>
+<td style="text-align:center">低</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>LangGraph</strong></td>
+<td style="text-align:center">状态化工作流，底层编排能力强</td>
+<td style="text-align:center">生产级 Agent 系统，需要精细控制</td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>AutoGen</strong></td>
+<td style="text-align:center">多代理图，支持 .NET</td>
+<td style="text-align:center">企业级 Pipeline，微软生态</td>
+<td style="text-align:center">中高</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>CrewAI</strong></td>
+<td style="text-align:center">高性能代理团队，角色扮演</td>
+<td style="text-align:center">生产级自动化，团队协作模拟</td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td style="text-align:center"><strong>SmolAgents</strong></td>
+<td style="text-align:center">轻量级，代码优先</td>
+<td style="text-align:center">快速原型开发，简单任务</td>
+<td style="text-align:center">低</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>几个关键区别：</p>
+<p><strong>DeepAgents vs LangGraph</strong>。DeepAgents 是 LangGraph 的上层封装，专注于 Deep Agent 模式。它把 Planning Tools、File System Backend、Sub-agent Management 这些通用能力封装好了，你不需要自己搭建。LangGraph 更底层，提供状态机和工作流编排能力，你可以自由定义每个节点和边，但需要自己实现 Memory 和 Planning。</p>
+<p>简单说：想快速搭建 Deep Agent，用 DeepAgents；想做底层定制，用 LangGraph。</p>
+<p><strong>DeepAgents vs AutoGen</strong>。AutoGen 是微软的框架，支持多代理对话和 Pipeline 编排。它的特点是代理之间可以互相对话，形成辩论、协商等复杂交互模式。DeepAgents 更偏向任务分解和执行，AutoGen 更偏向代理协作和沟通。</p>
+<p>简单说：想做代理团队协作、辩论协商，用 AutoGen；想做任务分解、专业分工，用 DeepAgents。</p>
+<p><strong>DeepAgents vs CrewAI</strong>。CrewAI 强调”角色扮演”——每个代理有不同的角色定位（研究员、编辑、程序员），它们协作完成任务。和 DeepAgents 的 Sub-agent 模式类似，但 CrewAI 更强调角色的人设和交互，DeepAgents 更强调任务的分解和隔离。</p>
+<p>简单说：想模拟团队协作、角色扮演，用 CrewAI；想做技术性任务分解，用 DeepAgents。</p>
+<p><strong>DeepAgents vs SmolAgents</strong>。SmolAgents 是 Hugging Face 出的轻量框架，特点是代码优先——Agent 直接写 Python 代码来执行任务，而不是调用工具。它适合快速原型开发，但不适合复杂的长任务。</p>
+<p>简单说：想快速试一个简单 Agent，用 SmolAgents；想做复杂长任务，用 DeepAgents。</p>
+<blockquote>
+<p>“框架选择要看你的场景。DeepAgents 适合处理复杂推理任务，LangGraph 适合生产级系统，AutoGen 和 CrewAI 适合多代理协作，SmolAgents 适合快速验证想法。没有万能的框架，只有适合的框架”</p>
+</blockquote>
+<h1 id="生产部署与最佳实践"><a href="#生产部署与最佳实践" class="headerlink" title="生产部署与最佳实践"></a>生产部署与最佳实践</h1><p>把 DeepAgents 用在生产环境，有几个关键点要注意。</p>
+<h2 id="Backend-选择策略"><a href="#Backend-选择策略" class="headerlink" title="Backend 选择策略"></a>Backend 选择策略</h2><p>三种 Backend 的选择逻辑：</p>
+<p><strong>StateBackend</strong>：测试环境、短期任务。优点是快——所有数据在内存，读写没有 IO 延迟。缺点是不持久——Agent 重启后状态全丢。适合单元测试、快速验证、短期任务。</p>
+<p><strong>FilesystemBackend</strong>：生产环境、持久化需求。优点是可靠——数据写入文件系统，重启后还能读取。缺点是有 IO 成本——读写文件比内存慢。适合生产部署、长任务、需要持久化。</p>
+<p><strong>StoreBackend</strong>：企业级、需要审计追踪。优点是可控——数据存储在云端数据库，支持版本管理和审计日志。缺点是复杂——需要配置数据库连接、权限管理。适合企业应用、合规要求、审计需求。</p>
+<p>一个配置示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">from deepagents import create_deep_agent, FilesystemBackend</span><br><span class="line"></span><br><span class="line">agent = create_deep_agent(</span><br><span class="line">    subagents=[research_subagent, writer_subagent],</span><br><span class="line">    backend=FilesystemBackend(</span><br><span class="line">        base_path=&quot;/var/agent-state&quot;,  # 存储路径</span><br><span class="line">        max_file_size=10 * 1024 * 1024,  # 单文件最大 10MB</span><br><span class="line">        cleanup_after_days=30  # 30 天后清理旧文件</span><br><span class="line">    )</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="子代理粒度设计"><a href="#子代理粒度设计" class="headerlink" title="子代理粒度设计"></a>子代理粒度设计</h2><p>不要过度拆分。</p>
+<p>有人把一个调研任务拆成 10 个子代理：search_google、search_bing、read_wikipedia、read_github、extract_summary、extract_quotes、format_markdown、check_citations… 结果编排器调用子代理的时间比实际执行任务的时间还长。</p>
+<p>合理的设计是 3-5 个核心子代理：</p>
+<ul>
+<li><strong>research</strong>：负责所有信息检索和提取</li>
+<li><strong>analysis</strong>：负责数据处理和逻辑推理</li>
+<li><strong>writer</strong>：负责内容组织和输出</li>
+<li><strong>reviewer</strong>：负责质量检查和校验（可选）</li>
+</ul>
+<p>每个子代理有明确的职责边界。research 子代理不应该去做内容组织，writer 子代理不应该去做信息检索。职责分明，调用清晰。</p>
+<h2 id="性能优化"><a href="#性能优化" class="headerlink" title="性能优化"></a>性能优化</h2><p>两个关键点：</p>
+<p><strong>文件按需读取</strong>。不要一次性 read_file 所有中间结果。Agent 在执行过程中，根据当前任务的需要读取相关文件。DeepAgents 的文件引用机制就是为此设计的——文件路径保存在 Context，内容在需要时才加载。</p>
+<p><strong>合理使用 Context Summarization</strong>。长任务执行过程中，Context Window 可能会积累很多内容。DeepAgents 支持中间步骤的自动摘要——把冗长的执行记录压缩成简短的状态描述。这能节省 Context 空间，但要注意摘要的准确性——关键信息不能丢。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">agent = create_deep_agent(</span><br><span class="line">    ...,</span><br><span class="line">    context_management=&#123;</span><br><span class="line">        &quot;summarization_threshold&quot;: 50000,  # 50K tokens 时触发摘要</span><br><span class="line">        &quot;preserve_last_n_steps&quot;: 5  # 保留最近 5 步的详细记录</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="错误处理和验证"><a href="#错误处理和验证" class="headerlink" title="错误处理和验证"></a>错误处理和验证</h2><p>Deep Agents 的执行过程长，出错概率也大。要有错误处理机制：</p>
+<p><strong>LLM-as-a-Judge</strong>。用另一个 LLM 检查 Agent 的输出质量。比如 reviewer_subagent 检查 writer_subagent 输出的报告是否有逻辑漏洞、信息遗漏。</p>
+<p><strong>人工介入点</strong>。在关键决策点设置人工确认。比如 Agent 完成调研后，暂停等待用户确认方向是否正确，再继续执行。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">agent = create_deep_agent(</span><br><span class="line">    ...,</span><br><span class="line">    verification=&#123;</span><br><span class="line">        &quot;auto_verify&quot;: True,  # 启用自动验证</span><br><span class="line">        &quot;human_checkpoint&quot;: &quot;before_output&quot;  # 输出前人工确认</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>回顾一下 DeepAgents 的四大支柱：</p>
+<p><strong>Planning Tools</strong> 让 Agent 有规划能力，todo_write 通过 Context Window 作为 working memory，保持长期目标一致性。</p>
+<p><strong>Sub-agents</strong> 实现专业分工和 Context 隔离，编排器的 Context 保持干净，子代理执行中间步骤不污染主流程。</p>
+<p><strong>File System</strong> 解决 Context Window 限制，用文件引用代替直接加载，按需读取节省空间。</p>
+<p><strong>System Prompts</strong> 定义 Agent 的行为边界，数百到数千行的工程化文档覆盖各种边界情况。</p>
+<p>这四个支柱协同工作，让 Agent 从”反应式执行”进化到”结构化推理”。Claude Code、Deep Research、Manus 的成功证明了这个架构的有效性。</p>
+<p>下一步行动建议：</p>
+<ul>
+<li>尝试用 DeepAgents 构建你的第一个长任务 Agent。官方 GitHub 仓库有完整的示例代码：langchain-ai/deepagents。</li>
+<li>阅读 LangChain 官方文档深入学习。DeepAgents 的文档在 docs.langchain.com/oss/python/deepagents。</li>
+<li>关注 AI 开发实战系列。后续会有更多 Agent 架构的深度分析，包括 LangGraph 状态机设计、Agent Memory 系统优化等主题。</li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="DeepAgents-和-LangGraph-有什么区别？"><a href="#DeepAgents-和-LangGraph-有什么区别？" class="headerlink" title="DeepAgents 和 LangGraph 有什么区别？"></a>DeepAgents 和 LangGraph 有什么区别？</h2><p>DeepAgents 是 LangGraph 的上层封装，专注于 Deep Agent 模式。它把 Planning Tools、File System Backend、Sub-agent Management 封装好了，开箱即用。LangGraph 更底层，提供状态机和工作流编排能力，需要自己实现 Memory 和 Planning。想快速搭建 Deep Agent 用 DeepAgents，想做底层定制用 LangGraph。</p>
+<h2 id="什么时候应该用-Sub-agents-而不是单个-Agent？"><a href="#什么时候应该用-Sub-agents-而不是单个-Agent？" class="headerlink" title="什么时候应该用 Sub-agents 而不是单个 Agent？"></a>什么时候应该用 Sub-agents 而不是单个 Agent？</h2><p>当任务满足以下条件时，应该用 Sub-agents：</p>
+<ul>
+<li>任务步骤超过 10 个，Context 容易溢出</li>
+<li>需要专业化分工（如研究、写作、代码分析）</li>
+<li>中间步骤会污染 Context，但最终只需要摘要结果</li>
+<li>需要精细化权限控制（如只读、只写、网络访问）</li>
+</ul>
+<h2 id="File-System-Backend-的三种模式怎么选？"><a href="#File-System-Backend-的三种模式怎么选？" class="headerlink" title="File System Backend 的三种模式怎么选？"></a>File System Backend 的三种模式怎么选？</h2><p>根据场景选择：</p>
+<ul>
+<li>StateBackend：测试环境、短期任务，快速但不持久</li>
+<li>FilesystemBackend：生产环境、需要持久化，可靠但有 IO 成本</li>
+<li>StoreBackend：企业级、需要审计追踪，支持版本控制但配置复杂</li>
+</ul>
+<h2 id="子代理应该拆分到什么粒度？"><a href="#子代理应该拆分到什么粒度？" class="headerlink" title="子代理应该拆分到什么粒度？"></a>子代理应该拆分到什么粒度？</h2><p>推荐 3-5 个核心子代理：research（信息检索）、analysis（数据处理）、writer（内容输出）、reviewer（质量检查，可选）。不要过度拆分——有人把调研任务拆成 10 个子代理，结果编排器调用子代理的时间比实际执行任务的时间还长。关键是有明确的职责边界。</p>
+<h2 id="DeepAgents-适合什么样的任务？"><a href="#DeepAgents-适合什么样的任务？" class="headerlink" title="DeepAgents 适合什么样的任务？"></a>DeepAgents 适合什么样的任务？</h2><p>DeepAgents 适合复杂推理工作流，特点是：任务步骤多（超过 10 步）、需要长期规划、需要记忆管理、中间结果需要持久化。典型场景包括：深度研究（几十篇文档调研）、代码重构（几千行项目）、长篇内容生成（5000 字以上报告）。简单任务用 SmolAgents 或直接调用 LLM API 更高效。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/439a/">https://jingluo23.github.io/posts/439a/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/a6e0/" title="AI Agent 监控告警与失败恢复：从日志到状态机的设计实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">AI Agent 监控告警与失败恢复：从日志到状态机的设计实践</div></div><div class="info-2"><div class="info-item-1">AI Agent 上线后失败无从排查？本文从日志到状态机的完整设计实践，教你构建生产级监控告警体系，让每个失败可观测、可恢复</div></div></div></a><a class="pagination-related" href="/posts/69d1/" title="2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选</div></div><div class="info-2"><div class="info-item-1">用状态管理、工具调用、HITL、guardrails、eval、可观测性和部署复杂度比较 LangGraph、OpenAI Agents SDK、AutoGen、CrewAI 与 Temporal，帮你从 Agent demo 进入生产选型。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/d883/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint机制、超时恢复与选型决策"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-08</div><div class="info-item-2">LangGraph vs AutoGen 状态追踪对比：checkpoint机制、超时恢复与选型决策</div></div><div class="info-2"><div class="info-item-1">从 checkpoint、超时恢复和分布式状态等 12 个维度比较 LangGraph 与 AutoGen，结合代码与选型树判断哪套 Agent 框架更适合生产项目。</div></div></div></a><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-02</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a><a class="pagination-related" href="/posts/392d/" title="Computer-Use Agent：让 AI 操作你的电脑"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-03</div><div class="info-item-2">Computer-Use Agent：让 AI 操作你的电脑</div></div><div class="info-2"><div class="info-item-1">深入解析 Claude Computer Use 技术，从原理到实践完整指南。包含 Docker 部署、代码示例、竞品分析和安全最佳实践，助你掌握 AI 桌面自动化的前沿技术</div></div></div></a><a class="pagination-related" href="/posts/488b/" title="Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch/Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。</div></div></div></a><a class="pagination-related" href="/posts/aa55/" title="Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南</div></div><div class="info-2"><div class="info-item-1">详解 Agent 评估基准与性能测试框架，对比 AgentBench、WebArena、τ-Bench 等五大基准，介绍 DeepEval 组件级评估方法，提供完整代码示例。</div></div></div></a><a class="pagination-related" href="/posts/361d/" title="LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-07</div><div class="info-item-2">LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发</div></div><div class="info-2"><div class="info-item-1">深入解析 LangGraph Supervisor 模式架构原理，通过 Research + Writing 团队实战案例，掌握多 Agent 任务分发与协作的核心技巧，包含完整可运行代码示例</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81-Deep-Agents%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">为什么需要 Deep Agents？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#DeepAgents-%E5%9B%9B%E5%A4%A7%E6%94%AF%E6%9F%B1%E6%9E%B6%E6%9E%84"><span class="toc-number">2.</span> <span class="toc-text">DeepAgents 四大支柱架构</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Planning-Tools%EF%BC%9A%E8%AE%A9-Agent-%E6%9C%89%E4%B8%AA%E2%80%9D%E8%84%91%E5%AD%90%E2%80%9D"><span class="toc-number">2.1.</span> <span class="toc-text">Planning Tools：让 Agent 有个”脑子”</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Sub-agents%EF%BC%9A%E4%B8%93%E4%B8%9A%E5%88%86%E5%B7%A5%EF%BC%8CContext-%E9%9A%94%E7%A6%BB"><span class="toc-number">2.2.</span> <span class="toc-text">Sub-agents：专业分工，Context 隔离</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#File-System%EF%BC%9A%E7%AA%81%E7%A0%B4-Context-Window-%E9%99%90%E5%88%B6"><span class="toc-number">2.3.</span> <span class="toc-text">File System：突破 Context Window 限制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#System-Prompts%EF%BC%9A%E8%A2%AB%E4%BD%8E%E4%BC%B0%E7%9A%84%E5%85%B3%E9%94%AE"><span class="toc-number">2.4.</span> <span class="toc-text">System Prompts：被低估的关键</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#DeepAgents-%E5%AE%9E%E6%88%98%E4%BB%A3%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">DeepAgents 实战代码解析</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%8E%E5%85%B6%E4%BB%96-Agent-%E6%A1%86%E6%9E%B6%E5%AF%B9%E6%AF%94"><span class="toc-number">4.</span> <span class="toc-text">与其他 Agent 框架对比</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E9%83%A8%E7%BD%B2%E4%B8%8E%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">5.</span> <span class="toc-text">生产部署与最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Backend-%E9%80%89%E6%8B%A9%E7%AD%96%E7%95%A5"><span class="toc-number">5.1.</span> <span class="toc-text">Backend 选择策略</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AD%90%E4%BB%A3%E7%90%86%E7%B2%92%E5%BA%A6%E8%AE%BE%E8%AE%A1"><span class="toc-number">5.2.</span> <span class="toc-text">子代理粒度设计</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96"><span class="toc-number">5.3.</span> <span class="toc-text">性能优化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86%E5%92%8C%E9%AA%8C%E8%AF%81"><span class="toc-number">5.4.</span> <span class="toc-text">错误处理和验证</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#DeepAgents-%E5%92%8C-LangGraph-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">DeepAgents 和 LangGraph 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E5%BA%94%E8%AF%A5%E7%94%A8-Sub-agents-%E8%80%8C%E4%B8%8D%E6%98%AF%E5%8D%95%E4%B8%AA-Agent%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">什么时候应该用 Sub-agents 而不是单个 Agent？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#File-System-Backend-%E7%9A%84%E4%B8%89%E7%A7%8D%E6%A8%A1%E5%BC%8F%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">File System Backend 的三种模式怎么选？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AD%90%E4%BB%A3%E7%90%86%E5%BA%94%E8%AF%A5%E6%8B%86%E5%88%86%E5%88%B0%E4%BB%80%E4%B9%88%E7%B2%92%E5%BA%A6%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">子代理应该拆分到什么粒度？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DeepAgents-%E9%80%82%E5%90%88%E4%BB%80%E4%B9%88%E6%A0%B7%E7%9A%84%E4%BB%BB%E5%8A%A1%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">DeepAgents 适合什么样的任务？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

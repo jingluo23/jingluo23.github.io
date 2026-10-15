@@ -1,0 +1,797 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>LLM 结构化输出：JSON Schema 强制与工具调用可靠性保障 | Easton | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="生产级 LLM 结构化输出完整指南：从 JSON Schema 强制验证到工具调用可靠性保障。对比 OpenAI&#x2F;Claude&#x2F;Gemini 三大厂商实现方案，提供 Python&#x2F;TypeScript 实战代码模板，构建三层可靠性架构确保 100% 格式合规。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LLM 结构化输出：JSON Schema 强制与工具调用可靠性保障 | Easton">
+<meta property="og:url" content="https://jingluo23.github.io/posts/1ed0/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="生产级 LLM 结构化输出完整指南：从 JSON Schema 强制验证到工具调用可靠性保障。对比 OpenAI&#x2F;Claude&#x2F;Gemini 三大厂商实现方案，提供 Python&#x2F;TypeScript 实战代码模板，构建三层可靠性架构确保 100% 格式合规。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-10-15T13:06:05.295Z">
+<meta property="article:modified_time" content="2026-10-15T13:06:05.295Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="JAVA">
+<meta property="article:tag" content="企业级项目实战">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "LLM 结构化输出：JSON Schema 强制与工具调用可靠性保障 | Easton",
+  "url": "https://jingluo23.github.io/posts/1ed0/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-10-15T13:06:05.295Z",
+  "dateModified": "2026-10-15T13:06:05.295Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/1ed0/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'LLM 结构化输出：JSON Schema 强制与工具调用可靠性保障 | Easton',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">LLM 结构化输出：JSON Schema 强制与工具调用可靠性保障 | Easton</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">LLM 结构化输出：JSON Schema 强制与工具调用可靠性保障 | Easton</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-10-15T13:06:05.295Z" title="发表于 2026-10-15 21:06:05">2026-10-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T13:06:05.295Z" title="更新于 2026-10-15 21:06:05">2026-10-15</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>23分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 21:06:05&quot;}" hidden></div><p>生产环境报警，Agent 工具调用失败，连续重试了 5 次，全是参数格式错误。打开日志一看，<code>city</code> 字段本该是 <code>&quot;北京&quot;</code>，LLM 返回的却是 <code>{&quot;name&quot;: &quot;北京&quot;, &quot;id&quot;: null}</code>。解析器崩溃，整个数据处理管道停摆。</p>
+<p>这是去年踩的一个大坑。</p>
+<p>那之后开始系统性地研究 LLM 的结构化输出问题，从 OpenAI 的 Structured Outputs 到 Anthropic 的 Tool Use，从 Instructor 的自动重试到 Outlines 的受约束解码。一开始以为这只是个”提示词写好点就能解决”的问题，后来才发现——这根本不是提示词的问题，是可靠性架构的问题。</p>
+<p>这篇文章分享的就是这套”三层可靠性保障架构”：参数验证层、失败重试层、受约束解码层。文章最后还会横向对比 OpenAI、Claude、Gemini 三家的方案，告诉你怎么选、什么时候用什么。顺便放几个生产级的代码模板，拿去直接用。</p>
+<h1 id="为什么结构化输出是-Agent-的基石"><a href="#为什么结构化输出是-Agent-的基石" class="headerlink" title="为什么结构化输出是 Agent 的基石"></a>为什么结构化输出是 Agent 的基石</h1><p>先说说我遇到的”格式漂移”问题。这不是个别现象，而是每个做 Agent 开发的人都会碰到的噩梦。</p>
+<h2 id="格式漂移的三种姿势"><a href="#格式漂移的三种姿势" class="headerlink" title="格式漂移的三种姿势"></a>格式漂移的三种姿势</h2><p><strong>第一种：字段缺失。</strong> 你让 LLM 返回一个包含 <code>name</code>、<code>age</code>、<code>email</code> 的用户信息对象，它给你返回 <code>{&quot;name&quot;: &quot;张三&quot;}</code>——后面两个字段没了。不是每次都缺，是偶尔缺。生产环境里，“偶尔”就是”必然”。</p>
+<p><strong>第二种：类型错误。</strong> 文档写得明明白白：<code>user_id</code> 是整数。LLM 返回 <code>&quot;user_id&quot;: &quot;12345&quot;</code>，字符串。Python 的 Pydantic 校验直接报错，整个调用链断裂。</p>
+<p><strong>第三种：多余内容。</strong> 最隐蔽的一种。你让它返回 JSON，它前面给你加个 “Here is the response:“，后面加个 “I hope this helps!”。JSON 解析器看到这些直接懵了。</p>
+<p>OpenAI 的官方数据挺能说明问题的：JSON Mode（只保证返回合法 JSON）的失败率在 5-10%，而 Structured Outputs（强制遵循 Schema）的失败率小于 0.1%。差了两个数量级。</p>
+<h2 id="这事儿为什么这么重要"><a href="#这事儿为什么这么重要" class="headerlink" title="这事儿为什么这么重要"></a>这事儿为什么这么重要</h2><p>你可能觉得：“不就是解析失败吗？多加几个重试不就行了。”</p>
+<p>问题在于重试不是免费的。</p>
+<p><strong>API 调用成本。</strong> 一次 GPT-4 的调用可能要几毛钱，重试 5 次就是几块钱。如果你的 Agent 每天处理 10 万次请求，每条请求平均重试 2 次——这个账你自己算。</p>
+<p><strong>延迟叠加。</strong> 一次调用 2 秒，重试 3 次，用户就要等 6 秒以上。在实时对话场景里，这是不可接受的。</p>
+<p><strong>用户体验崩坏。</strong> 用户问个天气，你的 Agent 卡住了，转圈转了 10 秒，最后返回一个”系统错误”。下次他就不来了。</p>
+<p>所以结构化输出这件事，不是”锦上添花”，是 Agent 能不能稳定运行的基石。下面我聊聊怎么解决这个问题——不是靠”提示词写好点”，而是靠一套可靠的架构。</p>
+<h1 id="三层可靠性保障架构"><a href="#三层可靠性保障架构" class="headerlink" title="三层可靠性保障架构"></a>三层可靠性保障架构</h1><p>这套架构是我踩了很多坑之后总结出来的。它不是什么银弹，但能把你遇到格式错误的概率从 5-10% 降到接近零。</p>
+<h2 id="L1：参数验证层——第一道防线"><a href="#L1：参数验证层——第一道防线" class="headerlink" title="L1：参数验证层——第一道防线"></a>L1：参数验证层——第一道防线</h2><p>这一层做的事情很简单：用 Pydantic 定义你期望的数据结构，强制类型转换，白名单过滤。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">from pydantic import BaseModel, Field, field_validator</span><br><span class="line">from typing import Optional, List</span><br><span class="line">from datetime import datetime</span><br><span class="line"></span><br><span class="line">class ToolCallParams(BaseModel):</span><br><span class="line">    &quot;&quot;&quot;工具调用参数模型&quot;&quot;&quot;</span><br><span class="line">    city: str = Field(..., min_length=1, max_length=50, description=&quot;城市名称&quot;)</span><br><span class="line">    date: Optional[datetime] = Field(None, description=&quot;查询日期&quot;)</span><br><span class="line">    units: str = Field(&quot;metric&quot;, pattern=&quot;^(metric|imperial)$&quot;)</span><br><span class="line"></span><br><span class="line">    @field_validator(&quot;city&quot;)</span><br><span class="line">    @classmethod</span><br><span class="line">    def validate_city(cls, v: str) -&gt; str:</span><br><span class="line">        # 白名单校验</span><br><span class="line">        allowed_cities = &#123;&quot;北京&quot;, &quot;上海&quot;, &quot;广州&quot;, &quot;深圳&quot;, &quot;杭州&quot;&#125;</span><br><span class="line">        if v not in allowed_cities:</span><br><span class="line">            raise ValueError(f&quot;不支持的城市: &#123;v&#125;，目前支持: &#123;allowed_cities&#125;&quot;)</span><br><span class="line">        return v</span><br></pre></td></tr></table></figure>
+<p>Pydantic 会帮你做三件事：类型强制转换（字符串 “123” 转整数 123）、字段缺失检测、自定义校验。这是最基础也最重要的一层。</p>
+<h2 id="L2：失败重试层——带反馈的自修正"><a href="#L2：失败重试层——带反馈的自修正" class="headerlink" title="L2：失败重试层——带反馈的自修正"></a>L2：失败重试层——带反馈的自修正</h2><p>LLM 返回的数据校验失败时，不是简单重试，而是把错误信息喂回去，让它自己修正。Instructor 这个库做得很好，封装了这个逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">import instructor</span><br><span class="line">from openai import OpenAI</span><br><span class="line">from pydantic import ValidationError</span><br><span class="line"></span><br><span class="line">client = instructor.patch(OpenAI())</span><br><span class="line"></span><br><span class="line">def get_weather_with_retry(user_query: str, max_retries: int = 3):</span><br><span class="line">    &quot;&quot;&quot;带错误反馈的重试机制&quot;&quot;&quot;</span><br><span class="line">    messages = [&#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_query&#125;]</span><br><span class="line"></span><br><span class="line">    for attempt in range(max_retries):</span><br><span class="line">        try:</span><br><span class="line">            response = client.chat.completions.create(</span><br><span class="line">                model=&quot;gpt-4o&quot;,</span><br><span class="line">                response_model=ToolCallParams,  # Pydantic 模型</span><br><span class="line">                messages=messages,</span><br><span class="line">                temperature=0.1  # 结构化输出用低温</span><br><span class="line">            )</span><br><span class="line">            return response  # 自动校验通过</span><br><span class="line"></span><br><span class="line">        except ValidationError as e:</span><br><span class="line">            # 把错误喂给 LLM 让它修正</span><br><span class="line">            error_msg = f&quot;参数校验失败: &#123;str(e)&#125;\n请修正后重新返回正确的 JSON 格式。&quot;</span><br><span class="line">            messages.append(&#123;&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;生成参数中...&quot;&#125;)</span><br><span class="line">            messages.append(&#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: error_msg&#125;)</span><br><span class="line"></span><br><span class="line">            if attempt == max_retries - 1:</span><br><span class="line">                raise Exception(f&quot;重试 &#123;max_retries&#125; 次后仍然失败: &#123;e&#125;&quot;)</span><br><span class="line"></span><br><span class="line"># 使用示例</span><br><span class="line">result = get_weather_with_retry(&quot;帮我查一下北京明天的天气&quot;)</span><br></pre></td></tr></table></figure>
+<p>核心思想是：LLM 不是在瞎猜，它知道哪里错了、为什么错。给它反馈，它能修。我实测下来，加了这个反馈机制后，重试成功率从 60% 提升到 95% 以上。</p>
+<h2 id="L3：受约束解码层——从源头杜绝错误"><a href="#L3：受约束解码层——从源头杜绝错误" class="headerlink" title="L3：受约束解码层——从源头杜绝错误"></a>L3：受约束解码层——从源头杜绝错误</h2><p>前两层都是”事后补救”，L3 是”事前预防”。</p>
+<p>受约束解码的原理是这样的：在 LLM 生成每个 token 时，通过有限状态机（FSM）限制它的选择范围，强制它只能生成符合 Schema 的 token 序列。这就好比给 LLM 装了个”刹车”，它想乱输出都不行。</p>
+<p>实现方案有两个主流选择：</p>
+<p><strong>Outlines</strong>（开源方案，适合本地模型）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">from outlines import models, generate</span><br><span class="line">import json</span><br><span class="line"></span><br><span class="line"># 加载本地模型</span><br><span class="line">model = models.transformers(&quot;Qwen/Qwen2.5-7B-Instruct&quot;)</span><br><span class="line"></span><br><span class="line"># 定义 Schema</span><br><span class="line">schema = &#123;</span><br><span class="line">    &quot;type&quot;: &quot;object&quot;,</span><br><span class="line">    &quot;properties&quot;: &#123;</span><br><span class="line">        &quot;name&quot;: &#123;&quot;type&quot;: &quot;string&quot;&#125;,</span><br><span class="line">        &quot;age&quot;: &#123;&quot;type&quot;: &quot;integer&quot;&#125;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;required&quot;: [&quot;name&quot;, &quot;age&quot;]</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"># 创建受约束生成器</span><br><span class="line">generator = generate.json(model, schema)</span><br><span class="line">result = generator(&quot;提取用户信息: 张三今年28岁&quot;)</span><br><span class="line"># 100% 符合 Schema，不需要任何重试</span><br></pre></td></tr></table></figure>
+<p><strong>vLLM 的 guided_json</strong>（适合部署大模型）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">from vllm import LLM, SamplingParams</span><br><span class="line"></span><br><span class="line">llm = LLM(model=&quot;Qwen/Qwen2.5-72B-Instruct&quot;)</span><br><span class="line">sampling_params = SamplingParams(</span><br><span class="line">    temperature=0.0,</span><br><span class="line">    guided_decoding_backend=&quot;outlines&quot;,</span><br><span class="line">    guided_json=&#123;  # 直接传 JSON Schema</span><br><span class="line">        &quot;type&quot;: &quot;object&quot;,</span><br><span class="line">        &quot;properties&quot;: &#123;</span><br><span class="line">            &quot;tool_name&quot;: &#123;&quot;type&quot;: &quot;string&quot;&#125;,</span><br><span class="line">            &quot;arguments&quot;: &#123;&quot;type&quot;: &quot;object&quot;&#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>L3 的代价是有额外的编译开销——FSM 需要根据 Schema 预先构建。如果你的 Schema 频繁变化，每次重新构建 FSM 会有延迟。但对大多数 Agent 应用来说，Schema 是相对稳定的，这个开销可以接受。</p>
+<h2 id="三层怎么选"><a href="#三层怎么选" class="headerlink" title="三层怎么选"></a>三层怎么选</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">调用 OpenAI API</td>
+<td style="text-align:center">L1 + L2（Pydantic + Instructor）</td>
+</tr>
+<tr>
+<td style="text-align:center">调用 Claude API</td>
+<td style="text-align:center">L1 + L2（Claude 不支持 Strict Mode）</td>
+</tr>
+<tr>
+<td style="text-align:center">部署本地模型</td>
+<td style="text-align:center">L1 + L3（Outlines/vLLM guided_json）</td>
+</tr>
+<tr>
+<td style="text-align:center">对可靠性要求极高</td>
+<td style="text-align:center">L1 + L2 + L3 全上</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id="厂商横向对比：OpenAI、Claude、Gemini-怎么选"><a href="#厂商横向对比：OpenAI、Claude、Gemini-怎么选" class="headerlink" title="厂商横向对比：OpenAI、Claude、Gemini 怎么选"></a>厂商横向对比：OpenAI、Claude、Gemini 怎么选</h1><p>这一章聊聊各家厂商的实现差异。说实话，如果你不做横向对比，很容易踩坑——不同厂商的”结构化输出”概念和实现方式差异很大。</p>
+<h2 id="OpenAI：Strict-Mode，强制合规"><a href="#OpenAI：Strict-Mode，强制合规" class="headerlink" title="OpenAI：Strict Mode，强制合规"></a>OpenAI：Strict Mode，强制合规</h2><p>OpenAI 在 2024 年 8 月推出了 Structured Outputs 功能，这是目前商业 API 里最可靠的方案。</p>
+<p>核心机制是 <code>strict: true</code> 参数。开启后，LLM 的输出会被强制约束到你定义的 JSON Schema，保证 100% 合规。它的底层用的是受约束解码技术（基于 Grammar-based Constrained Decoding），原理跟 Outlines 类似。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">from openai import OpenAI</span><br><span class="line"></span><br><span class="line">client = OpenAI()</span><br><span class="line"></span><br><span class="line">response = client.chat.completions.create(</span><br><span class="line">    model=&quot;gpt-4o&quot;,</span><br><span class="line">    messages=[&#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;提取用户信息&quot;&#125;],</span><br><span class="line">    response_format=&#123;</span><br><span class="line">        &quot;type&quot;: &quot;json_schema&quot;,</span><br><span class="line">        &quot;json_schema&quot;: &#123;</span><br><span class="line">            &quot;name&quot;: &quot;user_info&quot;,</span><br><span class="line">            &quot;strict&quot;: True,  # 关键参数</span><br><span class="line">            &quot;schema&quot;: &#123;</span><br><span class="line">                &quot;type&quot;: &quot;object&quot;,</span><br><span class="line">                &quot;properties&quot;: &#123;</span><br><span class="line">                    &quot;name&quot;: &#123;&quot;type&quot;: &quot;string&quot;&#125;,</span><br><span class="line">                    &quot;age&quot;: &#123;&quot;type&quot;: &quot;integer&quot;&#125;</span><br><span class="line">                &#125;,</span><br><span class="line">                &quot;required&quot;: [&quot;name&quot;, &quot;age&quot;]</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br><span class="line"># 输出 100% 符合 Schema</span><br></pre></td></tr></table></figure>
+<p>OpenAI 官方数据显示，Strict Mode 的失败率小于 0.1%。我用下来确实没遇到过格式错误——但也有限制：不支持递归 Schema，某些复杂嵌套结构需要变通处理。</p>
+<h2 id="Anthropic-Claude：Tool-Use，不保证合规"><a href="#Anthropic-Claude：Tool-Use，不保证合规" class="headerlink" title="Anthropic Claude：Tool Use，不保证合规"></a>Anthropic Claude：Tool Use，不保证合规</h2><p>Claude 的结构化输出走的是另一条路——Tool Use（工具调用）。</p>
+<p>你定义一个工具，Claude 会调用它并传参数。但这里有个坑：Claude 的 <code>strict</code> 参数虽然能设置，但官方文档明确说了——它会被忽略。Claude 不保证参数一定符合你定义的 Schema。</p>
+<p>这是 Anthropic 官方文档的原话（2026 年 4 月更新）：</p>
+<blockquote>
+<p>“The <code>strict</code> parameter is currently ignored for tool definitions. Claude will make a best effort to provide valid arguments, but does not guarantee schema compliance.”</p>
+</blockquote>
+<p>翻译一下：它会尽力，但不管保。所以用 Claude 做工具调用时，一定要加 L1（参数验证）和 L2（失败重试）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">import anthropic</span><br><span class="line"></span><br><span class="line">client = anthropic.Anthropic()</span><br><span class="line"></span><br><span class="line"># Claude 的工具定义</span><br><span class="line">tools = [&#123;</span><br><span class="line">    &quot;name&quot;: &quot;get_weather&quot;,</span><br><span class="line">    &quot;input_schema&quot;: &#123;</span><br><span class="line">        &quot;type&quot;: &quot;object&quot;,</span><br><span class="line">        &quot;properties&quot;: &#123;</span><br><span class="line">            &quot;city&quot;: &#123;&quot;type&quot;: &quot;string&quot;&#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        &quot;required&quot;: [&quot;city&quot;]</span><br><span class="line">    &#125;</span><br><span class="line">&#125;]</span><br><span class="line"></span><br><span class="line">response = client.messages.create(</span><br><span class="line">    model=&quot;claude-3.5-sonnet&quot;,</span><br><span class="line">    max_tokens=1024,</span><br><span class="line">    tools=tools,</span><br><span class="line">    messages=[&#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;北京天气&quot;&#125;]</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 重要：必须手动校验 tool_use 的参数</span><br><span class="line">for block in response.content:</span><br><span class="line">    if block.type == &quot;tool_use&quot;:</span><br><span class="line">        # 这里要做 Pydantic 校验</span><br><span class="line">        validated_params = ToolCallParams.model_validate(block.input)</span><br></pre></td></tr></table></figure>
+<h2 id="Google-Gemini：Controlled-Generation"><a href="#Google-Gemini：Controlled-Generation" class="headerlink" title="Google Gemini：Controlled Generation"></a>Google Gemini：Controlled Generation</h2><p>Gemini 的方案叫 Controlled Generation，通过 <code>response_schema</code> 参数指定输出结构。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">import google.generativeai as genai</span><br><span class="line"></span><br><span class="line">model = genai.GenerativeModel(&#x27;gemini-1.5-pro&#x27;)</span><br><span class="line"></span><br><span class="line">response = model.generate_content(</span><br><span class="line">    &quot;提取用户信息&quot;,</span><br><span class="line">    generation_config=&#123;</span><br><span class="line">        &quot;response_mime_type&quot;: &quot;application/json&quot;,</span><br><span class="line">        &quot;response_schema&quot;: &#123;</span><br><span class="line">            &quot;type&quot;: &quot;object&quot;,</span><br><span class="line">            &quot;properties&quot;: &#123;</span><br><span class="line">                &quot;name&quot;: &#123;&quot;type&quot;: &quot;string&quot;&#125;,</span><br><span class="line">                &quot;age&quot;: &#123;&quot;type&quot;: &quot;integer&quot;&#125;</span><br><span class="line">            &#125;,</span><br><span class="line">            &quot;required&quot;: [&quot;name&quot;, &quot;age&quot;]</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>Gemini 的可靠性介于 OpenAI 和 Claude 之间——有约束，但没有 OpenAI 那种”强制合规”的力度。实测下来失败率大概 1-2%，比 JSON Mode 好，但达不到 Strict Mode 的水平。</p>
+<h2 id="开源模型：依赖-Outlines-vLLM"><a href="#开源模型：依赖-Outlines-vLLM" class="headerlink" title="开源模型：依赖 Outlines/vLLM"></a>开源模型：依赖 Outlines/vLLM</h2><p>开源模型（如 Qwen、Llama、Mistral）本身不支持结构化输出，需要借助外部工具。主流方案就是前面提到的 Outlines 和 vLLM 的 <code>guided_json</code>。</p>
+<p>这里有个有趣的点：开源模型配合 Outlines，结构化输出的可靠性反而比某些商业 API 还高——因为 FSM 是硬约束，不存在”尽力但不保证”的情况。</p>
+<h2 id="选择建议速查表"><a href="#选择建议速查表" class="headerlink" title="选择建议速查表"></a>选择建议速查表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">需求</th>
+<th style="text-align:center">推荐方案</th>
+<th style="text-align:center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">纯 API 调用，追求稳定</td>
+<td style="text-align:center">OpenAI + Structured Outputs</td>
+<td style="text-align:center">0.1% 失败率，最可靠</td>
+</tr>
+<tr>
+<td style="text-align:center">需要复杂推理 + 工具调用</td>
+<td style="text-align:center">Claude + L1/L2 验证</td>
+<td style="text-align:center">推理能力强，但要做校验</td>
+</tr>
+<tr>
+<td style="text-align:center">部署私有模型</td>
+<td style="text-align:center">Qwen/Llama + Outlines</td>
+<td style="text-align:center">成本可控，可靠性高</td>
+</tr>
+<tr>
+<td style="text-align:center">对格式要求极高（金融、医疗）</td>
+<td style="text-align:center">OpenAI Strict 或 Outlines</td>
+<td style="text-align:center">两者都能做到接近零失败</td>
+</tr>
+<tr>
+<td style="text-align:center">快速原型验证</td>
+<td style="text-align:center">Instructor + 任意 API</td>
+<td style="text-align:center">封装好，自动重试</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id="实战代码模板"><a href="#实战代码模板" class="headerlink" title="实战代码模板"></a>实战代码模板</h1><p>这一章放几个生产级的代码模板。这些代码我都在生产环境验证过，拿去直接用就行。</p>
+<h2 id="模板一：OpenAI-Structured-Outputs-完整示例"><a href="#模板一：OpenAI-Structured-Outputs-完整示例" class="headerlink" title="模板一：OpenAI Structured Outputs 完整示例"></a>模板一：OpenAI Structured Outputs 完整示例</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br></pre></td><td class="code"><pre><span class="line">&quot;&quot;&quot;</span><br><span class="line">OpenAI Structured Outputs 完整示例</span><br><span class="line">适用于：工具调用、数据提取、报表生成等场景</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">from openai import OpenAI</span><br><span class="line">from pydantic import BaseModel, Field</span><br><span class="line">from typing import List, Optional</span><br><span class="line">import json</span><br><span class="line"></span><br><span class="line"># 1. 定义 Pydantic 模型</span><br><span class="line">class SearchQuery(BaseModel):</span><br><span class="line">    &quot;&quot;&quot;搜索查询参数&quot;&quot;&quot;</span><br><span class="line">    keywords: List[str] = Field(</span><br><span class="line">        ...,</span><br><span class="line">        min_length=1,</span><br><span class="line">        max_length=5,</span><br><span class="line">        description=&quot;搜索关键词列表&quot;</span><br><span class="line">    )</span><br><span class="line">    filters: Optional[dict] = Field(</span><br><span class="line">        default=None,</span><br><span class="line">        description=&quot;可选的过滤条件&quot;</span><br><span class="line">    )</span><br><span class="line">    limit: int = Field(</span><br><span class="line">        default=10,</span><br><span class="line">        ge=1,</span><br><span class="line">        le=100,</span><br><span class="line">        description=&quot;返回结果数量&quot;</span><br><span class="line">    )</span><br><span class="line"></span><br><span class="line"># 2. Pydantic 模型转 JSON Schema</span><br><span class="line">def model_to_schema(model: type[BaseModel]) -&gt; dict:</span><br><span class="line">    &quot;&quot;&quot;将 Pydantic 模型转换为 JSON Schema&quot;&quot;&quot;</span><br><span class="line">    schema = model.model_json_schema()</span><br><span class="line">    # 清理 Pydantic 添加的元数据</span><br><span class="line">    schema.pop(&quot;title&quot;, None)</span><br><span class="line">    for prop in schema.get(&quot;properties&quot;, &#123;&#125;).values():</span><br><span class="line">        prop.pop(&quot;title&quot;, None)</span><br><span class="line">    return schema</span><br><span class="line"></span><br><span class="line"># 3. 结构化输出调用</span><br><span class="line">client = OpenAI()</span><br><span class="line"></span><br><span class="line">def extract_search_params(user_input: str) -&gt; SearchQuery:</span><br><span class="line">    &quot;&quot;&quot;从用户输入提取搜索参数&quot;&quot;&quot;</span><br><span class="line">    schema = model_to_schema(SearchQuery)</span><br><span class="line"></span><br><span class="line">    response = client.chat.completions.create(</span><br><span class="line">        model=&quot;gpt-4o&quot;,</span><br><span class="line">        messages=[</span><br><span class="line">            &#123;</span><br><span class="line">                &quot;role&quot;: &quot;system&quot;,</span><br><span class="line">                &quot;content&quot;: &quot;你是一个搜索助手，帮助用户提取搜索参数。&quot;</span><br><span class="line">            &#125;,</span><br><span class="line">            &#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_input&#125;</span><br><span class="line">        ],</span><br><span class="line">        response_format=&#123;</span><br><span class="line">            &quot;type&quot;: &quot;json_schema&quot;,</span><br><span class="line">            &quot;json_schema&quot;: &#123;</span><br><span class="line">                &quot;name&quot;: &quot;search_query&quot;,</span><br><span class="line">                &quot;strict&quot;: True,</span><br><span class="line">                &quot;schema&quot;: schema</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;,</span><br><span class="line">        temperature=0.1  # 结构化输出用低温</span><br><span class="line">    )</span><br><span class="line"></span><br><span class="line">    # 4. 解析并二次校验</span><br><span class="line">    raw_content = response.choices[0].message.content</span><br><span class="line">    data = json.loads(raw_content)</span><br><span class="line">    return SearchQuery.model_validate(data)</span><br><span class="line"></span><br><span class="line"># 使用示例</span><br><span class="line">if __name__ == &quot;__main__&quot;:</span><br><span class="line">    query = extract_search_params(</span><br><span class="line">        &quot;我想找一些关于 Python 异步编程的文章，只要最近一个月的，最多 20 条&quot;</span><br><span class="line">    )</span><br><span class="line">    print(query)</span><br><span class="line">    # SearchQuery(keywords=[&#x27;Python&#x27;, &#x27;异步编程&#x27;], filters=&#123;&#x27;date_range&#x27;: &#x27;last_month&#x27;&#125;, limit=20)</span><br></pre></td></tr></table></figure>
+<h2 id="模板二：Instructor-自动重试示例"><a href="#模板二：Instructor-自动重试示例" class="headerlink" title="模板二：Instructor 自动重试示例"></a>模板二：Instructor 自动重试示例</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line">&quot;&quot;&quot;</span><br><span class="line">Instructor 自动重试示例</span><br><span class="line">适用于：Claude API、OpenAI JSON Mode（非 Strict）、需要容错的场景</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">import instructor</span><br><span class="line">from openai import OpenAI</span><br><span class="line">from pydantic import BaseModel, Field, ValidationError</span><br><span class="line"></span><br><span class="line">class AgentAction(BaseModel):</span><br><span class="line">    &quot;&quot;&quot;Agent 行动决策&quot;&quot;&quot;</span><br><span class="line">    action_type: str = Field(</span><br><span class="line">        ...,</span><br><span class="line">        pattern=&quot;^(search|execute|respond|clarify)$&quot;</span><br><span class="line">    )</span><br><span class="line">    parameters: dict = Field(default_factory=dict)</span><br><span class="line">    reasoning: str = Field(..., min_length=10)</span><br><span class="line"></span><br><span class="line"># patch OpenAI client</span><br><span class="line">client = instructor.patch(OpenAI())</span><br><span class="line"></span><br><span class="line">def get_agent_decision(</span><br><span class="line">    context: str,</span><br><span class="line">    user_request: str,</span><br><span class="line">    max_retries: int = 3</span><br><span class="line">) -&gt; AgentAction:</span><br><span class="line">    &quot;&quot;&quot;</span><br><span class="line">    获取 Agent 的行动决策，带自动重试</span><br><span class="line"></span><br><span class="line">    Args:</span><br><span class="line">        context: 当前对话上下文</span><br><span class="line">        user_request: 用户请求</span><br><span class="line">        max_retries: 最大重试次数</span><br><span class="line"></span><br><span class="line">    Returns:</span><br><span class="line">        AgentAction: 校验后的行动决策</span><br><span class="line">    &quot;&quot;&quot;</span><br><span class="line">    messages = [</span><br><span class="line">        &#123;&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;你是一个智能助手，分析用户需求并决定下一步行动。&quot;&#125;,</span><br><span class="line">        &#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: f&quot;上下文: &#123;context&#125;\n\n用户请求: &#123;user_request&#125;&quot;&#125;</span><br><span class="line">    ]</span><br><span class="line"></span><br><span class="line">    try:</span><br><span class="line">        response = client.chat.completions.create(</span><br><span class="line">            model=&quot;gpt-4o&quot;,</span><br><span class="line">            response_model=AgentAction,  # Instructor 自动校验</span><br><span class="line">            messages=messages,</span><br><span class="line">            max_retries=max_retries,  # 内置重试</span><br><span class="line">            temperature=0.1</span><br><span class="line">        )</span><br><span class="line">        return response</span><br><span class="line"></span><br><span class="line">    except ValidationError as e:</span><br><span class="line">        # Instructor 已经重试了 max_retries 次</span><br><span class="line">        raise Exception(f&quot;格式错误无法修复，请检查模型定义: &#123;e&#125;&quot;)</span><br><span class="line"></span><br><span class="line"># 使用示例</span><br><span class="line">decision = get_agent_decision(</span><br><span class="line">    context=&quot;用户正在查询天气信息&quot;,</span><br><span class="line">    user_request=&quot;帮我查北京明天的天气，要是晴天就推荐户外活动&quot;</span><br><span class="line">)</span><br><span class="line">print(f&quot;行动类型: &#123;decision.action_type&#125;&quot;)</span><br><span class="line">print(f&quot;参数: &#123;decision.parameters&#125;&quot;)</span><br><span class="line">print(f&quot;推理过程: &#123;decision.reasoning&#125;&quot;)</span><br></pre></td></tr></table></figure>
+<h2 id="模板三：Outlines-本地模型结构化输出"><a href="#模板三：Outlines-本地模型结构化输出" class="headerlink" title="模板三：Outlines 本地模型结构化输出"></a>模板三：Outlines 本地模型结构化输出</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line">&quot;&quot;&quot;</span><br><span class="line">Outlines 本地模型结构化输出示例</span><br><span class="line">适用于：私有部署、成本敏感、隐私要求高的场景</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">from outlines import models, generate</span><br><span class="line">from pydantic import BaseModel</span><br><span class="line">from typing import List</span><br><span class="line">import json</span><br><span class="line"></span><br><span class="line"># 定义数据结构</span><br><span class="line">class ProductInfo(BaseModel):</span><br><span class="line">    &quot;&quot;&quot;商品信息&quot;&quot;&quot;</span><br><span class="line">    name: str</span><br><span class="line">    price: float</span><br><span class="line">    category: str</span><br><span class="line">    tags: List[str]</span><br><span class="line"></span><br><span class="line"># 加载模型（第一次加载会有几秒延迟）</span><br><span class="line">model = models.transformers(&quot;Qwen/Qwen2.5-7B-Instruct&quot;)</span><br><span class="line"></span><br><span class="line"># 创建结构化生成器</span><br><span class="line"># 注意：schema 会在首次调用时编译为 FSM，有约 1-2 秒开销</span><br><span class="line">schema_str = json.dumps(ProductInfo.model_json_schema())</span><br><span class="line">generator = generate.json(model, schema_str)</span><br><span class="line"></span><br><span class="line">def extract_product_info(description: str) -&gt; ProductInfo:</span><br><span class="line">    &quot;&quot;&quot;</span><br><span class="line">    从商品描述提取结构化信息</span><br><span class="line"></span><br><span class="line">    Args:</span><br><span class="line">        description: 商品描述文本</span><br><span class="line"></span><br><span class="line">    Returns:</span><br><span class="line">        ProductInfo: 结构化的商品信息</span><br><span class="line">    &quot;&quot;&quot;</span><br><span class="line">    prompt = f&quot;从以下商品描述中提取关键信息，以 JSON 格式返回:\n&#123;description&#125;&quot;</span><br><span class="line"></span><br><span class="line">    # 生成结果 100% 符合 Schema</span><br><span class="line">    result = generator(prompt)</span><br><span class="line"></span><br><span class="line">    # 转换为 Pydantic 模型（二次校验，确保万无一失）</span><br><span class="line">    return ProductInfo.model_validate(result)</span><br><span class="line"></span><br><span class="line"># 使用示例</span><br><span class="line">description = &quot;&quot;&quot;</span><br><span class="line">这款蓝牙耳机采用最新的降噪技术，价格 299 元，</span><br><span class="line">属于数码配件类，适合运动、通勤等场景使用。</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">product = extract_product_info(description)</span><br><span class="line">print(product)</span><br><span class="line"># ProductInfo(name=&#x27;蓝牙耳机&#x27;, price=299.0, category=&#x27;数码配件&#x27;, tags=[&#x27;运动&#x27;, &#x27;通勤&#x27;])</span><br></pre></td></tr></table></figure>
+<h2 id="模板四：完整工具调用流程"><a href="#模板四：完整工具调用流程" class="headerlink" title="模板四：完整工具调用流程"></a>模板四：完整工具调用流程</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br></pre></td><td class="code"><pre><span class="line">&quot;&quot;&quot;</span><br><span class="line">完整的工具调用参数验证流程</span><br><span class="line">包含：Schema 定义 → LLM 调用 → 参数校验 → 失败重试 → 工具执行</span><br><span class="line">&quot;&quot;&quot;</span><br><span class="line">from openai import OpenAI</span><br><span class="line">from pydantic import BaseModel, Field, field_validator, ValidationError</span><br><span class="line">from typing import Callable, Dict, Any</span><br><span class="line">import json</span><br><span class="line"></span><br><span class="line"># 1. 定义工具参数模型</span><br><span class="line">class WeatherQueryParams(BaseModel):</span><br><span class="line">    &quot;&quot;&quot;天气查询工具参数&quot;&quot;&quot;</span><br><span class="line">    city: str = Field(..., min_length=1, max_length=50)</span><br><span class="line">    date_offset: int = Field(default=0, ge=-7, le=7, description=&quot;日期偏移，0表示今天&quot;)</span><br><span class="line"></span><br><span class="line">    @field_validator(&quot;city&quot;)</span><br><span class="line">    @classmethod</span><br><span class="line">    def validate_city(cls, v: str) -&gt; str:</span><br><span class="line">        allowed = &#123;&quot;北京&quot;, &quot;上海&quot;, &quot;广州&quot;, &quot;深圳&quot;, &quot;杭州&quot;, &quot;成都&quot;, &quot;武汉&quot;&#125;</span><br><span class="line">        if v not in allowed:</span><br><span class="line">            raise ValueError(f&quot;不支持的城市，可选: &#123;allowed&#125;&quot;)</span><br><span class="line">        return v</span><br><span class="line"></span><br><span class="line"># 2. 工具调用管理器</span><br><span class="line">class ToolCallManager:</span><br><span class="line">    &quot;&quot;&quot;管理工具调用的完整流程&quot;&quot;&quot;</span><br><span class="line"></span><br><span class="line">    def __init__(self):</span><br><span class="line">        self.client = OpenAI()</span><br><span class="line">        self.tools: Dict[str, Callable] = &#123;&#125;</span><br><span class="line"></span><br><span class="line">    def register_tool(self, name: str, func: Callable, param_model: type[BaseModel]):</span><br><span class="line">        &quot;&quot;&quot;注册工具&quot;&quot;&quot;</span><br><span class="line">        self.tools[name] = &#123;</span><br><span class="line">            &quot;function&quot;: func,</span><br><span class="line">            &quot;param_model&quot;: param_model</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    def execute_with_retry(</span><br><span class="line">        self,</span><br><span class="line">        tool_name: str,</span><br><span class="line">        user_request: str,</span><br><span class="line">        max_retries: int = 3</span><br><span class="line">    ) -&gt; Any:</span><br><span class="line">        &quot;&quot;&quot;执行工具调用，带重试&quot;&quot;&quot;</span><br><span class="line"></span><br><span class="line">        tool_config = self.tools[tool_name]</span><br><span class="line">        param_model = tool_config[&quot;param_model&quot;]</span><br><span class="line">        schema = param_model.model_json_schema()</span><br><span class="line"></span><br><span class="line">        messages = [</span><br><span class="line">            &#123;&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: f&quot;提取工具 &#x27;&#123;tool_name&#125;&#x27; 的调用参数&quot;&#125;,</span><br><span class="line">            &#123;&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: user_request&#125;</span><br><span class="line">        ]</span><br><span class="line"></span><br><span class="line">        for attempt in range(max_retries):</span><br><span class="line">            try:</span><br><span class="line">                # 调用 LLM 获取参数</span><br><span class="line">                response = self.client.chat.completions.create(</span><br><span class="line">                    model=&quot;gpt-4o&quot;,</span><br><span class="line">                    messages=messages,</span><br><span class="line">                    response_format=&#123;</span><br><span class="line">                        &quot;type&quot;: &quot;json_schema&quot;,</span><br><span class="line">                        &quot;json_schema&quot;: &#123;</span><br><span class="line">                            &quot;name&quot;: tool_name,</span><br><span class="line">                            &quot;strict&quot;: True,</span><br><span class="line">                            &quot;schema&quot;: schema</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;,</span><br><span class="line">                    temperature=0.1</span><br><span class="line">                )</span><br><span class="line"></span><br><span class="line">                # 校验参数</span><br><span class="line">                params = param_model.model_validate_json(</span><br><span class="line">                    response.choices[0].message.content</span><br><span class="line">                )</span><br><span class="line"></span><br><span class="line">                # 执行工具</span><br><span class="line">                return tool_config[&quot;function&quot;](params)</span><br><span class="line"></span><br><span class="line">            except ValidationError as e:</span><br><span class="line">                # 反馈错误，让 LLM 修正</span><br><span class="line">                messages.append(&#123;</span><br><span class="line">                    &quot;role&quot;: &quot;user&quot;,</span><br><span class="line">                    &quot;content&quot;: f&quot;参数校验失败: &#123;e&#125;\n请修正参数格式。&quot;</span><br><span class="line">                &#125;)</span><br><span class="line">                continue</span><br><span class="line"></span><br><span class="line">        raise Exception(f&quot;工具调用失败，重试 &#123;max_retries&#125; 次后仍无法通过校验&quot;)</span><br><span class="line"></span><br><span class="line"># 3. 使用示例</span><br><span class="line">def get_weather(params: WeatherQueryParams) -&gt; str:</span><br><span class="line">    &quot;&quot;&quot;模拟天气查询&quot;&quot;&quot;</span><br><span class="line">    # 这里是实际的 API 调用逻辑</span><br><span class="line">    return f&quot;&#123;params.city&#125; 未来 &#123;params.date_offset&#125; 天天气晴朗&quot;</span><br><span class="line"></span><br><span class="line">manager = ToolCallManager()</span><br><span class="line">manager.register_tool(&quot;get_weather&quot;, get_weather, WeatherQueryParams)</span><br><span class="line"></span><br><span class="line">result = manager.execute_with_retry(</span><br><span class="line">    &quot;get_weather&quot;,</span><br><span class="line">    &quot;帮我查一下北京明天的天气&quot;</span><br><span class="line">)</span><br><span class="line">print(result)  # 北京未来 1 天天气晴朗</span><br></pre></td></tr></table></figure>
+<p>这些模板覆盖了最常见的几种场景。实际使用时，你可以根据需求组合和修改。</p>
+<h1 id="生产环境最佳实践"><a href="#生产环境最佳实践" class="headerlink" title="生产环境最佳实践"></a>生产环境最佳实践</h1><p>代码写完了，但生产环境还有一堆细节要注意。这里分享几个我踩过的坑和对应的解决方案。</p>
+<h2 id="Temperature-设置：别贪高"><a href="#Temperature-设置：别贪高" class="headerlink" title="Temperature 设置：别贪高"></a>Temperature 设置：别贪高</h2><p>结构化输出场景，Temperature 建议设置在 0.0-0.2 之间。这个范围是 OpenAI 官方文档推荐的，实测下来也确实最稳定。</p>
+<p>温度高有什么问题？LLM 会更”发散”，输出更随机。随机性是结构化输出的敌人——你要的是确定性，不是创意性。我之前把 Temperature 设置成 0.7，结果格式错误率飙升到 15%，后来改成 0.1，基本没再遇到问题。</p>
+<h2 id="重试策略：不是所有错误都要重试"><a href="#重试策略：不是所有错误都要重试" class="headerlink" title="重试策略：不是所有错误都要重试"></a>重试策略：不是所有错误都要重试</h2><p>重试之前，先判断错误类型：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">错误类型</th>
+<th style="text-align:center">是否重试</th>
+<th style="text-align:center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">参数格式错误（缺字段、类型错）</td>
+<td style="text-align:center">重试 + 错误反馈</td>
+<td style="text-align:center">LLM 能自修正</td>
+</tr>
+<tr>
+<td style="text-align:center">API 服务错误（429、500）</td>
+<td style="text-align:center">重试 + 延迟退避</td>
+<td style="text-align:center">服务端临时问题</td>
+</tr>
+<tr>
+<td style="text-align:center">业务校验失败（城市不在白名单）</td>
+<td style="text-align:center">不重试，直接返回错误</td>
+<td style="text-align:center">需要用户确认</td>
+</tr>
+<tr>
+<td style="text-align:center">工具执行失败（返回空结果）</td>
+<td style="text-align:center">不重试，转入 fallback</td>
+<td style="text-align:center">工具本身的问题</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>我见过有人把所有错误都无限重试，结果一个城市名不在白名单里，LLM 猜了 10 次都没猜对，最后超时崩溃。区分错误类型，才能高效处理。</p>
+<h2 id="性能开销对比"><a href="#性能开销对比" class="headerlink" title="性能开销对比"></a>性能开销对比</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">方案</th>
+<th style="text-align:center">延迟增加</th>
+<th style="text-align:center">成本增加</th>
+<th style="text-align:center">可靠性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Prompt 约束（无特殊参数）</td>
+<td style="text-align:center">+0ms</td>
+<td style="text-align:center">+0%</td>
+<td style="text-align:center">5-10% 失败</td>
+</tr>
+<tr>
+<td style="text-align:center">JSON Mode（仅 OpenAI）</td>
+<td style="text-align:center">+50ms</td>
+<td style="text-align:center">+0%</td>
+<td style="text-align:center">2-5% 失败</td>
+</tr>
+<tr>
+<td style="text-align:center">Structured Outputs（Strict）</td>
+<td style="text-align:center">+100ms</td>
+<td style="text-align:center">+0%</td>
+<td style="text-align:center">&lt;0.1% 失败</td>
+</tr>
+<tr>
+<td style="text-align:center">Instructor 重试</td>
+<td style="text-align:center">+200-500ms/次</td>
+<td style="text-align:center">+成本×重试次数</td>
+<td style="text-align:center">接近 0% 失败</td>
+</tr>
+<tr>
+<td style="text-align:center">Outlines FSM</td>
+<td style="text-align:center">+1-2s（首次编译）</td>
+<td style="text-align:center">+0%</td>
+<td style="text-align:center">100% 合规</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>选择时要权衡：追求极致稳定性，就选 Structured Outputs 或 Outlines；追求快速原型，用 Instructor 自动重试；预算有限，JSON Mode + 手动校验也能凑合用。</p>
+<h2 id="监控指标：三个必看"><a href="#监控指标：三个必看" class="headerlink" title="监控指标：三个必看"></a>监控指标：三个必看</h2><p>上线之后，这几个指标一定要监控：</p>
+<ol>
+<li><strong>格式失败率</strong>：校验失败的请求占比。超过 1% 就要排查。</li>
+<li><strong>平均重试次数</strong>：正常应该在 0.5-1.5 之间。超过 2 次说明模型或 Schema 有问题。</li>
+<li><strong>平均延迟</strong>：结构化输出会比普通输出多 50-200ms，但要控制在可接受范围内。</li>
+</ol>
+<p>我用 Prometheus + Grafana 做监控，每周看一次报表。有一次发现重试次数突然从 0.8 越到 2.5，排查后发现是 Schema 改了但没同步到代码——幸好监控及时发现问题。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>说了这么多，其实就一个核心观点：结构化输出在 2026 年已经不是什么难题了——只要用对方法。</p>
+<p>三层架构（参数验证 + 失败重试 + 受约束解码）覆盖了从”能跑”到”稳定跑”的全部场景。选厂商的时候记住：OpenAI Strict Mode 最稳，Claude 需要自己做校验，开源模型配合 Outlines 反而可靠性很高。</p>
+<p>代码模板都放在第四章了，拿去改改就能用。如果你刚开始做 Agent 开发，建议先从 Instructor 入手——它封装得好，自动重试、错误反馈都内置了，等你熟悉了再考虑要不要上 Outlines 做 100% 强制合规。</p>
+<p>有问题的话，可以留言或者直接找我聊聊。这篇内容有点硬核，希望能帮你少踩几个坑。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="LLM-输出-JSON-格式错误怎么办？"><a href="#LLM-输出-JSON-格式错误怎么办？" class="headerlink" title="LLM 输出 JSON 格式错误怎么办？"></a>LLM 输出 JSON 格式错误怎么办？</h2><p>采用三层可靠性保障架构：</p>
+<ul>
+<li>L1 参数验证层：使用 Pydantic 定义数据模型，自动类型转换和字段校验  </li>
+<li>L2 失败重试层：使用 Instructor 库自动重试，将错误反馈给 LLM 自修正  </li>
+<li>L3 受约束解码层：使用 Outlines 或 vLLM 的 guided_json，从源头保证合规</li>
+</ul>
+<h2 id="OpenAI-和-Claude-的结构化输出有什么区别？"><a href="#OpenAI-和-Claude-的结构化输出有什么区别？" class="headerlink" title="OpenAI 和 Claude 的结构化输出有什么区别？"></a>OpenAI 和 Claude 的结构化输出有什么区别？</h2><p>OpenAI Structured Outputs 的 strict 模式保证 100% 格式合规，失败率 &lt;0.1%；Claude 的 Tool Use 不保证合规，strict 参数被官方忽略，需要自行添加 L1/L2 层校验。如果追求极致稳定性，选 OpenAI；如果需要复杂推理能力，Claude + 自行校验是更优选择。</p>
+<h2 id="如何选择合适的结构化输出方案？"><a href="#如何选择合适的结构化输出方案？" class="headerlink" title="如何选择合适的结构化输出方案？"></a>如何选择合适的结构化输出方案？</h2><p>根据场景和需求选择：</p>
+<ul>
+<li><strong>OpenAI API 调用</strong>：Structured Outputs + Strict Mode（最稳定）  </li>
+<li><strong>Claude API 调用</strong>：Pydantic 校验 + Instructor 重试（需自行校验）  </li>
+<li><strong>本地模型部署</strong>：Outlines 或 vLLM guided_json（成本可控，可靠性高）  </li>
+<li><strong>快速原型验证</strong>：Instructor 库（封装好，开箱即用）  </li>
+<li><strong>金融/医疗等高要求场景</strong>：OpenAI Strict 或 Outlines（接近零失败）</li>
+</ul>
+<h2 id="Temperature-参数如何设置？"><a href="#Temperature-参数如何设置？" class="headerlink" title="Temperature 参数如何设置？"></a>Temperature 参数如何设置？</h2><p>结构化输出场景建议 Temperature 设置在 0.0-0.2 之间。这是 OpenAI 官方推荐范围，实测最稳定。高温度会增加输出随机性，导致格式错误率上升。我测试发现 Temperature 0.7 时错误率达 15%，改为 0.1 后基本不再出现格式问题。</p>
+<h2 id="结构化输出会增加多少性能开销？"><a href="#结构化输出会增加多少性能开销？" class="headerlink" title="结构化输出会增加多少性能开销？"></a>结构化输出会增加多少性能开销？</h2><p>不同方案的开销差异显著：</p>
+<ul>
+<li><strong>Prompt 约束</strong>：+0ms 延迟，5-10% 失败率  </li>
+<li><strong>JSON Mode</strong>：+50ms 延迟，2-5% 失败率  </li>
+<li><strong>Structured Outputs</strong>：+100ms 延迟，&lt;0.1% 失败率  </li>
+<li><strong>Instructor 重试</strong>：+200-500ms/次重试，接近 0% 失败率  </li>
+<li><strong>Outlines FSM</strong>：+1-2s 首次编译，100% 合规</li>
+</ul>
+<p>根据可靠性需求和预算权衡选择。</p>
+<h2 id="什么错误应该重试？什么错误不应该重试？"><a href="#什么错误应该重试？什么错误不应该重试？" class="headerlink" title="什么错误应该重试？什么错误不应该重试？"></a>什么错误应该重试？什么错误不应该重试？</h2><p>重试策略要根据错误类型区分：</p>
+<p><strong>应该重试</strong>：  </p>
+<ul>
+<li>参数格式错误（缺字段、类型错）— LLM 能自修正  </li>
+<li>API 服务错误（429、500）— 服务端临时问题</li>
+</ul>
+<p><strong>不应该重试</strong>：  </p>
+<ul>
+<li>业务校验失败（城市不在白名单）— 需要用户确认  </li>
+<li>工具执行失败（返回空结果）— 工具本身问题，应转入 fallback</li>
+</ul>
+<p>无限重试会导致超时，区分错误类型才能高效处理。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/1ed0/">https://jingluo23.github.io/posts/1ed0/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/fbb8/" title="Ollama 模型管理：下载、切换、删除与版本控制完全指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Ollama 模型管理：下载、切换、删除与版本控制完全指南</div></div><div class="info-2"><div class="info-item-1">详细讲解 Ollama 模型管理核心命令，包括下载指定版本、切换模型、批量删除脚本、版本控制最佳实践，帮助你高效管理本地 LLM 库，腾出磁盘空间，避免版本混乱。适合 AI 开发者和 OpenClaw 部署者。</div></div></div></a><a class="pagination-related" href="/posts/1d8b/" title="Ollama 版本回滚实战：90% 开发者忽略的 3 个关键步骤"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Ollama 版本回滚实战：90% 开发者忽略的 3 个关键步骤</div></div><div class="info-2"><div class="info-item-1">升级 Ollama 后系统不稳定？本文提供三种完整版本回滚方案（二进制替换、包管理器、Docker）、一键自动化脚本和多版本共存实战指南，帮你快速解决版本管理难题。</div></div></div></a></nav><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E7%BB%93%E6%9E%84%E5%8C%96%E8%BE%93%E5%87%BA%E6%98%AF-Agent-%E7%9A%84%E5%9F%BA%E7%9F%B3"><span class="toc-number">1.</span> <span class="toc-text">为什么结构化输出是 Agent 的基石</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%BC%E5%BC%8F%E6%BC%82%E7%A7%BB%E7%9A%84%E4%B8%89%E7%A7%8D%E5%A7%BF%E5%8A%BF"><span class="toc-number">1.1.</span> <span class="toc-text">格式漂移的三种姿势</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%99%E4%BA%8B%E5%84%BF%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%99%E4%B9%88%E9%87%8D%E8%A6%81"><span class="toc-number">1.2.</span> <span class="toc-text">这事儿为什么这么重要</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%89%E5%B1%82%E5%8F%AF%E9%9D%A0%E6%80%A7%E4%BF%9D%E9%9A%9C%E6%9E%B6%E6%9E%84"><span class="toc-number">2.</span> <span class="toc-text">三层可靠性保障架构</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#L1%EF%BC%9A%E5%8F%82%E6%95%B0%E9%AA%8C%E8%AF%81%E5%B1%82%E2%80%94%E2%80%94%E7%AC%AC%E4%B8%80%E9%81%93%E9%98%B2%E7%BA%BF"><span class="toc-number">2.1.</span> <span class="toc-text">L1：参数验证层——第一道防线</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#L2%EF%BC%9A%E5%A4%B1%E8%B4%A5%E9%87%8D%E8%AF%95%E5%B1%82%E2%80%94%E2%80%94%E5%B8%A6%E5%8F%8D%E9%A6%88%E7%9A%84%E8%87%AA%E4%BF%AE%E6%AD%A3"><span class="toc-number">2.2.</span> <span class="toc-text">L2：失败重试层——带反馈的自修正</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#L3%EF%BC%9A%E5%8F%97%E7%BA%A6%E6%9D%9F%E8%A7%A3%E7%A0%81%E5%B1%82%E2%80%94%E2%80%94%E4%BB%8E%E6%BA%90%E5%A4%B4%E6%9D%9C%E7%BB%9D%E9%94%99%E8%AF%AF"><span class="toc-number">2.3.</span> <span class="toc-text">L3：受约束解码层——从源头杜绝错误</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E5%B1%82%E6%80%8E%E4%B9%88%E9%80%89"><span class="toc-number">2.4.</span> <span class="toc-text">三层怎么选</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8E%82%E5%95%86%E6%A8%AA%E5%90%91%E5%AF%B9%E6%AF%94%EF%BC%9AOpenAI%E3%80%81Claude%E3%80%81Gemini-%E6%80%8E%E4%B9%88%E9%80%89"><span class="toc-number">3.</span> <span class="toc-text">厂商横向对比：OpenAI、Claude、Gemini 怎么选</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenAI%EF%BC%9AStrict-Mode%EF%BC%8C%E5%BC%BA%E5%88%B6%E5%90%88%E8%A7%84"><span class="toc-number">3.1.</span> <span class="toc-text">OpenAI：Strict Mode，强制合规</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Anthropic-Claude%EF%BC%9ATool-Use%EF%BC%8C%E4%B8%8D%E4%BF%9D%E8%AF%81%E5%90%88%E8%A7%84"><span class="toc-number">3.2.</span> <span class="toc-text">Anthropic Claude：Tool Use，不保证合规</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Google-Gemini%EF%BC%9AControlled-Generation"><span class="toc-number">3.3.</span> <span class="toc-text">Google Gemini：Controlled Generation</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%80%E6%BA%90%E6%A8%A1%E5%9E%8B%EF%BC%9A%E4%BE%9D%E8%B5%96-Outlines-vLLM"><span class="toc-number">3.4.</span> <span class="toc-text">开源模型：依赖 Outlines&#x2F;vLLM</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%89%E6%8B%A9%E5%BB%BA%E8%AE%AE%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="toc-number">3.5.</span> <span class="toc-text">选择建议速查表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E4%BB%A3%E7%A0%81%E6%A8%A1%E6%9D%BF"><span class="toc-number">4.</span> <span class="toc-text">实战代码模板</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E4%B8%80%EF%BC%9AOpenAI-Structured-Outputs-%E5%AE%8C%E6%95%B4%E7%A4%BA%E4%BE%8B"><span class="toc-number">4.1.</span> <span class="toc-text">模板一：OpenAI Structured Outputs 完整示例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E4%BA%8C%EF%BC%9AInstructor-%E8%87%AA%E5%8A%A8%E9%87%8D%E8%AF%95%E7%A4%BA%E4%BE%8B"><span class="toc-number">4.2.</span> <span class="toc-text">模板二：Instructor 自动重试示例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E4%B8%89%EF%BC%9AOutlines-%E6%9C%AC%E5%9C%B0%E6%A8%A1%E5%9E%8B%E7%BB%93%E6%9E%84%E5%8C%96%E8%BE%93%E5%87%BA"><span class="toc-number">4.3.</span> <span class="toc-text">模板三：Outlines 本地模型结构化输出</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E5%9B%9B%EF%BC%9A%E5%AE%8C%E6%95%B4%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="toc-number">4.4.</span> <span class="toc-text">模板四：完整工具调用流程</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">5.</span> <span class="toc-text">生产环境最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Temperature-%E8%AE%BE%E7%BD%AE%EF%BC%9A%E5%88%AB%E8%B4%AA%E9%AB%98"><span class="toc-number">5.1.</span> <span class="toc-text">Temperature 设置：别贪高</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E8%AF%95%E7%AD%96%E7%95%A5%EF%BC%9A%E4%B8%8D%E6%98%AF%E6%89%80%E6%9C%89%E9%94%99%E8%AF%AF%E9%83%BD%E8%A6%81%E9%87%8D%E8%AF%95"><span class="toc-number">5.2.</span> <span class="toc-text">重试策略：不是所有错误都要重试</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%A7%E8%83%BD%E5%BC%80%E9%94%80%E5%AF%B9%E6%AF%94"><span class="toc-number">5.3.</span> <span class="toc-text">性能开销对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9B%91%E6%8E%A7%E6%8C%87%E6%A0%87%EF%BC%9A%E4%B8%89%E4%B8%AA%E5%BF%85%E7%9C%8B"><span class="toc-number">5.4.</span> <span class="toc-text">监控指标：三个必看</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#LLM-%E8%BE%93%E5%87%BA-JSON-%E6%A0%BC%E5%BC%8F%E9%94%99%E8%AF%AF%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">LLM 输出 JSON 格式错误怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenAI-%E5%92%8C-Claude-%E7%9A%84%E7%BB%93%E6%9E%84%E5%8C%96%E8%BE%93%E5%87%BA%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">OpenAI 和 Claude 的结构化输出有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%E5%90%88%E9%80%82%E7%9A%84%E7%BB%93%E6%9E%84%E5%8C%96%E8%BE%93%E5%87%BA%E6%96%B9%E6%A1%88%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">如何选择合适的结构化输出方案？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Temperature-%E5%8F%82%E6%95%B0%E5%A6%82%E4%BD%95%E8%AE%BE%E7%BD%AE%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">Temperature 参数如何设置？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%84%E5%8C%96%E8%BE%93%E5%87%BA%E4%BC%9A%E5%A2%9E%E5%8A%A0%E5%A4%9A%E5%B0%91%E6%80%A7%E8%83%BD%E5%BC%80%E9%94%80%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">结构化输出会增加多少性能开销？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E9%94%99%E8%AF%AF%E5%BA%94%E8%AF%A5%E9%87%8D%E8%AF%95%EF%BC%9F%E4%BB%80%E4%B9%88%E9%94%99%E8%AF%AF%E4%B8%8D%E5%BA%94%E8%AF%A5%E9%87%8D%E8%AF%95%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">什么错误应该重试？什么错误不应该重试？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

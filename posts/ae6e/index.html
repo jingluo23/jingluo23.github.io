@@ -1,0 +1,1042 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="把 Agent 上下文拆成 system prompt、developer rules、memory、files、retrieval、tool schema、runtime state 和 output contract，给你一套避免上下文膨胀和规则失效的工程分层方法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层">
+<meta property="og:url" content="https://jingluo23.github.io/posts/ae6e/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="把 Agent 上下文拆成 system prompt、developer rules、memory、files、retrieval、tool schema、runtime state 和 output contract，给你一套避免上下文膨胀和规则失效的工程分层方法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-15T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T13:06:05.292Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层",
+  "url": "https://jingluo23.github.io/posts/ae6e/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-15T07:12:21.000Z",
+  "dateModified": "2026-10-15T13:06:05.292Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/ae6e/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-15T07:12:21.000Z" title="发表于 2026-08-15 15:12:21">2026-08-15</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T13:06:05.292Z" title="更新于 2026-10-15 21:06:05">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">8.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>28分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 21:06:05&quot;}" hidden></div><p>团队把 40 条仓库规则全写进 system prompt，Agent 还是把临时日志当源码改。规则里有”只修改 src 目录下的文件”，有”不要碰 logs 目录”，有”删除前必须确认”，但到第 5 轮对话时，这些约束就像不存在一样。</p>
+<p>这不是模型不够聪明，而是所有规则挤在一个层，互相稀释。上下文窗口有限，规则、资料、状态、记忆、工具输出混在一起，每轮对话都在抢 token 预算。</p>
+<p>本文提供一套上下文分层决策框架：八个载体（System Prompt、Memory、Files、Tools、State、Trace、Output Contract、User Task），迁移规则决策树，以及可执行的工程审计清单。帮你从”规则堆砌”升级到”分层治理”。</p>
+<h1 id="第一章：从症状到根因——为什么规则写在-prompt-仍然被忘"><a href="#第一章：从症状到根因——为什么规则写在-prompt-仍然被忘" class="headerlink" title="第一章：从症状到根因——为什么规则写在 prompt 仍然被忘"></a>第一章：从症状到根因——为什么规则写在 prompt 仍然被忘</h1><h2 id="团队真实案例：40-条规则写进-system-prompt-仍然忘文件边界"><a href="#团队真实案例：40-条规则写进-system-prompt-仍然忘文件边界" class="headerlink" title="团队真实案例：40 条规则写进 system prompt 仍然忘文件边界"></a>团队真实案例：40 条规则写进 system prompt 仍然忘文件边界</h2><p>某个代码审查 Agent 的 system prompt 里写了 40 条规则：只修改 src 目录、不碰 logs 和 tmp、删除前要用户确认、返回 JSON 格式、用英文注释、每次修改要写 commit message。</p>
+<p>前 3 轮对话一切正常。第 4 轮用户问”帮我清理一下日志文件”，Agent 直接执行了 <code>rm -rf logs/</code>。第 5 轮用户说”这些临时测试文件可以删掉吗”，Agent 把 tmp 目录下的 12 个文件全删了，其中 3 个是正在用的测试 fixture。</p>
+<p>团队复盘时发现，规则”只修改 src 目录”在 prompt 的第 17 行，“不要碰 logs”在第 23 行，“删除前确认”在第 31 行。这些约束在前几轮能遵守，但对话历史变长后，新的 tool output、检索到的文档片段、中间推理过程塞进上下文，原有规则被”稀释”了。</p>
+<p>这不是模型突然变笨。Anthropic 的工程博客指出，上下文是有限资源，需要主动策划和管理，而不是把所有规则堆进去。</p>
+<h2 id="其他典型症状：工具误调用、记忆污染、状态丢失、上下文膨胀"><a href="#其他典型症状：工具误调用、记忆污染、状态丢失、上下文膨胀" class="headerlink" title="其他典型症状：工具误调用、记忆污染、状态丢失、上下文膨胀"></a>其他典型症状：工具误调用、记忆污染、状态丢失、上下文膨胀</h2><p><strong>工具误调用</strong>：工具描述只写 <code>update_record: 更新记录</code>，没写”何时不调用”。Agent 在用户只是查询信息时，也调用了更新工具，把只读数据改了。</p>
+<p><strong>记忆污染</strong>：第 2 轮 Agent 记住”用户偏好简短回答”，第 8 轮用户说”这次要详细解释”，但 Agent 还是简短输出。跨轮事实冲突，旧记忆没有更新机制。</p>
+<p><strong>状态丢失</strong>：Agent 在步骤 3（生成测试用例）时中断，重启后从步骤 1（分析需求）重新开始。任务进度没有持久化，runtime state 只存在当轮上下文里。</p>
+<p><strong>上下文膨胀</strong>：每轮对话都把历史 tool result、检索到的文档、中间推理塞进 context。第 10 轨时 token 数已经是第 1 轨的 4 倍，但回答质量没提升，反而因为噪音太多开始偏离目标。</p>
+<p>这些症状指向同一个根因：上下文载体职责不清。</p>
+<h2 id="症状根因：上下文载体职责不清，所有规则挤在一个层"><a href="#症状根因：上下文载体职责不清，所有规则挤在一个层" class="headerlink" title="症状根因：上下文载体职责不清，所有规则挤在一个层"></a>症状根因：上下文载体职责不清，所有规则挤在一个层</h2><p>OpenAI Agents SDK 的官方文档里，<code>instructions</code> 字段不是唯一上下文载体。Agent 还会收到用户任务、对话历史、检索到的文档、工具定义、运行时状态、输出契约。</p>
+<p>如果 40 条规则全塞在 system prompt，就会和用户任务、检索文档、工具输出挤在一起。每轮对话 token 预算有限（比如 128k），规则被其他内容稀释后，模型无法判断哪个约束优先级更高。</p>
+<p>Redis 的技术博客用”竞争视角”描述这个问题：System instructions、Goal specification、Conversation memory、Tool results、Retrieved documents、Intermediate reasoning，六个输入都在抢上下文窗口。</p>
+<p>真正的问题不是”模型记不住”，而是”你把规则放在了不适合的位置”。有些规则应该进 System Prompt（全局行为边界），有些应该进 Tool Description（调用时机约束），有些应该进 Memory（用户偏好），有些应该进 Files（可检索知识库）。</p>
+<h1 id="第二章：上下文分层框架——八个载体和六个竞争输入"><a href="#第二章：上下文分层框架——八个载体和六个竞争输入" class="headerlink" title="第二章：上下文分层框架——八个载体和六个竞争输入"></a>第二章：上下文分层框架——八个载体和六个竞争输入</h1><h2 id="八层上下文载体概览图"><a href="#八层上下文载体概览图" class="headerlink" title="八层上下文载体概览图"></a>八层上下文载体概览图</h2><p>Agent 的上下文不是单一容器，而是八个职责不同的载体：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">载体</th>
+<th style="text-align:center">职责</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">System/Developer Instructions</td>
+<td style="text-align:center">角色、行为边界、输出契约</td>
+<td style="text-align:center">全局约束、角色定义、安全边界</td>
+</tr>
+<tr>
+<td style="text-align:center">User Task</td>
+<td style="text-align:center">当轮任务目标、用户输入</td>
+<td style="text-align:center">动态任务、查询请求</td>
+</tr>
+<tr>
+<td style="text-align:center">Memory</td>
+<td style="text-align:center">用户偏好、跨会话事实</td>
+<td style="text-align:center">短期记忆（会话内）、长期记忆（跨会话）</td>
+</tr>
+<tr>
+<td style="text-align:center">Retrieval/Files</td>
+<td style="text-align:center">可检索文档、知识库</td>
+<td style="text-align:center">API 文档、产品手册、代码仓库</td>
+</tr>
+<tr>
+<td style="text-align:center">Tool Schema/Description</td>
+<td style="text-align:center">工具功能、调用约束</td>
+<td style="text-align:center">工具调用时机、风险边界</td>
+</tr>
+<tr>
+<td style="text-align:center">Runtime State</td>
+<td style="text-align:center">任务进度、分支选择</td>
+<td style="text-align:center">步骤追踪、待审批动作</td>
+</tr>
+<tr>
+<td style="text-align:center">Trace</td>
+<td style="text-align:center">调用历史、审计日志</td>
+<td style="text-align:center">事后分析、评估复盘</td>
+</tr>
+<tr>
+<td style="text-align:center">Output Contract</td>
+<td style="text-align:center">输出格式、验证规则</td>
+<td style="text-align:center">结构化输出、下游依赖</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>OpenAI Agents SDK 把 <code>instructions</code> 定义为”Agent 的行为指南”，但不是唯一上下文来源。LangGraph 的 Persistence 层区分了 checkpointer（短期状态）和 store（长期记忆）。Anthropic 的工程博客强调，上下文需要分层选择、压缩、隔离和更新，而不是堆砌。</p>
+<h2 id="RAM-vs-Disk-类比"><a href="#RAM-vs-Disk-类比" class="headerlink" title="RAM vs Disk 类比"></a>RAM vs Disk 类比</h2><p>MachineLearningMastery 的开发者指南用硬件类比：上下文窗口像 RAM（快、贵、易失），外部存储像 Disk（慢、便宜、持久）。</p>
+<p>RAM 不适合放”版本会变的知识库”。比如 API 文档的某个字段从 <code>user_id</code> 改成 <code>userId</code>，如果把旧版文档贴在 prompt 里，Agent 会用错误的字段名调用接口。这类内容应该进 file search，每次按需检索最新版本。</p>
+<p>RAM 也不适合放”跨会话复用的用户偏好”。比如用户在第 1 次会话说”我喜欢简短回答”，第 5 次会话时这个偏好应该从长期记忆加载，而不是每次重新问用户。</p>
+<p>RAM 适合放的是”当轮必须遵守的约束”：角色定义（你是代码审查助手）、安全边界（不要删除生产环境文件）、输出契约（返回 JSON 格式）。这些内容需要高带宽、即时生效，适合塞进 system prompt。</p>
+<h2 id="六个输入竞争上下文窗口"><a href="#六个输入竞争上下文窗口" class="headerlink" title="六个输入竞争上下文窗口"></a>六个输入竞争上下文窗口</h2><p>Redis 的技术博客列出六个输入竞争上下文窗口：</p>
+<ol>
+<li><strong>System instructions</strong> — Agent 的行为指南、角色定义、安全边界</li>
+<li><strong>Goal specification</strong> — 当轮任务目标、用户查询内容</li>
+<li><strong>Conversation memory</strong> — 对话历史、会话内的上下文</li>
+<li><strong>Tool results</strong> — 工具调用返回的结果、外部 API 响应</li>
+<li><strong>Retrieved documents</strong> — 从 vector store 检索到的文档片段</li>
+<li><strong>Intermediate reasoning</strong> — Agent 的思考过程、中间步骤</li>
+</ol>
+<p>每个输入都在抢有限的 token 预算。如果 System instructions 写 2000 token（40 条规则），Goal specification 占 500 token，Conversation memory 累积到 3000 token（10 轨对话），Tool results 累积到 5000 token（多次调用），Retrieved documents 占 2000 token（检索 10 个片段），Intermediate reasoning 占 1000 token，总上下文已经 13500 token。</p>
+<p>模型在这么多噪音里找”不要删除文件”这条规则，就像在 13 页文档里找一句话。如果规则在第 5 轮被稀释，不是因为模型忘，而是因为其他输入挤占了注意力。</p>
+<h1 id="第三章：System-Developer-Instructions——角色定义与行为边界"><a href="#第三章：System-Developer-Instructions——角色定义与行为边界" class="headerlink" title="第三章：System/Developer Instructions——角色定义与行为边界"></a>第三章：System/Developer Instructions——角色定义与行为边界</h1><h2 id="Instructions-职责边界"><a href="#Instructions-职责边界" class="headerlink" title="Instructions 职责边界"></a>Instructions 职责边界</h2><p>System Prompt（或 OpenAI Agents SDK 的 <code>instructions</code> 字段）适合承载：</p>
+<ul>
+<li><strong>角色定义</strong>：你是代码审查助手、你是数据分析 Agent</li>
+<li><strong>行为边界</strong>：不要删除生产环境文件、不要调用未授权的 API</li>
+<li><strong>约束规则</strong>：每次修改前要用户确认、返回结果要包含来源链接</li>
+<li><strong>输出契约</strong>：返回 JSON 格式、输出必须包含 status 字段</li>
+</ul>
+<p>不适合承载：</p>
+<ul>
+<li><strong>用户偏好</strong>：用户喜欢简短回答 — 应进 Memory</li>
+<li><strong>可检索文档</strong>：API 文档说明 — 应进 Files/Retrieval</li>
+<li><strong>工具调用细节</strong>：何时调用 update_record — 应进 Tool Description</li>
+<li><strong>运行时状态</strong>：已完成步骤 3 — 应进 Runtime State</li>
+</ul>
+<p>OpenAI Agents SDK 的官方文档指出，<code>instructions</code> 不是唯一上下文载体。Agent 还会收到 tools schema、conversation history、retrieved documents。如果把所有规则塞进 instructions，其他载体的职责就被稀释。</p>
+<h2 id="Instructions-适用场景"><a href="#Instructions-适用场景" class="headerlink" title="Instructions 适用场景"></a>Instructions 适用场景</h2><p>System Prompt 适合放三类内容：</p>
+<ol>
+<li><strong>全局约束</strong>：安全边界（不要删除生产环境数据）、行为红线（不要调用外部 API）、一致性约束（所有输出用英文）</li>
+<li><strong>角色定义</strong>：Agent 的身份和能力边界（你是代码审查助手，只审查代码，不修改运行环境）</li>
+<li><strong>输出契约</strong>：输出格式（返回 <code>{status, data, error}</code> JSON）、输出验证（必须包含 status 字段）</li>
+</ol>
+<p>不适合放的内容：</p>
+<ul>
+<li><strong>动态任务目标</strong>：用户当轮的查询请求 — 应进 User Task</li>
+<li><strong>用户偏好</strong>：用户上次说喜欢简短回答 — 应进 Long-term Memory</li>
+<li><strong>业务知识库</strong>：API 文档、产品手册 — 应进 Files/Retrieval</li>
+</ul>
+<h2 id="Instructions-易错点：规则堆砌"><a href="#Instructions-易错点：规则堆砌" class="headerlink" title="Instructions 易错点：规则堆砌"></a>Instructions 易错点：规则堆砌</h2><p>易错点一：规则越多越容易稀释。40 条规则写进 system prompt，模型无法判断哪条优先级更高。第 5 轮对话时，新内容（tool output、检索文档）挤占上下文，原有规则被”稀释”。</p>
+<p>易错点二：规则冲突时模型无法判断优先级。Prompt 里既写”详细回答用户问题”，又写”保持简短”，模型无法判断何时该详细、何时该简短。</p>
+<p>易错点三：规则跨轮次遗忘。文件边界规则在第 1-3 轮能遵守，第 5 轮后被忽略。Anthropic 的 cookbook 指出，长任务 Agent 需要在 memory、compaction、tool clearing 之间做取舍，而不是单纯堆砌规则。</p>
+<h1 id="第四章：Memory——短期记忆与长期记忆的边界"><a href="#第四章：Memory——短期记忆与长期记忆的边界" class="headerlink" title="第四章：Memory——短期记忆与长期记忆的边界"></a>第四章：Memory——短期记忆与长期记忆的边界</h1><h2 id="Memory-职责边界：短期-vs-长期"><a href="#Memory-职责边界：短期-vs-长期" class="headerlink" title="Memory 职责边界：短期 vs 长期"></a>Memory 职责边界：短期 vs 长期</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">类型</th>
+<th style="text-align:center">职责</th>
+<th style="text-align:center">载体</th>
+<th style="text-align:center">易失性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">短期记忆</td>
+<td style="text-align:center">当前会话历史</td>
+<td style="text-align:center">messages 列表、checkpoints</td>
+<td style="text-align:center">会话结束清除</td>
+</tr>
+<tr>
+<td style="text-align:center">长期记忆</td>
+<td style="text-align:center">用户偏好、跨会话事实</td>
+<td style="text-align:center">memory store、vector store</td>
+<td style="text-align:center">跨会话保留</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>LangGraph 的 Persistence 层把短期记忆定义为”线程状态”（thread state），通过 checkpointer 存储会话内的对话历史。长期记忆通过 store 存储用户偏好、跨会话事实，需要明确写入、读取和过期策略。</p>
+<h2 id="Memory-适用场景：何时该写入长期记忆"><a href="#Memory-适用场景：何时该写入长期记忆" class="headerlink" title="Memory 适用场景：何时该写入长期记忆"></a>Memory 适用场景：何时该写入长期记忆</h2><p>适合长期记忆的内容：</p>
+<ul>
+<li><strong>用户偏好</strong>：用户是素食者、用户喜欢简短回答、用户习惯用中文交流</li>
+<li><strong>跨会话事实</strong>：用户上次提到想迁移到 AWS、用户的项目用的是 TypeScript</li>
+<li><strong>程序记忆</strong>：该用户喜欢简短回答、该用户习惯先看代码再看解释</li>
+</ul>
+<p>不适合长期记忆的内容：</p>
+<ul>
+<li><strong>当轮任务目标</strong>：用户当前的查询请求 — 应进 User Task</li>
+<li><strong>会话内的临时状态</strong>：当前任务进度 — 应进 Runtime State</li>
+</ul>
+<p>Mem0 的博客把记忆分成三类：事实记忆（用户是素食者）、情景记忆（上周三聊过报价方案）、程序记忆（该用户喜欢简短回答）。三类记忆都需要明确写入、更新和过期策略。</p>
+<h2 id="Memory-vs-Files-Retrieval-辨析"><a href="#Memory-vs-Files-Retrieval-辨析" class="headerlink" title="Memory vs Files/Retrieval 辨析"></a>Memory vs Files/Retrieval 辨析</h2><p>问：memory 和 files/retrieval 有什么区别？</p>
+<p>答：memory 适合保存用户偏好、跨会话事实和任务经验；files/retrieval 适合查找外部文档和知识库。</p>
+<p>两者都需要明确写入、检索和过期策略。记忆没有治理（过期、更新）会导致污染：三年前的偏好仍然生效，跨轮事实冲突。文件检索没有策略会导致噪音：检索了无关文档，塞进上下文浪费 token。</p>
+<h2 id="Memory-易错点：记忆污染与过期缺失"><a href="#Memory-易错点：记忆污染与过期缺失" class="headerlink" title="Memory 易错点：记忆污染与过期缺失"></a>Memory 易错点：记忆污染与过期缺失</h2><p>易错点一：记忆污染。第 2 轮 Agent 记住”用户偏好简短回答”，第 8 轨用户说”这次要详细解释”，但 Agent 还是简短输出。旧记忆没有更新机制，跨轮事实冲突。</p>
+<p>易错点二：过期缺失。三年前的偏好仍然生效，用户已经改成”喜欢详细回答”，但记忆没有过期策略，Agent 用旧偏好做决策。</p>
+<p>易错点三：写入策略缺失。不知道什么时候该写记忆。每次对话都写，导致记忆膨胀；从不写记忆，导致用户偏好丢失。</p>
+<p>LangGraph 的 <code>add memory</code> 文档指出，记忆需要明确写入路径、读取路径和更新路径。</p>
+<h2 id="Memory-内链指引"><a href="#Memory-内链指引" class="headerlink" title="Memory 内链指引"></a>Memory 内链指引</h2><p>这里先限定 memory 在上下文分层中的边界。详细记忆类型（事实记忆/情景记忆/程序记忆）、存储方案（vector store vs relational DB）、记忆治理（写入/更新/过期策略），见站内文章 Agent 记忆系统设计：从会话到长期记忆。</p>
+<h1 id="第五章：Retrieval-Files——知识库检索与文件边界"><a href="#第五章：Retrieval-Files——知识库检索与文件边界" class="headerlink" title="第五章：Retrieval/Files——知识库检索与文件边界"></a>第五章：Retrieval/Files——知识库检索与文件边界</h1><h2 id="Files-Retrieval-职责边界"><a href="#Files-Retrieval-职责边界" class="headerlink" title="Files/Retrieval 职责边界"></a>Files/Retrieval 职责边界</h2><p>Files/Retrieval 适合承载：</p>
+<ul>
+<li><strong>可检索文档</strong>：API 文档、产品手册、技术规范</li>
+<li><strong>版本会变的知识库</strong>：SDK 文档、框架版本说明</li>
+<li><strong>大体量资料</strong>：代码仓库、历史数据集</li>
+</ul>
+<p>不适合承载：</p>
+<ul>
+<li><strong>永远必须遵守的规则</strong>：不要删除文件 — 应进 system prompt 或 tool schema</li>
+<li><strong>用户偏好</strong>：用户喜欢简短回答 — 应进 memory</li>
+<li><strong>当轮任务目标</strong>：用户当前的查询请求 — 应进 user task</li>
+</ul>
+<p>OpenAI API 的 file search 文档指出，file search 适合检索知识库，不适合放行为规则。因为检索不保证遵守，模型可能检索后仍然忽略。</p>
+<h2 id="Files-适用场景：何时该用-file-search"><a href="#Files-适用场景：何时该用-file-search" class="headerlink" title="Files 适用场景：何时该用 file search"></a>Files 适用场景：何时该用 file search</h2><p>适合 file search 的内容：</p>
+<ol>
+<li><strong>API 文档查询</strong>：OpenAI Agents SDK 的 tools 字段包含什么、LangGraph persistence 的推荐后端</li>
+<li><strong>产品手册检索</strong>：某个功能的使用说明、配置参数范围</li>
+<li><strong>代码仓库搜索</strong>：某个函数的实现细节、某个模块的依赖关系</li>
+</ol>
+<p>不适合 file search 的内容：</p>
+<ul>
+<li><strong>全局行为规则</strong>：不要删除文件、不要调用未授权 API — 应进 system prompt</li>
+</ul>
+<p>LangChain 的博客指出，文件系统可以作为上下文挂载点，但需要区分”检索”和”遵守”。检索到的内容不保证被模型遵守，仍需要 system prompt 或 tool schema 约束。</p>
+<h2 id="Files-易错点：把知识库当规则库"><a href="#Files-易错点：把知识库当规则库" class="headerlink" title="Files 易错点：把知识库当规则库"></a>Files 易错点：把知识库当规则库</h2><p>易错点一：知识库检索不保证遵守。规则”不要删除文件”放在知识库，Agent 检索后仍然删除。因为 file search 只提供信息，不约束行为。行为规则应该进 system prompt 或 tool schema。</p>
+<p>易错点二：知识库不适合放”必须遵守”的约束。知识库适合放”可以参考”的资料（API 文档、产品手册），不适合放”必须遵守”的约束（安全边界、行为红线）。</p>
+<h2 id="Files-阈值：何时该贴进-prompt-vs-用-file-search"><a href="#Files-阈值：何时该贴进-prompt-vs-用-file-search" class="headerlink" title="Files 阈值：何时该贴进 prompt vs 用 file search"></a>Files 阈值：何时该贴进 prompt vs 用 file search</h2><p>BuildingAgenticAI 的博客指出，上下文窗口是最高带宽记忆。短小（&lt; 500 token）、稳定、必须当轮遵守的内容可以贴进 prompt。</p>
+<p>阈值判断：</p>
+<ul>
+<li><strong>短小资料（&lt; 500 token）</strong>：3 行的 YAML 示例、5 个字段的 API schema → 贴进 prompt</li>
+<li><strong>长文档（&gt; 500 token）</strong>：50 页的 API 文档、完整代码仓库 → 用 file search</li>
+<li><strong>版本会变的内容</strong>：SDK 文档、框架版本说明 → 用 file search（每次检索最新版本）</li>
+<li><strong>必须当轮遵守的内容</strong>：当轮任务的约束、紧急安全边界 → 贴进 prompt</li>
+</ul>
+<h1 id="第六章：Tool-Schema-Description——微型行为控制器"><a href="#第六章：Tool-Schema-Description——微型行为控制器" class="headerlink" title="第六章：Tool Schema/Description——微型行为控制器"></a>第六章：Tool Schema/Description——微型行为控制器</h1><h2 id="Tool-Description-职责边界：微型行为控制器"><a href="#Tool-Description-职责边界：微型行为控制器" class="headerlink" title="Tool Description 职责边界：微型行为控制器"></a>Tool Description 职责边界：微型行为控制器</h2><p>Anthropic 的工程博客指出，工具描述不应只当 API 注释，而是微型行为控制器。</p>
+<p>应该包含：</p>
+<ul>
+<li><strong>功能说明</strong>：update_record 的功能是什么</li>
+<li><strong>输入约束</strong>：哪些参数必填、哪些参数可选</li>
+<li><strong>调用时机</strong>：何时应该调用</li>
+<li><strong>不调用场景</strong>：何时不应该调用</li>
+<li><strong>风险边界</strong>：调用可能带来什么风险</li>
+<li><strong>返回结构</strong>：返回数据的格式、字段含义</li>
+</ul>
+<p>不应该只写：</p>
+<ul>
+<li>单纯的 API 注释：<code>update_record: 更新记录</code>（缺少调用时机、风险边界）</li>
+<li>缺少调用时机：没写”何时不调用”</li>
+<li>缺少风险警告：没写”只能在用户确认后调用”</li>
+</ul>
+<h2 id="Tool-Description-结构要素"><a href="#Tool-Description-结构要素" class="headerlink" title="Tool Description 结构要素"></a>Tool Description 结构要素</h2><p>Anthropic 的工程博客列出工具描述的六要素：</p>
+<ol>
+<li><strong>功能</strong>：update_record 的功能是更新数据库记录</li>
+<li><strong>输入约束</strong>：id 和 data 字段必填，overwrite 字段可选</li>
+<li><strong>调用时机</strong>：用户明确要求更新数据时调用</li>
+<li><strong>不调用场景</strong>：用户只是查询信息时不调用，未授权时不调用</li>
+<li><strong>风险边界</strong>：只能在用户确认后调用，不能在未授权时修改生产环境数据</li>
+<li><strong>返回结构</strong>：返回 <code>{status: &quot;success&quot;, updated_id: string}</code></li>
+</ol>
+<p>示例：工具 <code>update_record</code> 的描述应包含”只能在用户确认后调用，不能在未授权时修改生产环境数据”。</p>
+<h2 id="Tool-Description-易错点：描述太简或太冗"><a href="#Tool-Description-易错点：描述太简或太冗" class="headerlink" title="Tool Description 易错点：描述太简或太冗"></a>Tool Description 易错点：描述太简或太冗</h2><p>易错点一：描述太简。只写 <code>update_record: 更新记录</code>，模型误调用。因为缺少”何时不调用”，Agent 在用户只是查询信息时也调用了更新工具。</p>
+<p>易错点二：描述太冗。描述写 500 token，浪费上下文预算。六要素应该精简到 100-200 token。</p>
+<p>易错点三：缺少风险边界。没写”只能在用户确认后调用”，Agent 直接修改了生产环境数据。</p>
+<p>工具误调用不是因为模型笨，而是描述没写何时不调用。</p>
+<h2 id="Tool-Description-FAQ"><a href="#Tool-Description-FAQ" class="headerlink" title="Tool Description FAQ"></a>Tool Description FAQ</h2><p>问：tool description 应该写多详细？</p>
+<p>答：应写清功能、输入约束、何时调用、何时不调用、风险边界和返回结构。不要把它当普通后端 API 注释，而是微型行为控制器。工具质量会直接影响 Agent 表现，Anthropic 的工程博客强调工具描述应被设计、评估和优化。</p>
+<h2 id="Tool-Description-内链指引"><a href="#Tool-Description-内链指引" class="headerlink" title="Tool Description 内链指引"></a>Tool Description 内链指引</h2><p>这里先限定 tool description 在上下文分层中的边界。详细工具调用流程（定义、注册、调用、验证）、工具评估（误调用率、成功率）、工具治理（更新、废弃策略），见站内文章 Agent 工具调用实战。</p>
+<h1 id="第七章：Runtime-State——任务进度与分支"><a href="#第七章：Runtime-State——任务进度与分支" class="headerlink" title="第七章：Runtime State——任务进度与分支"></a>第七章：Runtime State——任务进度与分支</h1><h2 id="Runtime-State-职责边界：任务进度与分支"><a href="#Runtime-State-职责边界：任务进度与分支" class="headerlink" title="Runtime State 职责边界：任务进度与分支"></a>Runtime State 职责边界：任务进度与分支</h2><p>Runtime State 适合承载：</p>
+<ul>
+<li><strong>当前任务进度</strong>：已完成步骤 3、正在执行步骤 4</li>
+<li><strong>分支选择</strong>：用户选择了方案 A、用户拒绝了方案 B</li>
+<li><strong>待审批动作</strong>：等待用户确认删除、等待用户选择分支</li>
+</ul>
+<p>不适合承载：</p>
+<ul>
+<li><strong>用户偏好</strong>：用户喜欢简短回答 — 应进 memory</li>
+<li><strong>全局规则</strong>：不要删除文件 — 应进 system prompt</li>
+</ul>
+<p>LangGraph 的 Persistence 文档指出，runtime state 是线程状态的一部分。任务中断后应该可恢复，而不是从步骤 1 重新开始。</p>
+<h2 id="Runtime-State-vs-Memory-辨析"><a href="#Runtime-State-vs-Memory-辨析" class="headerlink" title="Runtime State vs Memory 辨析"></a>Runtime State vs Memory 辨析</h2><p>问：runtime state 和 memory 有什么区别？</p>
+<p>答：runtime state 是当前任务进度、分支选择、待审批动作；memory 是跨任务复用的信息。</p>
+<p>状态应该可恢复：任务中断后能从断点继续。记忆应该可治理：有写入、更新、过期策略。</p>
+<p>Aakashx 的博客指出，memory 是”跨任务复用的信息”，state 是”当前任务进度”。</p>
+<h2 id="Runtime-State-易错点：状态丢失不可恢复"><a href="#Runtime-State-易错点：状态丢失不可恢复" class="headerlink" title="Runtime State 易错点：状态丢失不可恢复"></a>Runtime State 易错点：状态丢失不可恢复</h2><p>易错点一：状态丢失。Agent 在步骤 3（生成测试用例）时中断，重启后从步骤 1（分析需求）重新开始。任务进度没有持久化，runtime state 只存在当轮上下文里。</p>
+<p>易错点二：状态污染。不同分支的状态混在一起。用户选择方案 A 和方案 B 的状态都塞进同一个 context，Agent 无法判断当前分支。</p>
+<p>LangGraph 的 Persistence 文档指出，状态应该可恢复。使用 checkpointer 持久化线程状态，中断后能从断点继续。</p>
+<h1 id="第八章：Trace——调用历史与审计"><a href="#第八章：Trace——调用历史与审计" class="headerlink" title="第八章：Trace——调用历史与审计"></a>第八章：Trace——调用历史与审计</h1><h2 id="Trace-职责边界：调用历史与审计"><a href="#Trace-职责边界：调用历史与审计" class="headerlink" title="Trace 职责边界：调用历史与审计"></a>Trace 职责边界：调用历史与审计</h2><p>Trace 适合承载：</p>
+<ul>
+<li><strong>调用历史</strong>：调用了 update_record 工具、返回了 success 状态</li>
+<li><strong>审计日志</strong>：谁在何时批准了删除操作、谁在何时修改了配置</li>
+<li><strong>事后分析</strong>：为什么 Agent 选择了错误路径、哪个工具被误调用</li>
+</ul>
+<p>不适合承载：</p>
+<ul>
+<li><strong>当轮决策输入</strong>：应进 conversation memory</li>
+<li><strong>用户偏好</strong>：应进 memory</li>
+</ul>
+<p>AndriiFurmanets 的博客指出，trace-based evaluation 用于事后分析和评估，不是当轮决策输入。</p>
+<h2 id="Trace-vs-Conversation-Memory-辨析"><a href="#Trace-vs-Conversation-Memory-辨析" class="headerlink" title="Trace vs Conversation Memory 辨析"></a>Trace vs Conversation Memory 辨析</h2><p>问：trace 和 conversation memory 有什么区别？</p>
+<p>答：trace 是调用历史、审计日志，用于事后分析和评估；conversation memory 是会话内决策输入，用于当轮推理。</p>
+<p>LangGraph 的 Persistence 文档指出，trace 是持久化的一部分，但不是上下文的必需内容。</p>
+<h2 id="Trace-易错点：把-trace-当决策输入"><a href="#Trace-易错点：把-trace-当决策输入" class="headerlink" title="Trace 易错点：把 trace 当决策输入"></a>Trace 易错点：把 trace 当决策输入</h2><p>易错点一：trace 太长。所有历史调用塞进上下文，Agent 在第 10 轮时，上下文包含前 9 轨的所有调用历史，token 翻倍。</p>
+<p>易错点二：trace 误用。把审计日志当决策输入，Agent 用历史调用结果做当轮决策，而不是用当轮的 user task 和 tool output。</p>
+<p>Anthropic 的 cookbook 指出，tool clearing 策略可以减少历史 tool result 的噪音。只保留当轮必要的 tool output，历史调用结果移到 trace。</p>
+<h1 id="第九章：Output-Contract——输出格式与约束"><a href="#第九章：Output-Contract——输出格式与约束" class="headerlink" title="第九章：Output Contract——输出格式与约束"></a>第九章：Output Contract——输出格式与约束</h1><h2 id="Output-Contract-职责边界：格式与约束"><a href="#Output-Contract-职责边界：格式与约束" class="headerlink" title="Output Contract 职责边界：格式与约束"></a>Output Contract 职责边界：格式与约束</h2><p>Output Contract 适合承载：</p>
+<ul>
+<li><strong>输出格式</strong>：返回 JSON 格式 <code>{status, data, error}</code></li>
+<li><strong>输出约束</strong>：不要返回用户密码、不要返回敏感数据</li>
+<li><strong>输出验证规则</strong>：必须包含 status 字段、data 字段不能为 null</li>
+</ul>
+<p>不适合承载：</p>
+<ul>
+<li><strong>用户偏好</strong>：用户喜欢简短回答 — 应进 memory</li>
+<li><strong>全局行为规则</strong>：不要删除文件 — 应进 system prompt</li>
+</ul>
+<p>OpenAI Agents SDK 的官方文档指出，guardrails 包含输出契约。输出需要验证格式、约束和安全边界。</p>
+<h2 id="Output-Contract-适用场景"><a href="#Output-Contract-适用场景" class="headerlink" title="Output Contract 适用场景"></a>Output Contract 适用场景</h2><p>Output Contract 适合三类场景：</p>
+<ol>
+<li><strong>结构化输出</strong>：返回 <code>{status, data, error}</code> JSON，下游 API 需要解析</li>
+<li><strong>安全约束</strong>：不要返回用户密码、不要返回敏感数据</li>
+<li><strong>下游依赖</strong>：输出必须符合下游 API 的 schema</li>
+</ol>
+<h2 id="Output-Contract-易错点：契约缺失导致下游失败"><a href="#Output-Contract-易错点：契约缺失导致下游失败" class="headerlink" title="Output Contract 易错点：契约缺失导致下游失败"></a>Output Contract 易错点：契约缺失导致下游失败</h2><p>易错点一：格式不一致。有时返回 JSON，有时返回文本。下游 API 无法解析，流程中断。</p>
+<p>易错点二：缺少验证。Agent 返回了 XML 格式，但下游 API 只接受 JSON。契约没有验证，导致下游失败。</p>
+<p>OpenAI Agents SDK 的 guardrails 文档指出，输出需要验证。不符合契约的输出应该拦截或重试。</p>
+<h1 id="第十章：迁移规则——如果一条规则反复被忘，该如何判断迁移到哪一层"><a href="#第十章：迁移规则——如果一条规则反复被忘，该如何判断迁移到哪一层" class="headerlink" title="第十章：迁移规则——如果一条规则反复被忘，该如何判断迁移到哪一层"></a>第十章：迁移规则——如果一条规则反复被忘，该如何判断迁移到哪一层</h1><h2 id="迁移决策树"><a href="#迁移决策树" class="headerlink" title="迁移决策树"></a>迁移决策树</h2><p>当一条规则反复被 Agent 忽略时，先判断它的类型，再迁移到适合的载体：</p>
+<p><strong>决策树分支</strong>：</p>
+<ol>
+<li><strong>行为规则？</strong>（不要删除文件、不要调用未授权 API）<ul>
+<li>是 → 迁移到 <strong>System Prompt</strong>（全局约束、安全边界）</li>
+</ul>
+</li>
+<li><strong>用户偏好？</strong>（喜欢简短回答、习惯用中文交流）<ul>
+<li>是 → 迁移到 <strong>Long-term Memory</strong>（跨会话复用）</li>
+</ul>
+</li>
+<li><strong>业务资料？</strong>（API 文档、产品手册、代码仓库）<ul>
+<li>是 → 迁移到 <strong>Files/Retrieval</strong>（按需检索）</li>
+</ul>
+</li>
+<li><strong>工具约束？</strong>（何时调用 update_record、何时不调用）<ul>
+<li>是 → 迁移到 <strong>Tool Description</strong>（微型行为控制器）</li>
+</ul>
+</li>
+<li><strong>运行状态？</strong>（已完成步骤 3、等待用户确认）<ul>
+<li>是 → 迁移到 <strong>Runtime State</strong>（任务进度追踪）</li>
+</ul>
+</li>
+<li><strong>输出契约？</strong>（返回 JSON 格式、必须包含 status 字段）<ul>
+<li>是 → 迁移到 <strong>Output Contract</strong>（输出验证）</li>
+</ul>
+</li>
+<li><strong>调用历史？</strong>（历史 tool result、审计日志）<ul>
+<li>是 → 迁移到 <strong>Trace</strong>（事后分析）</li>
+</ul>
+</li>
+</ol>
+<p>迁移的核心原则：不是”把规则换个地方”，而是”找到它应该驻留的载体”。每个载体有自己的职责边界、生命周期和治理策略。</p>
+<h2 id="迁移案例-1：从-System-Prompt-迁移到-Tool-Description"><a href="#迁移案例-1：从-System-Prompt-迁移到-Tool-Description" class="headerlink" title="迁移案例 1：从 System Prompt 迁移到 Tool Description"></a>迁移案例 1：从 System Prompt 迁移到 Tool Description</h2><p><strong>迁移前</strong>：</p>
+<p>规则”只能在用户确认后修改生产环境数据”写在 system prompt 第 28 行。Agent 在第 5 轨时仍然直接修改了生产环境数据库，没有等待用户确认。</p>
+<p>System prompt 有 40 条规则，包括文件边界、输出格式、角色定义、API 文档片段、用户偏好、工具约束。所有规则挤在一起，第 5 轨后互相稀释。</p>
+<p><strong>迁移后</strong>：</p>
+<p>把”只能在用户确认后修改生产环境数据”迁移到工具 <code>update_record</code> 的 description：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;name&quot;: &quot;update_record&quot;,</span><br><span class="line">  &quot;description&quot;: &quot;更新数据库记录。只能在用户明确确认后调用。不能在未授权时修改生产环境数据。调用前需要用户输入 &#x27;确认&#x27; 或 &#x27;批准&#x27;。&quot;,</span><br><span class="line">  &quot;parameters&quot;: &#123;...&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>System prompt 减到 10 条核心规则：角色定义（你是代码审查助手）、安全边界（不要删除生产环境文件）、输出契约（返回 JSON 格式）。</p>
+<p><strong>对比</strong>：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">维度</th>
+<th style="text-align:center">迁移前</th>
+<th style="text-align:center">迁移后</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">System prompt 规则数量</td>
+<td style="text-align:center">40 条</td>
+<td style="text-align:center">10 条</td>
+</tr>
+<tr>
+<td style="text-align:center">Tool description 详细度</td>
+<td style="text-align:center">只写功能</td>
+<td style="text-align:center">包含调用时机、不调用场景、风险边界</td>
+</tr>
+<tr>
+<td style="text-align:center">第 5 轮遵守率</td>
+<td style="text-align:center">被忽略</td>
+<td style="text-align:center">需要用户确认才调用</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>迁移后，Agent 在第 5 轮调用 update_record 时，tool description 明确要求”用户确认后调用”。如果没有用户确认，Agent 会先请求用户输入，而不是直接修改。</p>
+<h2 id="迁移案例-2：从-System-Prompt-迁移到-Memory"><a href="#迁移案例-2：从-System-Prompt-迁移到-Memory" class="headerlink" title="迁移案例 2：从 System Prompt 迁移到 Memory"></a>迁移案例 2：从 System Prompt 迁移到 Memory</h2><p><strong>迁移前</strong>：</p>
+<p>规则”用户喜欢简短回答”写在 system prompt 第 35 行。但在不同会话中不一致：第 1 次会话用户说”喜欢简短回答”，第 5 次会话用户说”这次要详细解释”，system prompt 仍然写”简短回答”。</p>
+<p>System prompt 把用户偏好当成全局规则，但用户偏好是动态的、跨会话的。</p>
+<p><strong>迁移后</strong>：</p>
+<p>把”用户喜欢简短回答”迁移到长期记忆（memory store）。每次会话开始时，Agent 从 memory 加载用户偏好：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 伪代码</span><br><span class="line">memory = load_memory(user_id)</span><br><span class="line">if &quot;preference&quot; in memory:</span><br><span class="line">    if memory[&quot;preference&quot;] == &quot;简短回答&quot;:</span><br><span class="line">        conversation_context.append(&quot;本次会话保持简短回答风格&quot;)</span><br><span class="line">    elif memory[&quot;preference&quot;] == &quot;详细解释&quot;:</span><br><span class="line">        conversation_context.append(&quot;本次会话提供详细解释&quot;)</span><br></pre></td></tr></table></figure>
+<p>记忆需要治理：用户在第 5 次会话说”这次要详细解释”时，更新 memory：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">update_memory(user_id, &#123;&quot;preference&quot;: &quot;详细解释&quot;&#125;)</span><br></pre></td></tr></table></figure>
+<p><strong>对比</strong>：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">维度</th>
+<th style="text-align:center">迁移前</th>
+<th style="text-align:center">迁移后</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">用户偏好位置</td>
+<td style="text-align:center">System prompt 第 35 行</td>
+<td style="text-align:center">Long-term memory</td>
+</tr>
+<tr>
+<td style="text-align:center">跨会话一致性</td>
+<td style="text-align:center">不一致（system prompt 写死）</td>
+<td style="text-align:center">动态加载（memory 可更新）</td>
+</tr>
+<tr>
+<td style="text-align:center">用户改变偏好后</td>
+<td style="text-align:center">仍用旧偏好</td>
+<td style="text-align:center">记忆更新后用新偏好</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>迁移后，用户偏好可以在不同会话中动态更新。记忆治理（过期、更新）确保三年前的偏好不会仍然生效。</p>
+<h2 id="迁移案例-3：从-System-Prompt-迁移到-File-Search"><a href="#迁移案例-3：从-System-Prompt-迁移到-File-Search" class="headerlink" title="迁移案例 3：从 System Prompt 迁移到 File Search"></a>迁移案例 3：从 System Prompt 迁移到 File Search</h2><p><strong>迁移前</strong>：</p>
+<p>规则”OpenAI Agents SDK 的 tools 字段包含什么”的 API 文档片段贴在 system prompt 第 12-15 行。但 SDK 版本从 0.1 升到 0.3 后，字段名称从 <code>tools</code> 改成 <code>tool_schema</code>，system prompt 里的旧版文档仍然生效。</p>
+<p>System prompt 把版本会变的 API 文档当成固定规则，导致 Agent 用错误字段名调用接口。</p>
+<p><strong>迁移后</strong>：</p>
+<p>把 API 文档迁移到 vector store（file search）。每次查询时，Agent 检索最新版文档：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># 伪代码</span><br><span class="line">query = &quot;OpenAI Agents SDK 的 tools 字段包含什么&quot;</span><br><span class="line">results = file_search(query, vector_store_id=&quot;api_docs_v0.3&quot;)</span><br></pre></td></tr></table></figure>
+<p>System prompt 只写角色定义和安全边界，不写具体 API 文档片段。</p>
+<p><strong>对比</strong>：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">维度</th>
+<th style="text-align:center">迁移前</th>
+<th style="text-align:center">迁移后</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">API 文档位置</td>
+<td style="text-align:center">System prompt 第 12-15 行</td>
+<td style="text-align:center">Vector store (file search)</td>
+</tr>
+<tr>
+<td style="text-align:center">版本更新后</td>
+<td style="text-align:center">旧版文档生效（字段名错误）</td>
+<td style="text-align:center">检索最新版文档</td>
+</tr>
+<tr>
+<td style="text-align:center">Token 占用</td>
+<td style="text-align:center">每轮都在 context（占用 200 token）</td>
+<td style="text-align:center">按需检索（不占用常驻 token）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>迁移后，API 文档版本更新时只需更新 vector store，不需要修改 system prompt。知识库检索不保证遵守，仍需要 tool schema 约束调用格式。</p>
+<h2 id="迁移易错点：迁移后规则仍然被忘"><a href="#迁移易错点：迁移后规则仍然被忘" class="headerlink" title="迁移易错点：迁移后规则仍然被忘"></a>迁移易错点：迁移后规则仍然被忘</h2><p>易错点一：tool description 写太简。迁移后只写功能，没写调用时机、不调用场景、风险边界。规则仍然被忘。</p>
+<p>易错点二：memory 没治理。迁移后记忆没有过期策略、更新策略。三年前的偏好仍然生效，跨轮事实冲突。</p>
+<p>易错点三：file search 检索不保证遵守。迁移后规则放在知识库，Agent 检索后仍然忽略。因为 file search 只提供信息，不约束行为。仍需要 system prompt 或 tool schema 约束。</p>
+<p>迁移只是第一步。各层都需要治理：system prompt 需要审计规则冲突，tool description 需要优化六要素，memory 需要过期更新策略，files 需要版本管理。</p>
+<h1 id="第十一章：工程审计清单——可执行的上下文分层审计"><a href="#第十一章：工程审计清单——可执行的上下文分层审计" class="headerlink" title="第十一章：工程审计清单——可执行的上下文分层审计"></a>第十一章：工程审计清单——可执行的上下文分层审计</h1><h2 id="System-Prompt-审计清单"><a href="#System-Prompt-审计清单" class="headerlink" title="System Prompt 审计清单"></a>System Prompt 审计清单</h2><p>审计 System Prompt 时，按以下步骤检查：</p>
+<ol>
+<li><strong>统计规则数量</strong>：超过 30 条 → 建议迁移。规则越多越容易稀释，需要分层。</li>
+<li><strong>检查规则冲突</strong>：如”详细回答” vs “简短回答”、“快速响应” vs “充分验证”。冲突规则需要明确优先级或迁移到不同载体。</li>
+<li><strong>检查规则类型</strong>：行为规则 vs 用户偏好 vs 业务资料。用户偏好应迁移到 memory，业务资料应迁移到 files。</li>
+<li><strong>检查易忘规则</strong>：第 5 轮后被忽略的规则。记录哪些规则易忘，判断迁移目标。</li>
+<li><strong>给出迁移建议</strong>：易忘规则迁移到 tool description 或 memory，业务资料迁移到 files。</li>
+</ol>
+<h2 id="Tool-Description-审计清单"><a href="#Tool-Description-审计清单" class="headerlink" title="Tool Description 审计清单"></a>Tool Description 审计清单</h2><p>审计 Tool Description 时，按以下步骤检查：</p>
+<ol>
+<li><strong>检查描述长度</strong>：&lt; 100 token → 太简（缺少调用时机、风险边界），&gt; 500 token → 太冗（浪费上下文预算）。</li>
+<li><strong>检查六要素</strong>：功能、输入约束、调用时机、不调用场景、风险边界、返回结构。缺失要素需要补充。</li>
+<li><strong>检查误调用记录</strong>：哪些工具被误调用、何时误调用。误调用工具需要优化 description。</li>
+<li><strong>给出改进建议</strong>：太简的 description 补充调用时机和风险边界，太冗的 description 精简到 100-200 token。</li>
+</ol>
+<h2 id="Memory-系统审计清单"><a href="#Memory-系统审计清单" class="headerlink" title="Memory 系统审计清单"></a>Memory 系统审计清单</h2><p>审计 Memory 系统时，按以下步骤检查：</p>
+<ol>
+<li><strong>检查记忆类型</strong>：短期记忆（会话内）vs 长期记忆（跨会话）。确保职责边界清晰。</li>
+<li><strong>检查写入策略</strong>：何时写入？谁写入？用户偏好、跨会话事实应该明确写入路径。</li>
+<li><strong>检查过期策略</strong>：多久过期？如何更新？三年前的偏好不应该仍然生效。</li>
+<li><strong>检查记忆污染</strong>：跨轮事实冲突。第 2 轮和第 8 轨的用户偏好不一致，需要更新机制。</li>
+<li><strong>给出治理建议</strong>：建立写入、更新、过期策略。使用 memory store 明确存储路径。</li>
+</ol>
+<h2 id="Files-Retrieval-审计清单"><a href="#Files-Retrieval-审计清单" class="headerlink" title="Files/Retrieval 审计清单"></a>Files/Retrieval 审计清单</h2><p>审计 Files/Retrieval 时，按以下步骤检查：</p>
+<ol>
+<li><strong>检查文件类型</strong>：文档（API 文档、产品手册）vs 规则（行为约束）。规则不适合放知识库。</li>
+<li><strong>检查检索时机</strong>：何时检索？检索什么？每次检索应该有明确 query 和 target。</li>
+<li><strong>检查文件更新</strong>：版本会变吗？如何更新？SDK 文档版本更新后，vector store 应同步更新。</li>
+<li><strong>检查检索结果</strong>：检索后遵守了吗？检索不保证遵守，需要 tool schema 约束。</li>
+<li><strong>给出改进建议</strong>：规则从知识库迁移到 system prompt 或 tool description，文档建立版本管理。</li>
+</ol>
+<h2 id="Runtime-State-审计清单"><a href="#Runtime-State-审计清单" class="headerlink" title="Runtime State 审计清单"></a>Runtime State 审计清单</h2><p>审计 Runtime State 时，按以下步骤检查：</p>
+<ol>
+<li><strong>检查状态类型</strong>：任务进度（已完成步骤 3）/ 分支选择（用户选择方案 A）/ 待审批动作（等待确认删除）。</li>
+<li><strong>检查状态持久化</strong>：中断后可恢复吗？使用 checkpointer 持久化线程状态。</li>
+<li><strong>检查状态污染</strong>：不同分支混在一起吗？分支状态应该隔离，避免冲突。</li>
+<li><strong>给出改进建议</strong>：建立状态持久化机制，使用 LangGraph Persistence 或类似方案。</li>
+</ol>
+<h2 id="Output-Contract-审计清单"><a href="#Output-Contract-审计清单" class="headerlink" title="Output Contract 审计清单"></a>Output Contract 审计清单</h2><p>审计 Output Contract 时，按以下步骤检查：</p>
+<ol>
+<li><strong>检查输出格式</strong>：JSON vs Text vs XML。下游 API 需要哪种格式？</li>
+<li><strong>检查输出验证</strong>：下游能解析吗？建立 guardrails 验证输出。</li>
+<li><strong>检查安全约束</strong>：是否返回敏感数据？用户密码、敏感配置不应出现在输出。</li>
+<li><strong>给出改进建议</strong>：建立输出验证机制，使用 OpenAI Agents SDK 的 guardrails 或类似方案。</li>
+</ol>
+<h2 id="Trace-审计清单"><a href="#Trace-审计清单" class="headerlink" title="Trace 审计清单"></a>Trace 审计清单</h2><p>审计 Trace 时，按以下步骤检查：</p>
+<ol>
+<li><strong>检查 trace 长度</strong>：是否塞进上下文？历史 tool result 不应该常驻上下文。</li>
+<li><strong>检查 trace 用途</strong>：审计 vs 决策输入。trace 用于事后分析，不用于当轮推理。</li>
+<li><strong>检查 trace 清理</strong>：tool clearing 策略。历史 tool result 移到 trace，只保留当轮必要的 tool output。</li>
+<li><strong>给出改进建议</strong>：建立 tool clearing 策略，历史调用结果移到审计日志。</li>
+</ol>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>上下文工程不是把规则写进 prompt 就结束了，而是主动策划八个载体的职责边界、生命周期和治理策略。</p>
+<p>核心框架：八个载体（System Prompt、Memory、Files、Tools、State、Trace、Output Contract、User Task），迁移规则决策树（从行为规则、用户偏好、业务资料、工具约束、运行状态、输出契约、调用历史七个分支判断目标载体），工程审计清单（七个载体各一个清单，每个清单 4-7 条检查项）。</p>
+<p>行动建议：从 System Prompt 审计清单开始。统计当前规则数量，检查是否有规则冲突，判断哪些规则应该迁移到 Tool Description、Memory 或 Files。不要等到第 5 轮规则被忘才反思，提前分层治理。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Agent-上下文工程是什么？"><a href="#Agent-上下文工程是什么？" class="headerlink" title="Agent 上下文工程是什么？"></a>Agent 上下文工程是什么？</h2><p>Agent 上下文工程是把模型可见的信息按职责分层管理，包括 prompt、memory、retrieval、tool schema、runtime state、trace 和输出契约，而不是简单增加 prompt 长度。</p>
+<h2 id="规则都写进-system-prompt，为什么-Agent-还是会忘？"><a href="#规则都写进-system-prompt，为什么-Agent-还是会忘？" class="headerlink" title="规则都写进 system prompt，为什么 Agent 还是会忘？"></a>规则都写进 system prompt，为什么 Agent 还是会忘？</h2><p>因为 prompt 不是唯一上下文载体，也不是状态机或权限系统。长期规则、当前任务、文件资料、工具约束和运行状态混在一起，会互相稀释。</p>
+<h2 id="System-prompt-和-memory-有什么区别？"><a href="#System-prompt-和-memory-有什么区别？" class="headerlink" title="System prompt 和 memory 有什么区别？"></a>System prompt 和 memory 有什么区别？</h2><p>System prompt 约束当次运行的稳定行为边界；memory 保存可跨会话复用的偏好、事实和经验。长期信息不应全部塞进 system prompt。</p>
+<h2 id="文件资料应该放进-prompt-还是-file-search？"><a href="#文件资料应该放进-prompt-还是-file-search？" class="headerlink" title="文件资料应该放进 prompt 还是 file search？"></a>文件资料应该放进 prompt 还是 file search？</h2><p>短小、稳定且必须当轮遵守的资料可以进 prompt；长文档、版本会变的知识库和可检索资料更适合 file search 或 retrieval。</p>
+<h2 id="Tool-description-应该写什么？"><a href="#Tool-description-应该写什么？" class="headerlink" title="Tool description 应该写什么？"></a>Tool description 应该写什么？</h2><p>Tool description 应写清工具用途、输入约束、适用场景、禁用场景、风险边界和返回结构，帮助模型判断何时调用以及何时不能调用。</p>
+<h2 id="Agent-规则经常失效怎么办？"><a href="#Agent-规则经常失效怎么办？" class="headerlink" title="Agent 规则经常失效怎么办？"></a>Agent 规则经常失效怎么办？</h2><p>不要只加长 prompt。先把规则分类：行为边界进 instructions，工具约束进 schema，业务资料进 retrieval，任务进度进 state，输出格式进 output contract。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/ae6e/">https://jingluo23.github.io/posts/ae6e/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/69d1/" title="2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选</div></div><div class="info-2"><div class="info-item-1">用状态管理、工具调用、HITL、guardrails、eval、可观测性和部署复杂度比较 LangGraph、OpenAI Agents SDK、AutoGen、CrewAI 与 Temporal，帮你从 Agent demo 进入生产选型。</div></div></div></a><a class="pagination-related" href="/posts/1bec/" title="Human-in-the-loop Agent 设计：哪些步骤必须人工审批"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Human-in-the-loop Agent 设计：哪些步骤必须人工审批</div></div><div class="info-2"><div class="info-item-1">用风险分级设计 AI Agent 的人工审批点：哪些动作可以自动执行，哪些必须暂停等待确认，以及 approve/reject/resume、超时、补偿和审计记录怎么做。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/c6f7/" title="Agent 规划能力怎么测？推理深度、任务分解与自我纠错的评估实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-11</div><div class="info-item-2">Agent 规划能力怎么测？推理深度、任务分解与自我纠错的评估实战</div></div><div class="info-2"><div class="info-item-1">Agent 规划能力怎么测？本文详解推理深度、任务分解、自我纠错的评测方法论，对比 AgentBench、ToolBench、ACPBench 等主流 benchmark，提供实战评测指南。</div></div></div></a><a class="pagination-related" href="/posts/488b/" title="Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch/Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。</div></div></div></a><a class="pagination-related" href="/posts/1f8c/" title="AI Agent 工具链设计：从单一工具到工具生态的演进指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-05</div><div class="info-item-2">AI Agent 工具链设计：从单一工具到工具生态的演进指南</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 工具链设计，从 MCP 协议到主流框架选型，覆盖 LangChain、CrewAI、AutoGen 对比与企业落地实践，助你构建可扩展的工具生态</div></div></div></a><a class="pagination-related" href="/posts/392d/" title="Computer-Use Agent：让 AI 操作你的电脑"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-03</div><div class="info-item-2">Computer-Use Agent：让 AI 操作你的电脑</div></div><div class="info-2"><div class="info-item-1">深入解析 Claude Computer Use 技术，从原理到实践完整指南。包含 Docker 部署、代码示例、竞品分析和安全最佳实践，助你掌握 AI 桌面自动化的前沿技术</div></div></div></a><a class="pagination-related" href="/posts/a6e0/" title="AI Agent 监控告警与失败恢复：从日志到状态机的设计实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-12</div><div class="info-item-2">AI Agent 监控告警与失败恢复：从日志到状态机的设计实践</div></div><div class="info-2"><div class="info-item-1">AI Agent 上线后失败无从排查？本文从日志到状态机的完整设计实践，教你构建生产级监控告警体系，让每个失败可观测、可恢复</div></div></div></a><a class="pagination-related" href="/posts/6050/" title="Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-29</div><div class="info-item-2">Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 沙盒环境搭建方案，从 gVisor 到 Firecracker 技术对比，提供本地开发到 Kubernetes 集群的完整部署指南</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E7%AB%A0%EF%BC%9A%E4%BB%8E%E7%97%87%E7%8A%B6%E5%88%B0%E6%A0%B9%E5%9B%A0%E2%80%94%E2%80%94%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A7%84%E5%88%99%E5%86%99%E5%9C%A8-prompt-%E4%BB%8D%E7%84%B6%E8%A2%AB%E5%BF%98"><span class="toc-number">1.</span> <span class="toc-text">第一章：从症状到根因——为什么规则写在 prompt 仍然被忘</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%A2%E9%98%9F%E7%9C%9F%E5%AE%9E%E6%A1%88%E4%BE%8B%EF%BC%9A40-%E6%9D%A1%E8%A7%84%E5%88%99%E5%86%99%E8%BF%9B-system-prompt-%E4%BB%8D%E7%84%B6%E5%BF%98%E6%96%87%E4%BB%B6%E8%BE%B9%E7%95%8C"><span class="toc-number">1.1.</span> <span class="toc-text">团队真实案例：40 条规则写进 system prompt 仍然忘文件边界</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%85%B8%E5%9E%8B%E7%97%87%E7%8A%B6%EF%BC%9A%E5%B7%A5%E5%85%B7%E8%AF%AF%E8%B0%83%E7%94%A8%E3%80%81%E8%AE%B0%E5%BF%86%E6%B1%A1%E6%9F%93%E3%80%81%E7%8A%B6%E6%80%81%E4%B8%A2%E5%A4%B1%E3%80%81%E4%B8%8A%E4%B8%8B%E6%96%87%E8%86%A8%E8%83%80"><span class="toc-number">1.2.</span> <span class="toc-text">其他典型症状：工具误调用、记忆污染、状态丢失、上下文膨胀</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%97%87%E7%8A%B6%E6%A0%B9%E5%9B%A0%EF%BC%9A%E4%B8%8A%E4%B8%8B%E6%96%87%E8%BD%BD%E4%BD%93%E8%81%8C%E8%B4%A3%E4%B8%8D%E6%B8%85%EF%BC%8C%E6%89%80%E6%9C%89%E8%A7%84%E5%88%99%E6%8C%A4%E5%9C%A8%E4%B8%80%E4%B8%AA%E5%B1%82"><span class="toc-number">1.3.</span> <span class="toc-text">症状根因：上下文载体职责不清，所有规则挤在一个层</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E7%AB%A0%EF%BC%9A%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%86%E5%B1%82%E6%A1%86%E6%9E%B6%E2%80%94%E2%80%94%E5%85%AB%E4%B8%AA%E8%BD%BD%E4%BD%93%E5%92%8C%E5%85%AD%E4%B8%AA%E7%AB%9E%E4%BA%89%E8%BE%93%E5%85%A5"><span class="toc-number">2.</span> <span class="toc-text">第二章：上下文分层框架——八个载体和六个竞争输入</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E5%B1%82%E4%B8%8A%E4%B8%8B%E6%96%87%E8%BD%BD%E4%BD%93%E6%A6%82%E8%A7%88%E5%9B%BE"><span class="toc-number">2.1.</span> <span class="toc-text">八层上下文载体概览图</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RAM-vs-Disk-%E7%B1%BB%E6%AF%94"><span class="toc-number">2.2.</span> <span class="toc-text">RAM vs Disk 类比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E4%B8%AA%E8%BE%93%E5%85%A5%E7%AB%9E%E4%BA%89%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AA%97%E5%8F%A3"><span class="toc-number">2.3.</span> <span class="toc-text">六个输入竞争上下文窗口</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%B8%89%E7%AB%A0%EF%BC%9ASystem-Developer-Instructions%E2%80%94%E2%80%94%E8%A7%92%E8%89%B2%E5%AE%9A%E4%B9%89%E4%B8%8E%E8%A1%8C%E4%B8%BA%E8%BE%B9%E7%95%8C"><span class="toc-number">3.</span> <span class="toc-text">第三章：System&#x2F;Developer Instructions——角色定义与行为边界</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Instructions-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C"><span class="toc-number">3.1.</span> <span class="toc-text">Instructions 职责边界</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Instructions-%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">3.2.</span> <span class="toc-text">Instructions 适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Instructions-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E8%A7%84%E5%88%99%E5%A0%86%E7%A0%8C"><span class="toc-number">3.3.</span> <span class="toc-text">Instructions 易错点：规则堆砌</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E5%9B%9B%E7%AB%A0%EF%BC%9AMemory%E2%80%94%E2%80%94%E7%9F%AD%E6%9C%9F%E8%AE%B0%E5%BF%86%E4%B8%8E%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86%E7%9A%84%E8%BE%B9%E7%95%8C"><span class="toc-number">4.</span> <span class="toc-text">第四章：Memory——短期记忆与长期记忆的边界</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C%EF%BC%9A%E7%9F%AD%E6%9C%9F-vs-%E9%95%BF%E6%9C%9F"><span class="toc-number">4.1.</span> <span class="toc-text">Memory 职责边界：短期 vs 长期</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9A%E4%BD%95%E6%97%B6%E8%AF%A5%E5%86%99%E5%85%A5%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86"><span class="toc-number">4.2.</span> <span class="toc-text">Memory 适用场景：何时该写入长期记忆</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-vs-Files-Retrieval-%E8%BE%A8%E6%9E%90"><span class="toc-number">4.3.</span> <span class="toc-text">Memory vs Files&#x2F;Retrieval 辨析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E8%AE%B0%E5%BF%86%E6%B1%A1%E6%9F%93%E4%B8%8E%E8%BF%87%E6%9C%9F%E7%BC%BA%E5%A4%B1"><span class="toc-number">4.4.</span> <span class="toc-text">Memory 易错点：记忆污染与过期缺失</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E5%86%85%E9%93%BE%E6%8C%87%E5%BC%95"><span class="toc-number">4.5.</span> <span class="toc-text">Memory 内链指引</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%BA%94%E7%AB%A0%EF%BC%9ARetrieval-Files%E2%80%94%E2%80%94%E7%9F%A5%E8%AF%86%E5%BA%93%E6%A3%80%E7%B4%A2%E4%B8%8E%E6%96%87%E4%BB%B6%E8%BE%B9%E7%95%8C"><span class="toc-number">5.</span> <span class="toc-text">第五章：Retrieval&#x2F;Files——知识库检索与文件边界</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Files-Retrieval-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C"><span class="toc-number">5.1.</span> <span class="toc-text">Files&#x2F;Retrieval 职责边界</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Files-%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9A%E4%BD%95%E6%97%B6%E8%AF%A5%E7%94%A8-file-search"><span class="toc-number">5.2.</span> <span class="toc-text">Files 适用场景：何时该用 file search</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Files-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E6%8A%8A%E7%9F%A5%E8%AF%86%E5%BA%93%E5%BD%93%E8%A7%84%E5%88%99%E5%BA%93"><span class="toc-number">5.3.</span> <span class="toc-text">Files 易错点：把知识库当规则库</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Files-%E9%98%88%E5%80%BC%EF%BC%9A%E4%BD%95%E6%97%B6%E8%AF%A5%E8%B4%B4%E8%BF%9B-prompt-vs-%E7%94%A8-file-search"><span class="toc-number">5.4.</span> <span class="toc-text">Files 阈值：何时该贴进 prompt vs 用 file search</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E5%85%AD%E7%AB%A0%EF%BC%9ATool-Schema-Description%E2%80%94%E2%80%94%E5%BE%AE%E5%9E%8B%E8%A1%8C%E4%B8%BA%E6%8E%A7%E5%88%B6%E5%99%A8"><span class="toc-number">6.</span> <span class="toc-text">第六章：Tool Schema&#x2F;Description——微型行为控制器</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-Description-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C%EF%BC%9A%E5%BE%AE%E5%9E%8B%E8%A1%8C%E4%B8%BA%E6%8E%A7%E5%88%B6%E5%99%A8"><span class="toc-number">6.1.</span> <span class="toc-text">Tool Description 职责边界：微型行为控制器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-Description-%E7%BB%93%E6%9E%84%E8%A6%81%E7%B4%A0"><span class="toc-number">6.2.</span> <span class="toc-text">Tool Description 结构要素</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-Description-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E6%8F%8F%E8%BF%B0%E5%A4%AA%E7%AE%80%E6%88%96%E5%A4%AA%E5%86%97"><span class="toc-number">6.3.</span> <span class="toc-text">Tool Description 易错点：描述太简或太冗</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-Description-FAQ"><span class="toc-number">6.4.</span> <span class="toc-text">Tool Description FAQ</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-Description-%E5%86%85%E9%93%BE%E6%8C%87%E5%BC%95"><span class="toc-number">6.5.</span> <span class="toc-text">Tool Description 内链指引</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%B8%83%E7%AB%A0%EF%BC%9ARuntime-State%E2%80%94%E2%80%94%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E4%B8%8E%E5%88%86%E6%94%AF"><span class="toc-number">7.</span> <span class="toc-text">第七章：Runtime State——任务进度与分支</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Runtime-State-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C%EF%BC%9A%E4%BB%BB%E5%8A%A1%E8%BF%9B%E5%BA%A6%E4%B8%8E%E5%88%86%E6%94%AF"><span class="toc-number">7.1.</span> <span class="toc-text">Runtime State 职责边界：任务进度与分支</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Runtime-State-vs-Memory-%E8%BE%A8%E6%9E%90"><span class="toc-number">7.2.</span> <span class="toc-text">Runtime State vs Memory 辨析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Runtime-State-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E7%8A%B6%E6%80%81%E4%B8%A2%E5%A4%B1%E4%B8%8D%E5%8F%AF%E6%81%A2%E5%A4%8D"><span class="toc-number">7.3.</span> <span class="toc-text">Runtime State 易错点：状态丢失不可恢复</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E5%85%AB%E7%AB%A0%EF%BC%9ATrace%E2%80%94%E2%80%94%E8%B0%83%E7%94%A8%E5%8E%86%E5%8F%B2%E4%B8%8E%E5%AE%A1%E8%AE%A1"><span class="toc-number">8.</span> <span class="toc-text">第八章：Trace——调用历史与审计</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Trace-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C%EF%BC%9A%E8%B0%83%E7%94%A8%E5%8E%86%E5%8F%B2%E4%B8%8E%E5%AE%A1%E8%AE%A1"><span class="toc-number">8.1.</span> <span class="toc-text">Trace 职责边界：调用历史与审计</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Trace-vs-Conversation-Memory-%E8%BE%A8%E6%9E%90"><span class="toc-number">8.2.</span> <span class="toc-text">Trace vs Conversation Memory 辨析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Trace-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E6%8A%8A-trace-%E5%BD%93%E5%86%B3%E7%AD%96%E8%BE%93%E5%85%A5"><span class="toc-number">8.3.</span> <span class="toc-text">Trace 易错点：把 trace 当决策输入</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%B9%9D%E7%AB%A0%EF%BC%9AOutput-Contract%E2%80%94%E2%80%94%E8%BE%93%E5%87%BA%E6%A0%BC%E5%BC%8F%E4%B8%8E%E7%BA%A6%E6%9D%9F"><span class="toc-number">9.</span> <span class="toc-text">第九章：Output Contract——输出格式与约束</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Output-Contract-%E8%81%8C%E8%B4%A3%E8%BE%B9%E7%95%8C%EF%BC%9A%E6%A0%BC%E5%BC%8F%E4%B8%8E%E7%BA%A6%E6%9D%9F"><span class="toc-number">9.1.</span> <span class="toc-text">Output Contract 职责边界：格式与约束</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Output-Contract-%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="toc-number">9.2.</span> <span class="toc-text">Output Contract 适用场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Output-Contract-%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E5%A5%91%E7%BA%A6%E7%BC%BA%E5%A4%B1%E5%AF%BC%E8%87%B4%E4%B8%8B%E6%B8%B8%E5%A4%B1%E8%B4%A5"><span class="toc-number">9.3.</span> <span class="toc-text">Output Contract 易错点：契约缺失导致下游失败</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E5%8D%81%E7%AB%A0%EF%BC%9A%E8%BF%81%E7%A7%BB%E8%A7%84%E5%88%99%E2%80%94%E2%80%94%E5%A6%82%E6%9E%9C%E4%B8%80%E6%9D%A1%E8%A7%84%E5%88%99%E5%8F%8D%E5%A4%8D%E8%A2%AB%E5%BF%98%EF%BC%8C%E8%AF%A5%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E8%BF%81%E7%A7%BB%E5%88%B0%E5%93%AA%E4%B8%80%E5%B1%82"><span class="toc-number">10.</span> <span class="toc-text">第十章：迁移规则——如果一条规则反复被忘，该如何判断迁移到哪一层</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB%E5%86%B3%E7%AD%96%E6%A0%91"><span class="toc-number">10.1.</span> <span class="toc-text">迁移决策树</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB%E6%A1%88%E4%BE%8B-1%EF%BC%9A%E4%BB%8E-System-Prompt-%E8%BF%81%E7%A7%BB%E5%88%B0-Tool-Description"><span class="toc-number">10.2.</span> <span class="toc-text">迁移案例 1：从 System Prompt 迁移到 Tool Description</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB%E6%A1%88%E4%BE%8B-2%EF%BC%9A%E4%BB%8E-System-Prompt-%E8%BF%81%E7%A7%BB%E5%88%B0-Memory"><span class="toc-number">10.3.</span> <span class="toc-text">迁移案例 2：从 System Prompt 迁移到 Memory</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB%E6%A1%88%E4%BE%8B-3%EF%BC%9A%E4%BB%8E-System-Prompt-%E8%BF%81%E7%A7%BB%E5%88%B0-File-Search"><span class="toc-number">10.4.</span> <span class="toc-text">迁移案例 3：从 System Prompt 迁移到 File Search</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB%E6%98%93%E9%94%99%E7%82%B9%EF%BC%9A%E8%BF%81%E7%A7%BB%E5%90%8E%E8%A7%84%E5%88%99%E4%BB%8D%E7%84%B6%E8%A2%AB%E5%BF%98"><span class="toc-number">10.5.</span> <span class="toc-text">迁移易错点：迁移后规则仍然被忘</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E5%8D%81%E4%B8%80%E7%AB%A0%EF%BC%9A%E5%B7%A5%E7%A8%8B%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95%E2%80%94%E2%80%94%E5%8F%AF%E6%89%A7%E8%A1%8C%E7%9A%84%E4%B8%8A%E4%B8%8B%E6%96%87%E5%88%86%E5%B1%82%E5%AE%A1%E8%AE%A1"><span class="toc-number">11.</span> <span class="toc-text">第十一章：工程审计清单——可执行的上下文分层审计</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#System-Prompt-%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.1.</span> <span class="toc-text">System Prompt 审计清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-Description-%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.2.</span> <span class="toc-text">Tool Description 审计清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Memory-%E7%B3%BB%E7%BB%9F%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.3.</span> <span class="toc-text">Memory 系统审计清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Files-Retrieval-%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.4.</span> <span class="toc-text">Files&#x2F;Retrieval 审计清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Runtime-State-%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.5.</span> <span class="toc-text">Runtime State 审计清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Output-Contract-%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.6.</span> <span class="toc-text">Output Contract 审计清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Trace-%E5%AE%A1%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">11.7.</span> <span class="toc-text">Trace 审计清单</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">12.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">13.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">13.1.</span> <span class="toc-text">Agent 上下文工程是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%A7%84%E5%88%99%E9%83%BD%E5%86%99%E8%BF%9B-system-prompt%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88-Agent-%E8%BF%98%E6%98%AF%E4%BC%9A%E5%BF%98%EF%BC%9F"><span class="toc-number">13.2.</span> <span class="toc-text">规则都写进 system prompt，为什么 Agent 还是会忘？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#System-prompt-%E5%92%8C-memory-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">13.3.</span> <span class="toc-text">System prompt 和 memory 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E8%B5%84%E6%96%99%E5%BA%94%E8%AF%A5%E6%94%BE%E8%BF%9B-prompt-%E8%BF%98%E6%98%AF-file-search%EF%BC%9F"><span class="toc-number">13.4.</span> <span class="toc-text">文件资料应该放进 prompt 还是 file search？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Tool-description-%E5%BA%94%E8%AF%A5%E5%86%99%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">13.5.</span> <span class="toc-text">Tool description 应该写什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E8%A7%84%E5%88%99%E7%BB%8F%E5%B8%B8%E5%A4%B1%E6%95%88%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">13.6.</span> <span class="toc-text">Agent 规则经常失效怎么办？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

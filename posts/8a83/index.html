@@ -1,0 +1,1164 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Agent 状态机设计：为什么复杂任务不能只靠 Prompt | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="复杂 Agent 任务不能只靠 prompt 记进度。本文用 state、event、transition、guard、action、checkpoint、retry、compensation、approval pause 和 terminal state，设计可恢复的 Agent 状态机。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Agent 状态机设计：为什么复杂任务不能只靠 Prompt">
+<meta property="og:url" content="https://jingluo23.github.io/posts/8a83/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="复杂 Agent 任务不能只靠 prompt 记进度。本文用 state、event、transition、guard、action、checkpoint、retry、compensation、approval pause 和 terminal state，设计可恢复的 Agent 状态机。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-19T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T13:06:05.293Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Agent 状态机设计：为什么复杂任务不能只靠 Prompt",
+  "url": "https://jingluo23.github.io/posts/8a83/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-19T07:12:21.000Z",
+  "dateModified": "2026-10-15T13:06:05.293Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/8a83/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Agent 状态机设计：为什么复杂任务不能只靠 Prompt',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Agent 状态机设计：为什么复杂任务不能只靠 Prompt</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Agent 状态机设计：为什么复杂任务不能只靠 Prompt</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-19T07:12:21.000Z" title="发表于 2026-08-19 15:12:21">2026-08-19</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T13:06:05.293Z" title="更新于 2026-10-15 21:06:05">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>14分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 21:06:05&quot;}" hidden></div><p>报表 Agent 在第 5 步发邮件前失败了。运维重跑任务，Agent 从第 1 步重新执行，生成了新报表，覆盖了前一次已审批版本。审批状态丢失，审批人签字的记录被新结果替换，没有任何日志能证明第一版报表经过了审批。</p>
+<p>这不是数据库事务回滚，也不是消息队列重试。Prompt 里只剩一句”继续处理”，模型重新推理整个流程，完全不知道第 1-4 步已经产生过副作用：调用了审批接口、生成了报表、写入了临时文件。失败点在第 5 步，但副作用从第 2 步就开始了。</p>
+<p>真正的问题不是”模型能力够不够”，而是任务进度藏在 prompt 自然语言里，根本没有可恢复的状态快照。Prompt 携带的 messages 只是模型上下文，不是执行事实。</p>
+<p>要把这类事故修好，不能只在 prompt 里补一句”继续前先检查进度”。更稳的做法是把当前节点、已发生副作用、下一步动作和失败补偿写进可恢复的状态表。</p>
+<h1 id="事故关键点"><a href="#事故关键点" class="headerlink" title="事故关键点"></a>事故关键点</h1><p>报表 Agent 执行流程：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">步骤</th>
+<th style="text-align:center">操作</th>
+<th style="text-align:center">副作用</th>
+<th style="text-align:center">幂等性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">第 1 步</td>
+<td style="text-align:center">数据查询</td>
+<td style="text-align:center">调用数据库，查询用户数据</td>
+<td style="text-align:center">幂等（读操作）</td>
+</tr>
+<tr>
+<td style="text-align:center">第 2 步</td>
+<td style="text-align:center">报表生成</td>
+<td style="text-align:center">调用报表生成工具，生成 PDF</td>
+<td style="text-align:center">不幂等（覆盖文件）</td>
+</tr>
+<tr>
+<td style="text-align:center">第 3 步</td>
+<td style="text-align:center">审批等待</td>
+<td style="text-align:center">发送审批请求，等待人工批准</td>
+<td style="text-align:center">幂等（接口支持）</td>
+</tr>
+<tr>
+<td style="text-align:center">第 4 步</td>
+<td style="text-align:center">审批通过</td>
+<td style="text-align:center">收到 approve 事件</td>
+<td style="text-align:center">幂等（查询状态）</td>
+</tr>
+<tr>
+<td style="text-align:center">第 5 步</td>
+<td style="text-align:center">发邮件</td>
+<td style="text-align:center">调用邮件 API，发送报表</td>
+<td style="text-align:center">失败（超时）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>失败原因：第 5 步邮件发送超时（外部 API 限流），任务被标记为 FAILED。</p>
+<p>重跑逻辑：从 prompt 里读取”当前进度”，prompt 只有一句”审批通过，继续处理”。实际执行：重新从第 1 步开始 -&gt; 第 2 步重新生成报表（覆盖已审批版本）-&gt; 第 3 步再次审批 -&gt; 第 5 步发送成功。</p>
+<p>业务影响：已审批报表被替换，审批记录不一致；用户投诉第一次审批的报表内容和最终收到的报表内容不一致；审批流程浪费，审批了两个版本但只有一个版本真正发送。</p>
+<h1 id="反模式识别表"><a href="#反模式识别表" class="headerlink" title="反模式识别表"></a>反模式识别表</h1><p>判断你的 Agent 是否命中这些反模式：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">反模式</th>
+<th style="text-align:center">表现</th>
+<th style="text-align:center">隐患</th>
+<th style="text-align:center">修正方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">进度写在 Prompt</td>
+<td style="text-align:center">”当前在第 3 步” 自然语言摘要</td>
+<td style="text-align:center">重启后丢失，无法恢复</td>
+<td style="text-align:center">用 State 字段记录当前节点</td>
+</tr>
+<tr>
+<td style="text-align:center">Trace 当成 State</td>
+<td style="text-align:center">有完整 Trace 就以为有状态</td>
+<td style="text-align:center">Trace 不记录下一步决策</td>
+<td style="text-align:center">State 记录下一步应该做什么</td>
+</tr>
+<tr>
+<td style="text-align:center">Retry 无幂等检查</td>
+<td style="text-align:center">失败就从头重跑</td>
+<td style="text-align:center">副作用重复执行</td>
+<td style="text-align:center">幂等键 + 已执行检查</td>
+</tr>
+<tr>
+<td style="text-align:center">审批后 Resume 无检查</td>
+<td style="text-align:center">直接继续执行</td>
+<td style="text-align:center">未回到正确执行点</td>
+<td style="text-align:center">checkpoint + thread_id</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id="状态机基础：State、Event、Transition、Guard、Action"><a href="#状态机基础：State、Event、Transition、Guard、Action" class="headerlink" title="状态机基础：State、Event、Transition、Guard、Action"></a>状态机基础：State、Event、Transition、Guard、Action</h1><p>状态机不是所有 Agent 的必要架构。简单客服问答用 messages 数组就够了，但复杂任务—多步骤、有审批、有外部系统调用、失败后需要恢复—必须把任务进度显式化。</p>
+<h2 id="核心术语定义表"><a href="#核心术语定义表" class="headerlink" title="核心术语定义表"></a>核心术语定义表</h2><p>状态机基础术语来自 Stately 官方文档：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">术语</th>
+<th style="text-align:center">定义</th>
+<th style="text-align:center">Agent 示例</th>
+<th style="text-align:center">来源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">State（状态）</td>
+<td style="text-align:center">机器所处模式，对应唯一语义意图</td>
+<td style="text-align:center">INIT、PLAN_READY、TOOL_RUNNING、APPROVAL_PENDING、FAILED、COMPLETED</td>
+<td style="text-align:center">Stately state machines</td>
+</tr>
+<tr>
+<td style="text-align:center">Event（事件）</td>
+<td style="text-align:center">触发状态变化的外部信号</td>
+<td style="text-align:center">timeout、approve、reject、retry、resume、task_received</td>
+<td style="text-align:center">Stately state machines</td>
+</tr>
+<tr>
+<td style="text-align:center">Transition（转移）</td>
+<td style="text-align:center">状态之间的允许路径，确定性映射</td>
+<td style="text-align:center">INIT -&gt; PLAN_READY（event: task_received）</td>
+<td style="text-align:center">Stately state machines</td>
+</tr>
+<tr>
+<td style="text-align:center">Guard/Condition（守卫）</td>
+<td style="text-align:center">进入某状态的前提检查</td>
+<td style="text-align:center">”预算充足”才能进入 TOOL_RUNNING</td>
+<td style="text-align:center">Stately state machines</td>
+</tr>
+<tr>
+<td style="text-align:center">Action（动作）</td>
+<td style="text-align:center">转移时执行的操作</td>
+<td style="text-align:center">进入 TOOL_RUNNING 时调用工具</td>
+<td style="text-align:center">Stately state machines</td>
+</tr>
+<tr>
+<td style="text-align:center">Checkpoint（快照）</td>
+<td style="text-align:center">状态快照，用于恢复</td>
+<td style="text-align:center">LangGraph checkpointer 保存 graph state</td>
+<td style="text-align:center">LangGraph Persistence</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>确定性原则：同一 State + Event 组合应指向唯一下一状态，避免歧义。有限状态集：状态机不是无限流程图，而是有限可达状态 + 明确转移规则。</p>
+<h2 id="Trace-vs-State-vs-Audit-对照表"><a href="#Trace-vs-State-vs-Audit-对照表" class="headerlink" title="Trace vs State vs Audit 对照表"></a>Trace vs State vs Audit 对照表</h2><p>Trace、Audit Log、State Snapshot 解决三个不同问题：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">概念</th>
+<th style="text-align:center">解决什么问题</th>
+<th style="text-align:center">是否是业务状态</th>
+<th style="text-align:center">是否决定下一步</th>
+<th style="text-align:center">Agent 示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Trace（追踪）</td>
+<td style="text-align:center">观测与诊断骨架</td>
+<td style="text-align:center">不是</td>
+<td style="text-align:center">不决定</td>
+<td style="text-align:center">OpenAI Agents SDK trace（workflow_name、trace_id）</td>
+</tr>
+<tr>
+<td style="text-align:center">Audit Log（审计日志）</td>
+<td style="text-align:center">合规记录，审计追溯</td>
+<td style="text-align:center">不是</td>
+<td style="text-align:center">不决定</td>
+<td style="text-align:center">权限模型的审计字段（actor、traceId、action、result）</td>
+</tr>
+<tr>
+<td style="text-align:center">State Snapshot（状态快照）</td>
+<td style="text-align:center">决定下一步的当前状态</td>
+<td style="text-align:center">是</td>
+<td style="text-align:center">决定</td>
+<td style="text-align:center">LangGraph checkpoint（当前节点、已执行步骤、下一步应该做什么）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>核心区分：Trace 帮助观测”发生了什么”，但不是业务状态本身。Audit Log 记录合规历史，用于审计追溯。State Snapshot 决定”下一步应该做什么”，是恢复的核心依据。三者不能互相替代：有 Trace 不等于有 State；有 Audit 不等于可恢复。</p>
+<h1 id="LangGraph-如何做状态持久化"><a href="#LangGraph-如何做状态持久化" class="headerlink" title="LangGraph 如何做状态持久化"></a>LangGraph 如何做状态持久化</h1><p>Checkpoint 不是 prompt 里的自然语言摘要，而是可恢复、可检查、可回放的状态快照。LangGraph persistence 文档把 checkpoint 定义为 graph state snapshot，包含完整状态和下一步待执行节点。</p>
+<h2 id="Checkpointer-与-Thread-State"><a href="#Checkpointer-与-Thread-State" class="headerlink" title="Checkpointer 与 Thread State"></a>Checkpointer 与 Thread State</h2><p>核心机制（来源：LangGraph Persistence 官方文档）：</p>
+<ul>
+<li>Checkpointer：保存 thread-scoped 状态快照（graph state snapshot）</li>
+<li>Store：保存跨线程长期数据（application-defined store）</li>
+<li>Thread_id：恢复具体线程状态的唯一入口</li>
+<li>四类用途：conversation continuity、human-in-the-loop、time travel、fault tolerance</li>
+</ul>
+<p>LangGraph persistence 把短期 thread-scoped 状态交给 checkpointers，把跨线程长期数据交给 stores。Checkpoint 包括 state snapshot 和 application-defined store。Thread_id 是恢复入口，相同 thread_id 可以从暂停点继续。</p>
+<p>LangGraph checkpoint 包含 graph state、下一步待执行节点列表、checkpoint_id、时间戳、版本号。敏感数据不进 checkpoint：某些 graph state 字段可能包含敏感信息，需要显式配置不保存。</p>
+<h2 id="Interrupts-与恢复机制"><a href="#Interrupts-与恢复机制" class="headerlink" title="Interrupts 与恢复机制"></a>Interrupts 与恢复机制</h2><p>核心机制（来源：LangGraph Interrupts 官方文档）：</p>
+<ul>
+<li>interrupt()：在图节点内动态暂停执行，保存 graph state，等待外部输入</li>
+<li>恢复方式：使用同一个 thread_id 和 Command(resume=…)</li>
+<li>常见模式：审批、review/edit、tool call review、human input validation</li>
+<li>幂等副作用警告：interrupt 前的副作用必须是幂等的，因为恢复时节点会从调用 interrupt 的节点开头重新执行</li>
+</ul>
+<p>审批暂停必须是状态机的一种暂停状态，而不是让模型”记得等人批准”。恢复需要同一个 thread cursor。</p>
+<p>恢复时使用同一个 thread_id 和 Command(resume=…)。幂等副作用是恢复的前提条件：如果审批前有副作用（如调用外部 API），必须确保幂等，否则恢复时节点重新执行会重复调用 API。</p>
+<h1 id="工程类比：Temporal-Durable-Execution"><a href="#工程类比：Temporal-Durable-Execution" class="headerlink" title="工程类比：Temporal Durable Execution"></a>工程类比：Temporal Durable Execution</h1><p>长任务可靠性不是新问题。Temporal durable execution 提供了成熟范式对照。</p>
+<h2 id="Durable-Execution-定义"><a href="#Durable-Execution-定义" class="headerlink" title="Durable Execution 定义"></a>Durable Execution 定义</h2><p>核心概念（来源：Temporal Durable Execution 官方文档）：</p>
+<ul>
+<li>Durable Execution 定义：workflow execution 在失败、崩溃或服务中断时仍能保留 state/progress</li>
+<li>Event History：记录每一步状态，失败后可从最后记录事件恢复</li>
+<li>三特性：Resumable（可恢复）、Recoverable（可恢复执行）、Reactive（可响应）</li>
+</ul>
+<p>长任务可靠性来自 event history 和可恢复执行，而不是单次进程内存或 prompt 上下文。Agent 状态机需要类似机制：checkpoint/event log + 业务状态，而不是只靠模型重新推理。</p>
+<p>Temporal 的 Event History 和 LangGraph 的 checkpoint 概念相似：记录执行历史，支持从失败点恢复。区别在于 Temporal 是完整的 workflow 引擎，LangGraph 是 Agent 状态管理框架。Agent 开发者可以从Temporal 的设计中学到：durable execution 需要结构化状态历史，而不是依赖进程内存或模型上下文。</p>
+<h1 id="状态表设计模板：可复制的-Agent-State-Table"><a href="#状态表设计模板：可复制的-Agent-State-Table" class="headerlink" title="状态表设计模板：可复制的 Agent State Table"></a>状态表设计模板：可复制的 Agent State Table</h1><p>状态机概念抽象，落地需要具体状态模型。以下提供三套模板：状态表、事件表、事故驱动状态表实例。</p>
+<h2 id="状态表模板（可执行步骤块）"><a href="#状态表模板（可执行步骤块）" class="headerlink" title="状态表模板（可执行步骤块）"></a>状态表模板（可执行步骤块）</h2><p>模板结构：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">State（状态）</th>
+<th style="text-align:center">Event（触发事件）</th>
+<th style="text-align:center">Guard（守卫条件）</th>
+<th style="text-align:center">Action（必须动作）</th>
+<th style="text-align:center">Next（下一状态）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">INIT</td>
+<td style="text-align:center">task_received</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">初始化上下文、记录开始时间</td>
+<td style="text-align:center">PLAN_READY</td>
+</tr>
+<tr>
+<td style="text-align:center">PLAN_READY</td>
+<td style="text-align:center">plan_generated</td>
+<td style="text-align:center">plan_valid</td>
+<td style="text-align:center">生成执行计划、记录工具序列</td>
+<td style="text-align:center">TOOL_RUNNING</td>
+</tr>
+<tr>
+<td style="text-align:center">TOOL_RUNNING</td>
+<td style="text-align:center">tool_completed</td>
+<td style="text-align:center">budget_sufficient</td>
+<td style="text-align:center">调用工具、记录结果、更新预算</td>
+<td style="text-align:center">APPROVAL_PENDING 或 COMPLETED</td>
+</tr>
+<tr>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">approve</td>
+<td style="text-align:center">approval_required</td>
+<td style="text-align:center">发送审批请求、记录审批人</td>
+<td style="text-align:center">COMPLETED</td>
+</tr>
+<tr>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">reject</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">记录拒绝原因、通知用户</td>
+<td style="text-align:center">FAILED</td>
+</tr>
+<tr>
+<td style="text-align:center">FAILED</td>
+<td style="text-align:center">retry</td>
+<td style="text-align:center">retry_count &lt; max</td>
+<td style="text-align:center">检查幂等、回退到上一个 checkpoint</td>
+<td style="text-align:center">TOOL_RUNNING 或 APPROVAL_PENDING</td>
+</tr>
+<tr>
+<td style="text-align:center">COMPLETED</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">记录完成时间、清理资源</td>
+<td style="text-align:center">Terminal</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>模板说明：State 列定义所有可达状态（INIT、PLAN_READY、TOOL_RUNNING、APPROVAL_PENDING、FAILED、COMPLETED）。Event 列定义触发转移的事件（task_received、approve、reject、retry）。Guard 列定义进入某状态的前提检查（budget_sufficient、retry_count &lt; max）。Action 列定义转移时的必须动作（调用工具、记录结果、发送审批）。Next 列定义下一状态（确定性转移）。</p>
+<h2 id="事件表模板（补充状态表）"><a href="#事件表模板（补充状态表）" class="headerlink" title="事件表模板（补充状态表）"></a>事件表模板（补充状态表）</h2><p>模板结构：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">Event（事件名称）</th>
+<th style="text-align:center">触发条件</th>
+<th style="text-align:center">前置状态要求</th>
+<th style="text-align:center">后置状态</th>
+<th style="text-align:center">是否产生副作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">task_received</td>
+<td style="text-align:center">用户提交任务</td>
+<td style="text-align:center">INIT</td>
+<td style="text-align:center">PLAN_READY</td>
+<td style="text-align:center">不产生</td>
+</tr>
+<tr>
+<td style="text-align:center">plan_generated</td>
+<td style="text-align:center">LLM 生成了执行计划</td>
+<td style="text-align:center">PLAN_READY</td>
+<td style="text-align:center">TOOL_RUNNING</td>
+<td style="text-align:center">不产生</td>
+</tr>
+<tr>
+<td style="text-align:center">tool_completed</td>
+<td style="text-align:center">工具执行完成</td>
+<td style="text-align:center">TOOL_RUNNING</td>
+<td style="text-align:center">APPROVAL_PENDING 或 COMPLETED</td>
+<td style="text-align:center">产生（调用外部 API）</td>
+</tr>
+<tr>
+<td style="text-align:center">approve</td>
+<td style="text-align:center">审批人批准</td>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">COMPLETED</td>
+<td style="text-align:center">产生（发邮件、扣预算）</td>
+</tr>
+<tr>
+<td style="text-align:center">reject</td>
+<td style="text-align:center">审批人拒绝</td>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">FAILED</td>
+<td style="text-align:center">不产生</td>
+</tr>
+<tr>
+<td style="text-align:center">retry</td>
+<td style="text-align:center">失败重试请求</td>
+<td style="text-align:center">FAILED</td>
+<td style="text-align:center">TOOL_RUNNING 或 APPROVAL_PENDING</td>
+<td style="text-align:center">需幂等检查</td>
+</tr>
+<tr>
+<td style="text-align:center">timeout</td>
+<td style="text-align:center">执行超时</td>
+<td style="text-align:center">TOOL_RUNNING</td>
+<td style="text-align:center">FAILED</td>
+<td style="text-align:center">不产生</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>事件表说明：前置状态要求明确事件只能在哪些状态上触发。是否产生副作用标记哪些事件需要幂等或补偿。</p>
+<h2 id="事故驱动状态表实例（从报表覆盖事故推导）"><a href="#事故驱动状态表实例（从报表覆盖事故推导）" class="headerlink" title="事故驱动状态表实例（从报表覆盖事故推导）"></a>事故驱动状态表实例（从报表覆盖事故推导）</h2><p>完整示例：报表 Agent 状态表（从事故开场推导）</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">State</th>
+<th style="text-align:center">Event</th>
+<th style="text-align:center">Guard</th>
+<th style="text-align:center">Action</th>
+<th style="text-align:center">Next</th>
+<th style="text-align:center">幂等/补偿检查</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">INIT</td>
+<td style="text-align:center">task_received</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">初始化 thread_id、记录开始时间</td>
+<td style="text-align:center">QUERY_RUNNING</td>
+<td style="text-align:center">不需要</td>
+</tr>
+<tr>
+<td style="text-align:center">QUERY_RUNNING</td>
+<td style="text-align:center">query_completed</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">查询数据、保存结果到 state</td>
+<td style="text-align:center">REPORT_GENERATING</td>
+<td style="text-align:center">不需要</td>
+</tr>
+<tr>
+<td style="text-align:center">REPORT_GENERATING</td>
+<td style="text-align:center">report_generated</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">生成报表、保存报表 ID 到 state</td>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">幂等检查：如果报表已存在，跳过生成</td>
+</tr>
+<tr>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">approve</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">记录审批人、审批时间</td>
+<td style="text-align:center">EMAIL_SENDING</td>
+<td style="text-align:center">不需要</td>
+</tr>
+<tr>
+<td style="text-align:center">APPROVAL_PENDING</td>
+<td style="text-align:center">reject</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">记录拒绝原因</td>
+<td style="text-align:center">FAILED</td>
+<td style="text-align:center">不需要</td>
+</tr>
+<tr>
+<td style="text-align:center">EMAIL_SENDING</td>
+<td style="text-align:center">email_sent</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">发送邮件、记录邮件 ID</td>
+<td style="text-align:center">COMPLETED</td>
+<td style="text-align:center">幂等检查：如果邮件已发送，跳过</td>
+</tr>
+<tr>
+<td style="text-align:center">EMAIL_SENDING</td>
+<td style="text-align:center">timeout</td>
+<td style="text-align:center">retry_count &lt; 3</td>
+<td style="text-align:center">记录失败、检查幂等</td>
+<td style="text-align:center">EMAIL_SENDING（重试）或 FAILED</td>
+<td style="text-align:center">幂等键：email_id + thread_id</td>
+</tr>
+<tr>
+<td style="text-align:center">FAILED</td>
+<td style="text-align:center">retry</td>
+<td style="text-align:center">retry_count &lt; max</td>
+<td style="text-align:center">检查幂等、从上一个 checkpoint 恢复</td>
+<td style="text-align:center">QUERY_RUNNING 或 REPORT_GENERATING 或 EMAIL_SENDING</td>
+<td style="text-align:center">根据 checkpoint 决定恢复点</td>
+</tr>
+<tr>
+<td style="text-align:center">COMPLETED</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">记录完成时间、清理资源</td>
+<td style="text-align:center">Terminal</td>
+<td style="text-align:center">不需要</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>事故复盘修正：第 5 步失败（EMAIL_SENDING -&gt; timeout）-&gt; 应从 EMAIL_SENDING 恢复，而不是从 QUERY_RUNNING 恢复。需要 checkpoint 记录当前节点（EMAIL_SENDING）、已执行步骤（QUERY、REPORT_GENERATED、APPROVAL_APPROVED）、下一步应该做什么（EMAIL_SENDING）。幂等检查：报表生成、邮件发送需要幂等键，避免重复执行。</p>
+<h1 id="幂等与补偿：恢复不只是-checkpoint"><a href="#幂等与补偿：恢复不只是-checkpoint" class="headerlink" title="幂等与补偿：恢复不只是 checkpoint"></a>幂等与补偿：恢复不只是 checkpoint</h1><p>有 checkpoint 不等于能安全恢复所有副作用。恢复还需要幂等性、事务、补偿和外部系统状态检查。</p>
+<h2 id="幂等与补偿概念"><a href="#幂等与补偿概念" class="headerlink" title="幂等与补偿概念"></a>幂等与补偿概念</h2><p>定义：</p>
+<ul>
+<li>幂等（Idempotent）：多次执行结果相同，不会重复产生副作用</li>
+<li>补偿（Compensation）：撤销已发生副作用，恢复到一致状态</li>
+<li>事务回滚：原子性操作，失败时自动回滚</li>
+<li>外部系统状态检查：恢复前检查外部系统状态，避免重复操作</li>
+</ul>
+<p>状态一致性三支柱：幂等性标识（action_id + schema_hash）、状态快照链（snapshot + prev_hash + delta）、补偿动作注册（undo_op）。</p>
+<h2 id="幂等与补偿判断清单"><a href="#幂等与补偿判断清单" class="headerlink" title="幂等与补偿判断清单"></a>幂等与补偿判断清单</h2><p>判断哪些操作需要幂等、哪些需要补偿：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">操作类型</th>
+<th style="text-align:center">是否需要幂等</th>
+<th style="text-align:center">是否需要补偿</th>
+<th style="text-align:center">幂等键设计</th>
+<th style="text-align:center">补偿方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">数据查询（无副作用）</td>
+<td style="text-align:center">不需要</td>
+<td style="text-align:center">不需要</td>
+<td style="text-align:center">-</td>
+<td style="text-align:center">-</td>
+</tr>
+<tr>
+<td style="text-align:center">报表生成（覆盖文件）</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">report_id + thread_id</td>
+<td style="text-align:center">删除旧报表、恢复审批版本</td>
+</tr>
+<tr>
+<td style="text-align:center">邮件发送（外部 API）</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">困难</td>
+<td style="text-align:center">email_id + thread_id</td>
+<td style="text-align:center">发送撤销邮件（部分场景）</td>
+</tr>
+<tr>
+<td style="text-align:center">扣减库存（数据库）</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">inventory_id + order_id</td>
+<td style="text-align:center">增加库存（补偿扣减）</td>
+</tr>
+<tr>
+<td style="text-align:center">创建工单（外部系统）</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">ticket_id + thread_id</td>
+<td style="text-align:center">关闭工单（补偿创建）</td>
+</tr>
+<tr>
+<td style="text-align:center">扣减预算（内部状态）</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">需要</td>
+<td style="text-align:center">budget_id + thread_id</td>
+<td style="text-align:center">增加预算（补偿扣减）</td>
+</tr>
+<tr>
+<td style="text-align:center">发送审批请求（无副作用）</td>
+<td style="text-align:center">不需要</td>
+<td style="text-align:center">不需要</td>
+<td style="text-align:center">-</td>
+<td style="text-align:center">-</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>判断逻辑：是否产生外部副作用决定是否需要幂等。可撤销的操作需要补偿。跨系统调用时幂等键应包含外部系统标识。原子操作可以事务回滚。</p>
+<p>恢复不只是 checkpoint，还需要幂等、事务、补偿和外部系统状态检查。有 checkpoint 就能安全恢复所有副作用的说法不准确。</p>
+<h1 id="Agent-任务状态清单：可恢复-vs-不可恢复"><a href="#Agent-任务状态清单：可恢复-vs-不可恢复" class="headerlink" title="Agent 任务状态清单：可恢复 vs 不可恢复"></a>Agent 任务状态清单：可恢复 vs 不可恢复</h1><p>不是所有 checkpoint 都能恢复。Terminal state 是 workflow execution 的终止状态：完成、失败、超时、取消。Terminal state 无法恢复，只能重新执行或补偿。</p>
+<h2 id="状态分类表"><a href="#状态分类表" class="headerlink" title="状态分类表"></a>状态分类表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">状态类型</th>
+<th style="text-align:center">是否可恢复</th>
+<th style="text-align:center">恢复条件</th>
+<th style="text-align:center">恢复方式</th>
+<th style="text-align:center">示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Failed（失败）</td>
+<td style="text-align:center">可恢复</td>
+<td style="text-align:center">retry_count &lt; max</td>
+<td style="text-align:center">从上一个 checkpoint 恢复</td>
+<td style="text-align:center">工具调用超时</td>
+</tr>
+<tr>
+<td style="text-align:center">Retry（重试）</td>
+<td style="text-align:center">可恢复</td>
+<td style="text-align:center">幂等检查通过</td>
+<td style="text-align:center">从失败节点重新执行</td>
+<td style="text-align:center">邮件发送失败</td>
+</tr>
+<tr>
+<td style="text-align:center">Compensation（补偿）</td>
+<td style="text-align:center">部分可恢复</td>
+<td style="text-align:center">补偿方案存在</td>
+<td style="text-align:center">执行 undo_op</td>
+<td style="text-align:center">扣减库存失败</td>
+</tr>
+<tr>
+<td style="text-align:center">Approval Pause（审批暂停）</td>
+<td style="text-align:center">可恢复</td>
+<td style="text-align:center">approve/reject 事件</td>
+<td style="text-align:center">Command(resume=…)</td>
+<td style="text-align:center">审批等待</td>
+</tr>
+<tr>
+<td style="text-align:center">Terminal（终态）</td>
+<td style="text-align:center">不可恢复</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">无恢复路径</td>
+<td style="text-align:center">COMPLETED、FAILED（retry_count = max）</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>状态清单说明：Failed 状态可通过 retry 恢复（如果 retry_count &lt; max）。Retry 状态需要幂等检查，从失败节点重新执行。Compensation 状态部分可恢复（如果补偿方案存在）。Approval Pause 状态可恢复（通过 approve/reject 事件）。Terminal State 终态不可恢复（COMPLETED 或 FAILED 达到最大重试次数）。</p>
+<h1 id="下一步延伸阅读"><a href="#下一步延伸阅读" class="headerlink" title="下一步延伸阅读"></a>下一步延伸阅读</h1><p>状态机设计只是起点。状态建模需要结合具体业务场景，不同的任务有不同的状态粒度和恢复策略。</p>
+<h2 id="外部参考资料"><a href="#外部参考资料" class="headerlink" title="外部参考资料"></a>外部参考资料</h2><p>高置信度来源：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">来源</th>
+<th style="text-align:center">置信度</th>
+<th style="text-align:center">主题</th>
+<th style="text-align:center">链接</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">LangGraph Persistence 官方文档</td>
+<td style="text-align:center">high</td>
+<td style="text-align:center">Checkpointer、Store、Thread State、Checkpoint</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.langchain.com/oss/python/langgraph/persistence">https://docs.langchain.com/oss/python/langgraph/persistence</a></td>
+</tr>
+<tr>
+<td style="text-align:center">LangGraph Interrupts 官方文档</td>
+<td style="text-align:center">high</td>
+<td style="text-align:center">interrupt()、Command(resume=…)、thread_id</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.langchain.com/oss/python/langgraph/interrupts">https://docs.langchain.com/oss/python/langgraph/interrupts</a></td>
+</tr>
+<tr>
+<td style="text-align:center">Temporal Durable Execution 官方文档</td>
+<td style="text-align:center">high</td>
+<td style="text-align:center">Event History、Durable Execution、Resumable/Recoverable</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.temporal.io/temporal">https://docs.temporal.io/temporal</a></td>
+</tr>
+<tr>
+<td style="text-align:center">OpenAI Agents SDK Tracing 官方文档</td>
+<td style="text-align:center">high</td>
+<td style="text-align:center">Trace、Span、workflow_name、trace_id</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://openai.github.io/openai-agents-python/tracing/">https://openai.github.io/openai-agents-python/tracing/</a></td>
+</tr>
+<tr>
+<td style="text-align:center">AWS Step Functions State Machines 官方文档</td>
+<td style="text-align:center">high</td>
+<td style="text-align:center">State Machine、Flow State、Task State、StartAt、Next</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.aws.amazon.com/step-functions/latest/dg/concepts-statemachines.html">https://docs.aws.amazon.com/step-functions/latest/dg/concepts-statemachines.html</a></td>
+</tr>
+<tr>
+<td style="text-align:center">Stately: State machines and statecharts</td>
+<td style="text-align:center">medium</td>
+<td style="text-align:center">State、Event、Transition、Guard、Action、Hierarchy</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://stately.ai/docs/state-machines-and-statecharts">https://stately.ai/docs/state-machines-and-statecharts</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>状态机不是所有 Agent 的必要架构，但复杂任务必须显式化。下一步不是引入更多框架，而是根据业务场景设计合适的 State、Event、Transition、Guard、Action，把任务进度从 prompt 自然语言搬到结构化状态。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="执行到第-5-步失败，重跑从第-1-步还是从-checkpoint-继续？"><a href="#执行到第-5-步失败，重跑从第-1-步还是从-checkpoint-继续？" class="headerlink" title="执行到第 5 步失败，重跑从第 1 步还是从 checkpoint 继续？"></a>执行到第 5 步失败，重跑从第 1 步还是从 checkpoint 继续？</h2><p>取决于副作用是否幂等、checkpoint 是否足够。无副作用任务可以从头重跑；有副作用且幂等时应从 checkpoint 继续；有副作用但不幂等时先补偿，再恢复；没有 checkpoint 时只能从头重跑，并承担重复副作用风险。</p>
+<h2 id="任务状态存-prompt、数据库、LangGraph-checkpoint-还是队列-job？"><a href="#任务状态存-prompt、数据库、LangGraph-checkpoint-还是队列-job？" class="headerlink" title="任务状态存 prompt、数据库、LangGraph checkpoint 还是队列 job？"></a>任务状态存 prompt、数据库、LangGraph checkpoint 还是队列 job？</h2><p>简单任务可以把 prompt 当临时上下文；复杂任务需要 checkpoint 或 event log 加业务状态；生产级 Agent 通常用 LangGraph checkpoint 保存 thread state，用业务数据库保存订单、审批、权限和计费事实。队列 job 适合异步调度，但仍需要额外状态管理。</p>
+<h2 id="状态机和-workflow-流程图有什么区别？"><a href="#状态机和-workflow-流程图有什么区别？" class="headerlink" title="状态机和 workflow/流程图有什么区别？"></a>状态机和 workflow/流程图有什么区别？</h2><p>状态机强调有限可达状态、确定性转移、守卫条件和 action；workflow 更强调执行步骤序列。Agent 需要状态机核心概念，但不一定需要完整 statechart 的层级和并发能力。</p>
+<h2 id="审批后怎么保证-Agent-回到同一个执行点？"><a href="#审批后怎么保证-Agent-回到同一个执行点？" class="headerlink" title="审批后怎么保证 Agent 回到同一个执行点？"></a>审批后怎么保证 Agent 回到同一个执行点？</h2><p>使用同一个 thread_id 和 checkpoint 恢复，例如 LangGraph Interrupts 文档中的 Command(resume=…) 模式。checkpoint 要记录当前节点、已执行步骤和下一步动作，并确保 interrupt 前的副作用具备幂等性。</p>
+<h2 id="retry-和-compensation-写在-prompt-还是状态转移规则？"><a href="#retry-和-compensation-写在-prompt-还是状态转移规则？" class="headerlink" title="retry 和 compensation 写在 prompt 还是状态转移规则？"></a>retry 和 compensation 写在 prompt 还是状态转移规则？</h2><p>写在服务端状态转移规则里，而不是 prompt。retry_count、max retry、幂等键、undo_op 和 terminal state 都应可测试、可审计、可恢复；prompt 只适合参与判断，不适合作为可靠性规则的唯一载体。</p>
+<h2 id="简单客服-Agent-是否需要状态机？"><a href="#简单客服-Agent-是否需要状态机？" class="headerlink" title="简单客服 Agent 是否需要状态机？"></a>简单客服 Agent 是否需要状态机？</h2><p>单轮 FAQ 问答通常不需要重型状态机；一旦客服 Agent 涉及订单查询、创建工单、退款审批、支付或外部 API，就需要显式状态、checkpoint、幂等和补偿。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/8a83/">https://jingluo23.github.io/posts/8a83/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/5644/" title="Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 接入真实工具前，先设计权限模型：用户身份映射、service account、per-tool permission、scope、secret vault、key rotation、approval policy、data boundary 和 audit log。</div></div></div></a><a class="pagination-related  no-desc" href="/posts/c0e8/" title="MySQL 八股文面试题"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">MySQL 八股文面试题</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/2125/" title="AI Agent 记忆管理：长期记忆与知识治理实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-01</div><div class="info-item-2">AI Agent 记忆管理：长期记忆与知识治理实战</div></div><div class="info-2"><div class="info-item-1">深度解析 AI Agent 记忆系统：三种记忆类型、四层认知架构、六大框架对比选型。从 Mem0 到 Letta，从向量库到知识图谱，解决 Agent 失忆与上下文腐烂问题。</div></div></div></a><a class="pagination-related" href="/posts/aa36/" title="多智能体协作实战：4 种架构模式选择指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">多智能体协作实战：4 种架构模式选择指南</div></div><div class="info-2"><div class="info-item-1">掌握多智能体协作系统的 4 种核心架构模式，从 Subagents 到 Router，附带 LangGraph 代码实现和生产级性能优化建议。</div></div></div></a><a class="pagination-related" href="/posts/1f8c/" title="AI Agent 工具链设计：从单一工具到工具生态的演进指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-05</div><div class="info-item-2">AI Agent 工具链设计：从单一工具到工具生态的演进指南</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 工具链设计，从 MCP 协议到主流框架选型，覆盖 LangChain、CrewAI、AutoGen 对比与企业落地实践，助你构建可扩展的工具生态</div></div></div></a><a class="pagination-related" href="/posts/5644/" title="Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-18</div><div class="info-item-2">Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 接入真实工具前，先设计权限模型：用户身份映射、service account、per-tool permission、scope、secret vault、key rotation、approval policy、data boundary 和 audit log。</div></div></div></a><a class="pagination-related" href="/posts/ae6e/" title="Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-15</div><div class="info-item-2">Agent 上下文工程实战：System Prompt、Memory、Tools 和 Files 怎么分层</div></div><div class="info-2"><div class="info-item-1">把 Agent 上下文拆成 system prompt、developer rules、memory、files、retrieval、tool schema、runtime state 和 output contract，给你一套避免上下文膨胀和规则失效的工程分层方法。</div></div></div></a><a class="pagination-related" href="/posts/a6e0/" title="AI Agent 监控告警与失败恢复：从日志到状态机的设计实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-12</div><div class="info-item-2">AI Agent 监控告警与失败恢复：从日志到状态机的设计实践</div></div><div class="info-2"><div class="info-item-1">AI Agent 上线后失败无从排查？本文从日志到状态机的完整设计实践，教你构建生产级监控告警体系，让每个失败可观测、可恢复</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BA%8B%E6%95%85%E5%85%B3%E9%94%AE%E7%82%B9"><span class="toc-number">1.</span> <span class="toc-text">事故关键点</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%8D%E6%A8%A1%E5%BC%8F%E8%AF%86%E5%88%AB%E8%A1%A8"><span class="toc-number">2.</span> <span class="toc-text">反模式识别表</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E6%9C%BA%E5%9F%BA%E7%A1%80%EF%BC%9AState%E3%80%81Event%E3%80%81Transition%E3%80%81Guard%E3%80%81Action"><span class="toc-number">3.</span> <span class="toc-text">状态机基础：State、Event、Transition、Guard、Action</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%9C%AF%E8%AF%AD%E5%AE%9A%E4%B9%89%E8%A1%A8"><span class="toc-number">3.1.</span> <span class="toc-text">核心术语定义表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Trace-vs-State-vs-Audit-%E5%AF%B9%E7%85%A7%E8%A1%A8"><span class="toc-number">3.2.</span> <span class="toc-text">Trace vs State vs Audit 对照表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#LangGraph-%E5%A6%82%E4%BD%95%E5%81%9A%E7%8A%B6%E6%80%81%E6%8C%81%E4%B9%85%E5%8C%96"><span class="toc-number">4.</span> <span class="toc-text">LangGraph 如何做状态持久化</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Checkpointer-%E4%B8%8E-Thread-State"><span class="toc-number">4.1.</span> <span class="toc-text">Checkpointer 与 Thread State</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Interrupts-%E4%B8%8E%E6%81%A2%E5%A4%8D%E6%9C%BA%E5%88%B6"><span class="toc-number">4.2.</span> <span class="toc-text">Interrupts 与恢复机制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B7%A5%E7%A8%8B%E7%B1%BB%E6%AF%94%EF%BC%9ATemporal-Durable-Execution"><span class="toc-number">5.</span> <span class="toc-text">工程类比：Temporal Durable Execution</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Durable-Execution-%E5%AE%9A%E4%B9%89"><span class="toc-number">5.1.</span> <span class="toc-text">Durable Execution 定义</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E8%A1%A8%E8%AE%BE%E8%AE%A1%E6%A8%A1%E6%9D%BF%EF%BC%9A%E5%8F%AF%E5%A4%8D%E5%88%B6%E7%9A%84-Agent-State-Table"><span class="toc-number">6.</span> <span class="toc-text">状态表设计模板：可复制的 Agent State Table</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E8%A1%A8%E6%A8%A1%E6%9D%BF%EF%BC%88%E5%8F%AF%E6%89%A7%E8%A1%8C%E6%AD%A5%E9%AA%A4%E5%9D%97%EF%BC%89"><span class="toc-number">6.1.</span> <span class="toc-text">状态表模板（可执行步骤块）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8B%E4%BB%B6%E8%A1%A8%E6%A8%A1%E6%9D%BF%EF%BC%88%E8%A1%A5%E5%85%85%E7%8A%B6%E6%80%81%E8%A1%A8%EF%BC%89"><span class="toc-number">6.2.</span> <span class="toc-text">事件表模板（补充状态表）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8B%E6%95%85%E9%A9%B1%E5%8A%A8%E7%8A%B6%E6%80%81%E8%A1%A8%E5%AE%9E%E4%BE%8B%EF%BC%88%E4%BB%8E%E6%8A%A5%E8%A1%A8%E8%A6%86%E7%9B%96%E4%BA%8B%E6%95%85%E6%8E%A8%E5%AF%BC%EF%BC%89"><span class="toc-number">6.3.</span> <span class="toc-text">事故驱动状态表实例（从报表覆盖事故推导）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B9%82%E7%AD%89%E4%B8%8E%E8%A1%A5%E5%81%BF%EF%BC%9A%E6%81%A2%E5%A4%8D%E4%B8%8D%E5%8F%AA%E6%98%AF-checkpoint"><span class="toc-number">7.</span> <span class="toc-text">幂等与补偿：恢复不只是 checkpoint</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B9%82%E7%AD%89%E4%B8%8E%E8%A1%A5%E5%81%BF%E6%A6%82%E5%BF%B5"><span class="toc-number">7.1.</span> <span class="toc-text">幂等与补偿概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B9%82%E7%AD%89%E4%B8%8E%E8%A1%A5%E5%81%BF%E5%88%A4%E6%96%AD%E6%B8%85%E5%8D%95"><span class="toc-number">7.2.</span> <span class="toc-text">幂等与补偿判断清单</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Agent-%E4%BB%BB%E5%8A%A1%E7%8A%B6%E6%80%81%E6%B8%85%E5%8D%95%EF%BC%9A%E5%8F%AF%E6%81%A2%E5%A4%8D-vs-%E4%B8%8D%E5%8F%AF%E6%81%A2%E5%A4%8D"><span class="toc-number">8.</span> <span class="toc-text">Agent 任务状态清单：可恢复 vs 不可恢复</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E5%88%86%E7%B1%BB%E8%A1%A8"><span class="toc-number">8.1.</span> <span class="toc-text">状态分类表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%8B%E4%B8%80%E6%AD%A5%E5%BB%B6%E4%BC%B8%E9%98%85%E8%AF%BB"><span class="toc-number">9.</span> <span class="toc-text">下一步延伸阅读</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%96%E9%83%A8%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">9.1.</span> <span class="toc-text">外部参考资料</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">10.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A7%E8%A1%8C%E5%88%B0%E7%AC%AC-5-%E6%AD%A5%E5%A4%B1%E8%B4%A5%EF%BC%8C%E9%87%8D%E8%B7%91%E4%BB%8E%E7%AC%AC-1-%E6%AD%A5%E8%BF%98%E6%98%AF%E4%BB%8E-checkpoint-%E7%BB%A7%E7%BB%AD%EF%BC%9F"><span class="toc-number">10.1.</span> <span class="toc-text">执行到第 5 步失败，重跑从第 1 步还是从 checkpoint 继续？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%BB%E5%8A%A1%E7%8A%B6%E6%80%81%E5%AD%98-prompt%E3%80%81%E6%95%B0%E6%8D%AE%E5%BA%93%E3%80%81LangGraph-checkpoint-%E8%BF%98%E6%98%AF%E9%98%9F%E5%88%97-job%EF%BC%9F"><span class="toc-number">10.2.</span> <span class="toc-text">任务状态存 prompt、数据库、LangGraph checkpoint 还是队列 job？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%8A%B6%E6%80%81%E6%9C%BA%E5%92%8C-workflow-%E6%B5%81%E7%A8%8B%E5%9B%BE%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">10.3.</span> <span class="toc-text">状态机和 workflow&#x2F;流程图有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E5%90%8E%E6%80%8E%E4%B9%88%E4%BF%9D%E8%AF%81-Agent-%E5%9B%9E%E5%88%B0%E5%90%8C%E4%B8%80%E4%B8%AA%E6%89%A7%E8%A1%8C%E7%82%B9%EF%BC%9F"><span class="toc-number">10.4.</span> <span class="toc-text">审批后怎么保证 Agent 回到同一个执行点？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#retry-%E5%92%8C-compensation-%E5%86%99%E5%9C%A8-prompt-%E8%BF%98%E6%98%AF%E7%8A%B6%E6%80%81%E8%BD%AC%E7%A7%BB%E8%A7%84%E5%88%99%EF%BC%9F"><span class="toc-number">10.5.</span> <span class="toc-text">retry 和 compensation 写在 prompt 还是状态转移规则？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AE%80%E5%8D%95%E5%AE%A2%E6%9C%8D-Agent-%E6%98%AF%E5%90%A6%E9%9C%80%E8%A6%81%E7%8A%B6%E6%80%81%E6%9C%BA%EF%BC%9F"><span class="toc-number">10.6.</span> <span class="toc-text">简单客服 Agent 是否需要状态机？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

@@ -1,0 +1,1002 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>AI Agent 记忆管理：长期记忆与知识治理实战 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="深度解析 AI Agent 记忆系统：三种记忆类型、四层认知架构、六大框架对比选型。从 Mem0 到 Letta，从向量库到知识图谱，解决 Agent 失忆与上下文腐烂问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI Agent 记忆管理：长期记忆与知识治理实战">
+<meta property="og:url" content="https://jingluo23.github.io/posts/2125/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="深度解析 AI Agent 记忆系统：三种记忆类型、四层认知架构、六大框架对比选型。从 Mem0 到 Letta，从向量库到知识图谱，解决 Agent 失忆与上下文腐烂问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-01T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T13:06:05.292Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AI Agent 记忆管理：长期记忆与知识治理实战",
+  "url": "https://jingluo23.github.io/posts/2125/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-01T07:12:21.000Z",
+  "dateModified": "2026-10-15T13:06:05.292Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/2125/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'AI Agent 记忆管理：长期记忆与知识治理实战',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">AI Agent 记忆管理：长期记忆与知识治理实战</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">AI Agent 记忆管理：长期记忆与知识治理实战</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-01T07:12:21.000Z" title="发表于 2026-08-01 15:12:21">2026-08-01</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T13:06:05.292Z" title="更新于 2026-10-15 21:06:05">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">8k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>24分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 21:06:05&quot;}" hidden></div><p>“上次你说帮我查的那个订单怎么样了？”</p>
+<p>用户问出这句话的时候，客服 Agent 僵住了。翻遍当前对话的上下文，找不到任何关于”订单”的记录——因为那次查询发生在昨天下午，在另一个会话里。</p>
+<p>这不是 Bug。这是失忆。</p>
+<p>第一次遇到这个问题时挺棘手。Agent 明明回答得很漂亮，用户体验也不错，可一旦用户换了窗口、关了浏览器、甚至只是隔了几个小时回来，一切就归零了。Agent 不记得用户的偏好，不记得之前做过的决策，更不记得为什么那样决策。</p>
+<p>更要命的是，单纯把上下文窗口拉大并不能解决问题。反而——说出来你可能不信——会让 Agent 变得更蠢。这就是所谓的”上下文腐烂”：无关信息像噪音一样稀释了模型的注意力，检索成本指数级上涨，延迟从几百毫秒飙升到十几秒。</p>
+<p>那 Agent 怎么才能真正”记住”？不是说把对话存进数据库那么简单，而是像人一样——记住重要的、忘掉琐碎的、在需要的时候能想起来、在决策时能追溯原因。</p>
+<p>下面拆解 Agent 记忆系统的底层逻辑：三种记忆类型（大多数人只知道两种）、六大主流框架怎么选、知识图谱如何补上向量库的盲点，以及实战里踩过的坑。</p>
+<h1 id="为什么-Agent-需要独立的记忆系统"><a href="#为什么-Agent-需要独立的记忆系统" class="headerlink" title="为什么 Agent 需要独立的记忆系统"></a>为什么 Agent 需要独立的记忆系统</h1><h2 id="上下文腐烂：更大的窗口反而更糟"><a href="#上下文腐烂：更大的窗口反而更糟" class="headerlink" title="上下文腐烂：更大的窗口反而更糟"></a>上下文腐烂：更大的窗口反而更糟</h2><p>先看一组数据，来自 LOCOMO 基准测试（专门评测 Agent 记忆能力的权威数据集）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">数值</th>
+<th style="text-align:center">指标</th>
+<th style="text-align:center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">72.9%</td>
+<td style="text-align:center">Full-context 准确率</td>
+<td style="text-align:center">但延迟 9.87s</td>
+</tr>
+<tr>
+<td style="text-align:center">66.9%</td>
+<td style="text-align:center">Mem0 准确率</td>
+<td style="text-align:center">延迟仅 0.71s</td>
+</tr>
+<tr>
+<td style="text-align:center">13倍</td>
+<td style="text-align:center">Token 消耗差距</td>
+<td style="text-align:center">26K vs ~2K</td>
+</tr>
+<tr>
+<td style="text-align:center">10秒</td>
+<td style="text-align:center">用户等待时间</td>
+<td style="text-align:center">全量上下文方案</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>表面上看，Full-context 准确率更高。但你愿意等 10 秒钟吗？更关键的是，Token 消耗差了 13 倍。按主流大模型的定价，每次对话光上下文就可能烧掉几分到几毛钱。</p>
+<p>为什么窗口越大，效果反而可能越差？</p>
+<p>打个比方。你在图书馆找一本书。图书馆只有 10 本书的时候，你扫一眼就找到了。图书馆有 10 万本书的时候——哪怕你可以同时看到所有书的封面——你也得花很长时间才能找到那本想要的。</p>
+<p>模型的注意力机制也一样。上下文窗口塞进越多信息，模型分配给每条信息的注意力就越少。无关的历史对话、过时的任务状态、已经解决的问题……全都挤在一起，模型反而分不清什么才是重点。</p>
+<p>这就是上下文腐烂。信息越多，信噪比越低。</p>
+<p>我之前做过一个实验：让 Agent 在 100 轮对话后回答第 1 轮提到的一个细节。结果？全量上下文的准确率从 90% 掉到 60%。而用记忆系统的方案，准确率稳定在 85% 以上。</p>
+<h2 id="从”工具”到”伙伴”：跨越会话边界的记忆"><a href="#从”工具”到”伙伴”：跨越会话边界的记忆" class="headerlink" title="从”工具”到”伙伴”：跨越会话边界的记忆"></a>从”工具”到”伙伴”：跨越会话边界的记忆</h2><p>没有记忆的 Agent，充其量是个高级工具。你用完，它就忘了你。</p>
+<p>有记忆的 Agent，才能真正成为”伙伴”。它能记住你喜欢简洁的回答、记得你上次问过类似的问题、知道你在项目里用的是 React 而不是 Vue。这些信息不用你每次都说一遍。</p>
+<p>Letta 团队（MemGPT 的背后公司）给过一个很好的例子：一个长期运行的编程助手。它会记住你项目的代码风格、记住你之前遇到的 bug 和解决方案、甚至记住你常用的第三方库。当你问”再帮我写一个类似的函数”时，它知道”类似”是什么意思——因为它记得你上次写的那个函数。</p>
+<p>这种跨会话的连续性，是 Agent 从”工具”进化到”伙伴”的基础。</p>
+<h2 id="三种核心记忆类型：短期、长期、推理（大多数人忽略了第三种）"><a href="#三种核心记忆类型：短期、长期、推理（大多数人忽略了第三种）" class="headerlink" title="三种核心记忆类型：短期、长期、推理（大多数人忽略了第三种）"></a>三种核心记忆类型：短期、长期、推理（大多数人忽略了第三种）</h2><p>说到 Agent 记忆，很多人只知道短期记忆和长期记忆。但其实还有第三种——Reasoning Memory（推理记忆），而大多数系统恰恰缺失了这个。</p>
+<p>让我一个个解释：</p>
+<p><strong>短期记忆（Short-term Memory）</strong>：就是当前的上下文窗口。它的特点是容量有限、信息新鲜、随会话结束而消失。你可以把它理解为 RAM——断电就没了。</p>
+<p><strong>长期记忆（Long-term Memory）</strong>：存在外部存储里的信息，可以是向量数据库、关系数据库、知识图谱。特点是容量大、持久化、支持检索。就像硬盘，随时可以读写。</p>
+<p><strong>推理记忆（Reasoning Memory）</strong>：这个最容易被忽略。它记录的是 Agent 的决策过程——为什么选择 A 而不是 B、当时的约束条件是什么、中间推理链是怎样的。没有推理记忆，Agent 做了决策却无法解释”为什么”。这对可解释性、调试、持续学习都非常重要。</p>
+<p>Neo4j 的技术博客里有一段话说得很到位：“一个只会执行、不会解释决策过程的 Agent，就像一个只会做事、不会复盘的员工。短期 OK，长期必然出问题。”</p>
+<p>在我看过的框架里，只有少数几个（如 Letta、Zep）实现了推理记忆。大部分还停留在”把对话存进向量库”的阶段。</p>
+<h1 id="Agent-记忆的认知架构"><a href="#Agent-记忆的认知架构" class="headerlink" title="Agent 记忆的认知架构"></a>Agent 记忆的认知架构</h1><h2 id="四层记忆模型"><a href="#四层记忆模型" class="headerlink" title="四层记忆模型"></a>四层记忆模型</h2><p>借鉴操作系统和认知科学的设计，现代 Agent 记忆系统通常采用分层架构。最经典的是 Letta/MemGPT 的四层模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Layer 1: Message Buffer（消息缓冲区）</span><br><span class="line">    ↓ 溢出时压缩</span><br><span class="line">Layer 2: Core Memory（核心记忆）</span><br><span class="line">    ↓ 主动写入</span><br><span class="line">Layer 3: Recall Memory（召回记忆）</span><br><span class="line">    ↓ 按需检索</span><br><span class="line">Layer 4: Archival Memory（归档记忆）</span><br></pre></td></tr></table></figure>
+<p><strong>Message Buffer</strong>：就是当前对话的上下文窗口，容量有限（比如 4K 或 8K Token）。当缓冲区快满的时候，系统会把老消息压缩成摘要，腾出空间给新消息。</p>
+<p><strong>Core Memory</strong>：一小块精心维护的”工作记忆”，存储当前任务最相关的信息。比如用户的偏好、当前的目标、最近的决策。容量大概在几百到几千 Token，保持在上下文窗口内，保证模型每次生成都能看到。</p>
+<p><strong>Recall Memory</strong>：历史对话的向量存储。当 Agent 需要回忆”上次用户问过什么”的时候，从这里检索。检索条件可以是语义相似度，也可以是时间范围、关键词等。</p>
+<p><strong>Archival Memory</strong>：长期归档存储，存放那些”以后可能有用但现在不需要”的信息。比如用户六个月前的对话、已经完成的任务记录。</p>
+<p>这个分层设计的好处是什么？类比一下：你在写代码的时候，Core Memory 就是你的脑子和编辑器打开的几个文件，Recall Memory 是你的 Git 历史和项目文档，Archival Memory 是你电脑里的其他项目和网上的资料库。层级越近，访问越快，但容量越小；层级越远，容量越大，但访问越慢。</p>
+<h2 id="MemGPT-的操作系统式管理"><a href="#MemGPT-的操作系统式管理" class="headerlink" title="MemGPT 的操作系统式管理"></a>MemGPT 的操作系统式管理</h2><p>MemGPT（现在是 Letta）的设计理念很有意思：把 Agent 的记忆管理类比成操作系统的内存管理。</p>
+<p>在操作系统里，RAM 是有限的，硬盘是无限的。当 RAM 不够用的时候，系统会把一部分数据交换（Swap）到硬盘里，需要的时候再加载回来。</p>
+<p>MemGPT 做了类似的设计：</p>
+<ul>
+<li><strong>RAM</strong> = 上下文窗口（有限、昂贵、快速）</li>
+<li><strong>Disk</strong> = 外部存储（无限、便宜、较慢）</li>
+</ul>
+<p>Agent 有一个”自我管理”的机制：它会在上下文窗口里维护一个”Core Memory Block”，就像操作系统维护页表一样。当 Core Memory 满了，Agent 会主动把一部分信息”驱逐”到外部存储；当需要用到归档的信息时，Agent 会主动从外部存储”召回”。</p>
+<p>这种设计的关键是：Agent 自己决定什么该留、什么该删、什么该查。不是靠规则硬编码，而是让 Agent 根据当前任务动态调整。</p>
+<p>举个具体例子。Core Memory Block 的数据结构是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;label&quot;: &quot;user_preferences&quot;,</span><br><span class="line">  &quot;description&quot;: &quot;用户的偏好设置&quot;,</span><br><span class="line">  &quot;value&quot;: &quot;喜欢简洁的回答，偏好中文，常用 React 技术栈&quot;,</span><br><span class="line">  &quot;limit&quot;: 2000</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当 limit 快到的时候，Agent 可以选择：压缩（提取关键信息）、分割（拆成多个 Block）、或者驱逐（移到 Archival Memory）。</p>
+<h2 id="Sleep-time-Compute：异步记忆处理，不阻塞响应"><a href="#Sleep-time-Compute：异步记忆处理，不阻塞响应" class="headerlink" title="Sleep-time Compute：异步记忆处理，不阻塞响应"></a>Sleep-time Compute：异步记忆处理，不阻塞响应</h2><p>这是 Letta 提出的一个很聪明的设计。</p>
+<p>传统做法：每次对话结束后，立刻处理记忆——提取关键信息、更新向量索引、生成摘要。这会阻塞响应，用户得等。</p>
+<p>Sleep-time Compute 的做法：对话进行时，先把原始数据丢到队列里，立刻返回响应。等 Agent “空闲”（sleep）的时候，再慢慢处理记忆。</p>
+<p>好处很明显：</p>
+<ol>
+<li>用户感知的延迟大幅降低</li>
+<li>可以做更复杂的记忆处理（比如知识图谱构建），不用担心超时</li>
+<li>批量处理效率更高，成本更低</li>
+</ol>
+<p>当然，代价是记忆更新有延迟。对于大多数场景（客服、助手、编程伙伴），几秒到几分钟的延迟是可以接受的。但对于需要实时记忆的场景（比如实时对话中的情感识别），就不太适用。</p>
+<h2 id="记忆驱逐与递归摘要：保留-70-确保连续性"><a href="#记忆驱逐与递归摘要：保留-70-确保连续性" class="headerlink" title="记忆驱逐与递归摘要：保留 70% 确保连续性"></a>记忆驱逐与递归摘要：保留 70% 确保连续性</h2><p>当上下文窗口满了，怎么决定删掉什么、留下什么？</p>
+<p>一个简单的策略是：递归摘要。把老的对话压缩成一段摘要，保留核心信息，丢弃细节。</p>
+<p>但问题来了：压缩多少合适？压缩太狠，关键信息丢了；压缩太少，空间还是不够。</p>
+<p>Letta 团队的实验数据给出一个参考值：保留 70% 的信息量，是连续性和压缩率的最佳平衡点。</p>
+<p>具体怎么做？假设当前上下文窗口有 100 条消息，满了：</p>
+<ol>
+<li>把前 50 条消息压缩成一段 500 Token 的摘要</li>
+<li>摘要保留：用户目标、关键约束、重要决策、待解决问题</li>
+<li>原始数据移到 Archival Memory，以后需要可以查</li>
+<li>新的上下文窗口 = 摘要 + 后 50 条消息 + 新消息</li>
+</ol>
+<p>这样既保证了连续性（Agent 知道之前发生了什么），又释放了空间（可以继续对话）。</p>
+<h1 id="知识治理：记忆的生命周期管理"><a href="#知识治理：记忆的生命周期管理" class="headerlink" title="知识治理：记忆的生命周期管理"></a>知识治理：记忆的生命周期管理</h1><p>记忆不是”存进去就完事”的。它有生命周期：捕获、压缩、存储、检索、衰减、清理。每一步都需要策略。</p>
+<h2 id="三类记忆的-TTL-策略：用户偏好-vs-任务状态-vs-操作日志"><a href="#三类记忆的-TTL-策略：用户偏好-vs-任务状态-vs-操作日志" class="headerlink" title="三类记忆的 TTL 策略：用户偏好 vs 任务状态 vs 操作日志"></a>三类记忆的 TTL 策略：用户偏好 vs 任务状态 vs 操作日志</h2><p>TTL（Time To Live，生存时间）是记忆管理的核心参数。不同类型的记忆，TTL 完全不同。</p>
+<p><strong>用户长期记忆</strong>：TTL 无限或极长（数年）。比如用户的姓名、偏好、常用工具、技术栈选择。这些信息很少变化，应该长期保留。</p>
+<p><strong>任务记忆</strong>：TTL 可配置（小时到天）。比如当前项目的上下文、最近的 bug 记录、正在进行的决策。任务结束，记忆就可以清理或归档。</p>
+<p><strong>事件记忆</strong>：TTL 短（分钟到小时）。比如当前的对话轮次、临时的计算结果、刚检索到的信息。用完就可以丢弃。</p>
+<p>我见过不少项目，把所有记忆都存到同一个向量库里，没有任何 TTL 区分。结果就是：向量库越来越大，检索越来越慢，而且会召回一堆过时、无关的信息。</p>
+<p>合理的做法是：用三个不同的存储，分别设置不同的 TTL 和清理策略。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">用户长期记忆 → 向量数据库（无 TTL，定期压缩）</span><br><span class="line">任务记忆 → 关系数据库 + 向量（TTL 按任务周期）</span><br><span class="line">事件记忆 → 内存或 Redis（TTL 短，自动过期）</span><br></pre></td></tr></table></figure>
+<h2 id="摘要压缩的艺术：200-字结构化摘要"><a href="#摘要压缩的艺术：200-字结构化摘要" class="headerlink" title="摘要压缩的艺术：200 字结构化摘要"></a>摘要压缩的艺术：200 字结构化摘要</h2><p>把 100 轮对话压缩成一段摘要，听起来简单，做起来有很多细节。</p>
+<p>摘要太简单，丢信息。摘要太复杂，模型读不懂。</p>
+<p>Letta 的实践给出一个结构化模板，效果不错：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;goals&quot;: [&quot;用户想要完成什么&quot;],</span><br><span class="line">  &quot;constraints&quot;: [&quot;用户的约束条件&quot;],</span><br><span class="line">  &quot;decisions&quot;: [&quot;Agent 做了哪些决策&quot;],</span><br><span class="line">  &quot;open_questions&quot;: [&quot;还没解决的问题&quot;],</span><br><span class="line">  &quot;evidence_index&quot;: [&quot;重要信息的来源索引&quot;]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>每段对话结束，Agent 会生成这样一个约 200 字的结构化摘要。这样做的好处：</p>
+<ol>
+<li><strong>结构清晰</strong>：模型读取时知道每部分是什么</li>
+<li><strong>信息密度高</strong>：只保留核心，丢掉废话</li>
+<li><strong>可追溯</strong>：evidence_index 指向原始数据，需要细节可以查</li>
+</ol>
+<p>我之前尝试过非结构化的摘要，比如”这是一段关于用户订单查询的对话……”。效果差很多。模型在读取时很难快速定位关键信息，检索时也不好用。</p>
+<h2 id="检索注入策略：何时主动注入、何时被动检索"><a href="#检索注入策略：何时主动注入、何时被动检索" class="headerlink" title="检索注入策略：何时主动注入、何时被动检索"></a>检索注入策略：何时主动注入、何时被动检索</h2><p>记忆检索有两种模式：主动注入和被动检索。</p>
+<p><strong>主动注入</strong>：每次生成前，自动把相关记忆塞进上下文。适合记忆量不大、对实时性要求高的场景。缺点是如果记忆太多，会挤占上下文空间。</p>
+<p><strong>被动检索</strong>：只在需要的时候查询。模型会生成一个”检索请求”，然后去向量库或知识图谱里找。适合记忆量大、对延迟敏感的场景。缺点是增加了一次检索延迟。</p>
+<p>Letta 的建议是：Core Memory 主动注入，Recall/Archival Memory 被动检索。</p>
+<p>什么意思？Core Memory 里的信息（用户偏好、当前目标）是每次生成都必须知道的，所以主动注入到上下文里。Recall 和 Archival 里的历史信息，只在模型判断”我需要回忆一下”的时候才检索。</p>
+<p>这需要模型有”自我意识”——知道自己什么时候需要查资料。GPT-5、Claude 这类前沿模型在这方面表现不错，可以通过 Prompt 引导。小模型就需要更明确的规则了。</p>
+<h2 id="记忆衰减与清理：避免”记忆膨胀”"><a href="#记忆衰减与清理：避免”记忆膨胀”" class="headerlink" title="记忆衰减与清理：避免”记忆膨胀”"></a>记忆衰减与清理：避免”记忆膨胀”</h2><p>记忆膨胀是个实际问题。用户用得越久，记忆越多，检索越慢，召回的信息越杂。</p>
+<p>解决方法是：衰减和清理。</p>
+<p><strong>衰减</strong>：每条记忆有一个”重要性分数”，随着时间推移逐渐降低。如果长期没被检索或使用，分数会降到某个阈值，触发归档或删除。</p>
+<p><strong>清理</strong>：定期扫描记忆库，删除过期的、重复的、低价值的记忆。</p>
+<p>具体实现可以参考记忆索引的设计：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;memory_id&quot;: &quot;mem_001&quot;,</span><br><span class="line">  &quot;content&quot;: &quot;用户偏好 React 技术栈&quot;,</span><br><span class="line">  &quot;importance&quot;: 0.85,</span><br><span class="line">  &quot;last_accessed&quot;: &quot;2026-04-12&quot;,</span><br><span class="line">  &quot;access_count&quot;: 23,</span><br><span class="line">  &quot;decay_rate&quot;: 0.01</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>每天凌晨跑一个清理任务：</p>
+<ul>
+<li>importance &lt; 0.2 → 删除</li>
+<li>重复记忆 → 合并</li>
+<li>expired TTL → 归档</li>
+</ul>
+<p>这样做的好处是：记忆库保持在可控规模，检索效率稳定，不会随着时间推移而膨胀。</p>
+<h1 id="技术选型：向量库-vs-知识图谱"><a href="#技术选型：向量库-vs-知识图谱" class="headerlink" title="技术选型：向量库 vs 知识图谱"></a>技术选型：向量库 vs 知识图谱</h1><h2 id="向量库的优势与局限：语义搜索无法还原关系"><a href="#向量库的优势与局限：语义搜索无法还原关系" class="headerlink" title="向量库的优势与局限：语义搜索无法还原关系"></a>向量库的优势与局限：语义搜索无法还原关系</h2><p>向量数据库是当下最主流的记忆存储方案。Pinecone、Weaviate、Milvus、Qdrant……你肯定听过这些名字。</p>
+<p>它的核心能力是：语义相似度搜索。把文本转成向量，找最近的邻居。</p>
+<p>“用户喜欢简洁的回答”和”用户偏好简短回复”——这两句话在向量空间里靠得很近，可以互相召回。这是向量库的强项。</p>
+<p>但向量库有个致命盲点：它找不到”关系”。</p>
+<p>举个例子。对话历史里有：</p>
+<ul>
+<li>“我在做一个电商项目”</li>
+<li>“项目用的是 Next.js”</li>
+<li>“后端是 Supabase”</li>
+<li>“最近在处理支付模块”</li>
+</ul>
+<p>向量搜索”项目技术栈”，可能只召回”用的是 Next.js”，但漏掉”后端是 Supabase”——因为这两句话语义上不够相似。但实际上它们是有关联的：都是项目的技术选型。</p>
+<p>这就是知识图谱的用武之地。</p>
+<h2 id="Graph-RAG：让-Agent-理解连接"><a href="#Graph-RAG：让-Agent-理解连接" class="headerlink" title="Graph RAG：让 Agent 理解连接"></a>Graph RAG：让 Agent 理解连接</h2><p>知识图谱存储的是实体和关系。</p>
+<p>上面的例子，在知识图谱里是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">(用户) --[正在做]--&gt; (电商项目)</span><br><span class="line">(电商项目) --[前端]--&gt; (Next.js)</span><br><span class="line">(电商项目) --[后端]--&gt; (Supabase)</span><br><span class="line">(电商项目) --[当前模块]--&gt; (支付模块)</span><br></pre></td></tr></table></figure>
+<p>当 Agent 问”项目的技术栈是什么”，它可以沿着图谱遍历，找到所有关联的技术选型。</p>
+<p>Neo4j 的技术博客给过一个完整的 Agent 记忆实现方案，核心是三种图：</p>
+<ol>
+<li><strong>用户图</strong>：用户画像、偏好、历史行为</li>
+<li><strong>任务图</strong>：当前任务、子任务、依赖关系</li>
+<li><strong>知识图</strong>：领域知识、概念关联</li>
+</ol>
+<p>图查询的威力在于多跳检索。向量只能找”相似”的，图可以找”相关”的。</p>
+<p>比如查询”用户在这个项目里遇到过什么问题”，图可以：</p>
+<ul>
+<li>从”用户”节点出发</li>
+<li>找到”参与的项目”</li>
+<li>找到项目相关的”问题”</li>
+<li>找到问题的”解决方案”</li>
+</ul>
+<p>这种多跳关联，向量库做不到。</p>
+<h2 id="Reasoning-Memory：决策追踪的关键"><a href="#Reasoning-Memory：决策追踪的关键" class="headerlink" title="Reasoning Memory：决策追踪的关键"></a>Reasoning Memory：决策追踪的关键</h2><p>再说说推理记忆——这是被大多数框架忽略的关键能力。</p>
+<p>推理记忆记录的不是”发生了什么”，而是”为什么这么做”。</p>
+<p>比如：</p>
+<ul>
+<li>用户问：“帮我写一个登录页面”</li>
+<li>Agent 问：“需要第三方登录吗？”</li>
+<li>用户答：“不需要，只做邮箱登录”</li>
+<li>Agent 决定：使用 NextAuth，不集成 OAuth</li>
+</ul>
+<p>推理记忆会记录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;decision&quot;: &quot;使用 NextAuth，不集成 OAuth&quot;,</span><br><span class="line">  &quot;reasoning&quot;: &quot;用户只需要邮箱登录，不需要第三方登录&quot;,</span><br><span class="line">  &quot;constraints&quot;: [&quot;不引入 OAuth&quot;],</span><br><span class="line">  &quot;alternatives_considered&quot;: [&quot;Clerk&quot;, &quot;自定义认证&quot;],</span><br><span class="line">  &quot;chosen_because&quot;: &quot;NextAuth 轻量，符合需求&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个记忆的价值在哪？</p>
+<ol>
+<li><strong>可解释性</strong>：用户问”为什么不用 Clerk？“，Agent 能回答</li>
+<li><strong>调试</strong>：出问题能追溯决策链</li>
+<li><strong>持续学习</strong>：下次遇到类似情况，可以参考之前的决策</li>
+</ol>
+<p>Neo4j 的实现中，推理记忆被建模为”决策节点”，连接到相关的”约束节点”和”结果节点”。这样就能完整追溯一个决策的前因后果。</p>
+<h2 id="混合方案：向量-图谱-结构化存储"><a href="#混合方案：向量-图谱-结构化存储" class="headerlink" title="混合方案：向量 + 图谱 + 结构化存储"></a>混合方案：向量 + 图谱 + 结构化存储</h2><p>说了这么多，到底该选哪个？</p>
+<p>答案是：混合方案。</p>
+<p>单独用向量库，会丢关系。单独用知识图谱，构建成本高，语义检索弱。单独用关系数据库，灵活性和召回能力都不够。</p>
+<p>实践中的最佳组合：</p>
+<ul>
+<li><strong>向量数据库</strong>：存储对话文本，做语义检索</li>
+<li><strong>知识图谱</strong>：存储实体关系，做多跳推理</li>
+<li><strong>关系数据库</strong>：存储结构化数据（用户信息、任务状态）</li>
+</ul>
+<p>三者的协作模式：</p>
+<ol>
+<li>用户问题先走向量检索，召回语义相关的对话片段</li>
+<li>从片段中提取实体，去图谱查询关联信息</li>
+<li>结构化数据直接查关系数据库</li>
+</ol>
+<p>这样既保留了语义检索的灵活性，又获得了图谱的关联能力，还有结构化数据的高效查询。</p>
+<h1 id="六大框架实战对比"><a href="#六大框架实战对比" class="headerlink" title="六大框架实战对比"></a>六大框架实战对比</h1><p>说了这么多理论，来看看实际框架怎么选。</p>
+<h2 id="Mem0：快速集成、多级记忆"><a href="#Mem0：快速集成、多级记忆" class="headerlink" title="Mem0：快速集成、多级记忆"></a>Mem0：快速集成、多级记忆</h2><p>Mem0 是目前最流行的 Agent 记忆框架之一。它的定位是”记忆即服务”——你不需要自己管理记忆存储和检索，直接调用 API 就行。</p>
+<p><strong>核心特点：</strong></p>
+<ul>
+<li>托管式服务，无需自己搭建基础设施</li>
+<li>支持 21 种框架集成（LangChain、LangGraph、LlamaIndex、CrewAI 等）</li>
+<li>自动记忆提取、更新、检索</li>
+<li>支持多租户、多会话</li>
+</ul>
+<p><strong>LOCOMO 准数据：</strong></p>
+<ul>
+<li>准确率：66.9%</li>
+<li>延迟：0.71s</li>
+<li>Token 消耗：~2K</li>
+</ul>
+<p><strong>适用场景：</strong></p>
+<ul>
+<li>快速原型开发</li>
+<li>语音 Agent（对延迟敏感）</li>
+<li>需要多框架集成的项目</li>
+</ul>
+<p><strong>不足：</strong></p>
+<ul>
+<li>托管服务，数据不在自己手里</li>
+<li>高级功能（如推理记忆）支持有限</li>
+<li>自定义能力不如自建方案</li>
+</ul>
+<p>代码示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">from mem0 import Memory</span><br><span class="line"></span><br><span class="line">m = Memory()</span><br><span class="line"></span><br><span class="line"># 添加记忆</span><br><span class="line">m.add(&quot;用户喜欢简洁的回答&quot;, user_id=&quot;user_001&quot;)</span><br><span class="line"></span><br><span class="line"># 检索记忆</span><br><span class="line">results = m.search(&quot;用户偏好&quot;, user_id=&quot;user_001&quot;)</span><br><span class="line"></span><br><span class="line"># 返回：[&quot;用户喜欢简洁的回答&quot;]</span><br></pre></td></tr></table></figure>
+<p>简单到离谱。这也是 Mem0 最大的优势：上手成本低。</p>
+<h2 id="Letta：长期运行-Agent-的首选"><a href="#Letta：长期运行-Agent-的首选" class="headerlink" title="Letta：长期运行 Agent 的首选"></a>Letta：长期运行 Agent 的首选</h2><p>Letta（前身是 MemGPT）走的是另一条路线：它把记忆管理设计成操作系统式的层级架构，强调 Agent 的”自我管理”能力。</p>
+<p><strong>核心特点：</strong></p>
+<ul>
+<li>OS 式层级记忆：RAM（上下文）+ Disk（外部存储）</li>
+<li>Agent 自主决定记忆的读写、驱逐、召回</li>
+<li>Sleep-time Compute 异步处理</li>
+<li>完整的推理记忆支持</li>
+</ul>
+<p><strong>适用场景：</strong></p>
+<ul>
+<li>长期运行的 Agent（如编程助手、个人助理）</li>
+<li>需要完整决策追溯的项目</li>
+<li>对自主性要求高的场景</li>
+</ul>
+<p><strong>不足：</strong></p>
+<ul>
+<li>学习曲线较陡</li>
+<li>需要自己部署和管理</li>
+<li>对模型能力有要求（小模型可能无法很好地”自我管理”）</li>
+</ul>
+<p>架构示意：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────┐</span><br><span class="line">│          Agent (LLM)                │</span><br><span class="line">│  ┌───────────────────────────────┐  │</span><br><span class="line">│  │      Core Memory (RAM)        │  │</span><br><span class="line">│  │  - Self Block: 我是...         │  │</span><br><span class="line">│  │  - User Block: 用户喜欢...      │  │</span><br><span class="line">│  │  - Task Block: 当前任务...      │  │</span><br><span class="line">│  └───────────────────────────────┘  │</span><br><span class="line">└─────────────────────────────────────┘</span><br><span class="line">         ↓ 主动管理</span><br><span class="line">┌─────────────────────────────────────┐</span><br><span class="line">│    External Storage (Disk)          │</span><br><span class="line">│  - Recall Memory (向量库)           │</span><br><span class="line">│  - Archival Memory (归档存储)        │</span><br><span class="line">└─────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+<p>如果你在做一个需要长期陪伴用户的 Agent，Letta 是目前最成熟的选择。</p>
+<h2 id="Zep：对话记忆专家"><a href="#Zep：对话记忆专家" class="headerlink" title="Zep：对话记忆专家"></a>Zep：对话记忆专家</h2><p>Zep 专注于对话场景的记忆管理。它的核心能力是”渐进式摘要”——随着对话进行，不断压缩历史，保持上下文窗口的可用性。</p>
+<p><strong>核心特点：</strong></p>
+<ul>
+<li>渐进式摘要：对话越长，摘要越精炼</li>
+<li>语义 + 时间混合检索</li>
+<li>事实提取：自动从对话中提取实体和关系</li>
+<li>支持多模态（文本、图像）</li>
+</ul>
+<p><strong>适用场景：</strong></p>
+<ul>
+<li>客服机器人</li>
+<li>对话式 AI 应用</li>
+<li>需要长对话历史的场景</li>
+</ul>
+<p><strong>不足：</strong></p>
+<ul>
+<li>更偏对话场景，通用 Agent 场景支持有限</li>
+<li>开源版本功能有限，企业版价格较高</li>
+</ul>
+<p>Zep 的一个亮点是：它能自动检测对话中的”事实”，比如”用户叫张三”、“用户住在北京”，并存储为结构化数据。这样下次对话时，不用翻历史记录就能直接用。</p>
+<h2 id="Cognee：知识图谱方案"><a href="#Cognee：知识图谱方案" class="headerlink" title="Cognee：知识图谱方案"></a>Cognee：知识图谱方案</h2><p>Cognee 是专门做知识图谱记忆的框架。如果你需要强大的关系推理能力，它是首选。</p>
+<p><strong>核心特点：</strong></p>
+<ul>
+<li>自动知识图谱构建</li>
+<li>支持多种图数据库（Neo4j、NetworkX 等）</li>
+<li>实体提取 + 关系抽取管道</li>
+<li>支持增量更新</li>
+</ul>
+<p><strong>实体提取成本对比：</strong></p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">方法</th>
+<th style="text-align:center">延迟</th>
+<th style="text-align:center">质量</th>
+<th style="text-align:center">成本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">spaCy</td>
+<td style="text-align:center">~5ms</td>
+<td style="text-align:center">中</td>
+<td style="text-align:center">低</td>
+</tr>
+<tr>
+<td style="text-align:center">GLiNER2</td>
+<td style="text-align:center">~50ms</td>
+<td style="text-align:center">高</td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td style="text-align:center">LLM</td>
+<td style="text-align:center">~500ms</td>
+<td style="text-align:center">最高</td>
+<td style="text-align:center">高</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>适用场景：</strong></p>
+<ul>
+<li>知识密集型 Agent（如研究助手、知识库问答）</li>
+<li>需要多跳推理的场景</li>
+<li>对关系网络有要求的场景</li>
+</ul>
+<p><strong>不足：</strong></p>
+<ul>
+<li>构建成本高，尤其是用 LLM 做实体提取</li>
+<li>需要图数据库基础设施</li>
+<li>对于简单场景可能过度设计</li>
+</ul>
+<h2 id="选型决策矩阵"><a href="#选型决策矩阵" class="headerlink" title="选型决策矩阵"></a>选型决策矩阵</h2><p>说了这么多，怎么选？我整理了一个决策矩阵：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐框架</th>
+<th style="text-align:center">理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">快速原型 / MVP</td>
+<td style="text-align:center">Mem0</td>
+<td style="text-align:center">上手最快，无需基础设施</td>
+</tr>
+<tr>
+<td style="text-align:center">语音 Agent</td>
+<td style="text-align:center">Mem0</td>
+<td style="text-align:center">低延迟，托管服务稳定</td>
+</tr>
+<tr>
+<td style="text-align:center">长期陪伴型 Agent</td>
+<td style="text-align:center">Letta</td>
+<td style="text-align:center">OS 式管理，推理记忆完整</td>
+</tr>
+<tr>
+<td style="text-align:center">企业客服</td>
+<td style="text-align:center">Zep</td>
+<td style="text-align:center">对话记忆专业，事实提取自动</td>
+</tr>
+<tr>
+<td style="text-align:center">知识密集型 Agent</td>
+<td style="text-align:center">Cognee</td>
+<td style="text-align:center">图谱能力强，关系推理强</td>
+</tr>
+<tr>
+<td style="text-align:center">自建基础设施</td>
+<td style="text-align:center">Letta + 自选向量库</td>
+<td style="text-align:center">最灵活，成本可控</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>如果让我给一个通用建议：</p>
+<ul>
+<li>先用 Mem0 跑通原型</li>
+<li>有长期记忆需求时，迁移到 Letta</li>
+<li>有复杂关系推理需求时，加 Cognee 或 Neo4j</li>
+</ul>
+<h1 id="实战案例与最佳实践"><a href="#实战案例与最佳实践" class="headerlink" title="实战案例与最佳实践"></a>实战案例与最佳实践</h1><h2 id="语音-Agent-记忆方案"><a href="#语音-Agent-记忆方案" class="headerlink" title="语音 Agent 记忆方案"></a>语音 Agent 记忆方案</h2><p>语音 Agent 对延迟极其敏感。用户说完话，200ms 内没反应，就会觉得卡顿。</p>
+<p>这意味着记忆检索必须在 100ms 内完成（留 100ms 给语音合成和传输）。</p>
+<p>Mem0 的方案：</p>
+<ol>
+<li><strong>预加载 Core Memory</strong>：用户偏好、常用设置，在会话开始时一次性加载到内存</li>
+<li><strong>被动检索 Recall Memory</strong>：只在明确需要时查询，使用高效的向量索引</li>
+<li><strong>异步更新</strong>：对话结束后异步更新记忆，不阻塞响应</li>
+</ol>
+<p>ElevenLabs 的语音 Agent 集成 Mem0 的实测数据：端到端延迟控制在 300ms 以内，用户感知良好。</p>
+<h2 id="企业客服-Agent"><a href="#企业客服-Agent" class="headerlink" title="企业客服 Agent"></a>企业客服 Agent</h2><p>企业客服的核心需求是：长期记住用户，能解释决策过程。</p>
+<p>一个典型的架构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">用户消息</span><br><span class="line">    ↓</span><br><span class="line">意图识别</span><br><span class="line">    ↓</span><br><span class="line">┌─────────────────┬─────────────────┐</span><br><span class="line">│  Core Memory     │  Recall Memory  │</span><br><span class="line">│  (用户画像)       │  (历史对话)      │</span><br><span class="line">└─────────────────┴─────────────────┘</span><br><span class="line">    ↓</span><br><span class="line">知识库检索（RAG）</span><br><span class="line">    ↓</span><br><span class="line">生成回答</span><br><span class="line">    ↓</span><br><span class="line">推理记忆记录（为什么这么回答）</span><br></pre></td></tr></table></figure>
+<p>Zep 在这个场景表现不错：自动事实提取能记住用户的基本信息，渐进式摘要能处理长对话。</p>
+<h2 id="个人助理：跨会话学习"><a href="#个人助理：跨会话学习" class="headerlink" title="个人助理：跨会话学习"></a>个人助理：跨会话学习</h2><p>个人助理的核心能力是：学习用户偏好，跨会话保持连续性。</p>
+<p>关键设计：</p>
+<ol>
+<li><strong>用户画像记忆</strong>：长期存储，记录用户的偏好、习惯、常用工具</li>
+<li><strong>项目上下文记忆</strong>：按项目隔离，切换项目时加载对应上下文</li>
+<li><strong>推理记忆</strong>：记录为什么推荐某个方案、为什么放弃某个选项</li>
+</ol>
+<p>Letta 的设计很适合这个场景：Core Memory 存用户画像，Recall Memory 存项目历史，Archival Memory 存归档项目。</p>
+<h2 id="避坑指南"><a href="#避坑指南" class="headerlink" title="避坑指南"></a>避坑指南</h2><p>踩过的坑，分享给你：</p>
+<p><strong>坑 1：把所有记忆都塞进向量库</strong></p>
+<p>问题：向量库只擅长语义检索，不擅长精确查询和关系推理。</p>
+<p>解决：混合存储。结构化数据（用户 ID、项目状态）用关系数据库，语义记忆用向量库，关系记忆用图谱。</p>
+<p><strong>坑 2：没有 TTL 策略</strong></p>
+<p>问题：记忆越来越多，检索越来越慢，召回一堆过期信息。</p>
+<p>解决：按记忆类型设置 TTL。事件记忆几小时过期，任务记忆任务结束清理，用户画像长期保留。</p>
+<p><strong>坑 3：忽略推理记忆</strong></p>
+<p>问题：Agent 做了决策，但无法解释为什么。调试困难，用户质疑。</p>
+<p>解决：显式记录决策链。每个重要决策记录：选择了什么、为什么、放弃的选项是什么。</p>
+<p><strong>坑 4：过度依赖 LLM 做记忆管理</strong></p>
+<p>问题：让小模型自己决定什么该记、什么该删，效果很差。</p>
+<p>解决：对于小模型，用规则辅助。比如：明确的实体提取规则、固定的记忆模板、预设的重要性权重。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，核心就几条：</p>
+<p><strong>第一，记忆是 Agent 的”第二大脑”，不是可选功能，是核心架构。</strong> 没有 memory 的 Agent，就像没有硬盘的电脑——断电就失忆，每次都从零开始。想让 Agent 从”工具”进化到”伙伴”，记忆系统是绕不过去的坎。</p>
+<p><strong>第二，三种记忆类型缺一不可。</strong> 短期记忆撑上下文，长期记忆撑持久化，推理记忆撑可解释性。大多数框架只做了前两种，推理记忆是被严重低估的能力。</p>
+<p><strong>第三，框架选型看场景，没有银弹。</strong> 语音 Agent 选 Mem0（低延迟），长期任务选 Letta（OS 式管理），知识密集选 Cognee（图谱强），客服场景选 Zep（对话专业）。</p>
+<p><strong>第四，向量库不是万能的。</strong> 语义检索找”相似”，知识图谱找”关系”，结构化存储找”精确”。三者结合才是正解。</p>
+<p><strong>第五，记忆需要治理，不是存进去就完事。</strong> TTL 策略、衰减机制、定期清理，缺一不可。否则记忆库会膨胀成垃圾场。</p>
+<p><strong>给你的行动建议：</strong></p>
+<ol>
+<li>从 LOCOMO 基准测试数据开始，理解记忆系统的性能指标</li>
+<li>用 Mem0 或 neo4j-agent-memory 快速搭个原型，跑起来再说</li>
+<li>关注 Reasoning Memory——这是下一阶段 Agent 能力竞争的核心差异点</li>
+</ol>
+<p>Agent 的未来，不只是”更聪明的模型”，更是”更持久的记忆”。当 Agent 能记住你一个月前说的话、理解你为什么做那个决定、并在下次对话中延续上下文——那才是真正的”智能”。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://mem0.ai/blog/state-of-ai-agent-memory-2026">State of AI Agent Memory 2026</a> - Mem0 官方博客，LOCOMO 基准数据来源</li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.letta.com/blog/agent-memory">Agent Memory: How to Build Agents that Learn and Remember</a> - Letta 官方博客，OS 式记忆管理</li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://neo4j.com/blog/developer/meet-lennys-memory-building-context-graphs-for-ai-agents/">Meet Lenny’s Memory: Building Context Graphs for AI Agents</a> - Neo4j 官方博客，知识图谱记忆实现</li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://machinelearningmastery.com/the-6-best-ai-agent-memory-frameworks-you-should-try-in-2026/">The 6 Best AI Agent Memory Frameworks</a> - 框架对比</li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://baijiahao.baidu.com/s?id=1858877686810616550">AI Agent落地拉胯?长期记忆的3类记忆+3段管道是关键</a> - 中文深度分析</li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="AI-Agent-为什么需要独立的记忆系统？上下文窗口不够用吗？"><a href="#AI-Agent-为什么需要独立的记忆系统？上下文窗口不够用吗？" class="headerlink" title="AI Agent 为什么需要独立的记忆系统？上下文窗口不够用吗？"></a>AI Agent 为什么需要独立的记忆系统？上下文窗口不够用吗？</h2><p>上下文窗口有限且成本高。LOCOMO 基准显示，全量上下文方案准确率虽高（72.9%），但延迟达 9.87 秒，Token 消耗是记忆系统的 13 倍。更严重的是上下文腐烂：窗口越大，无关信息越多，模型注意力被稀释，反而效果变差。独立的记忆系统通过分层管理（短期/长期/推理记忆）解决了这个问题。</p>
+<h2 id="短期记忆、长期记忆、推理记忆有什么区别？"><a href="#短期记忆、长期记忆、推理记忆有什么区别？" class="headerlink" title="短期记忆、长期记忆、推理记忆有什么区别？"></a>短期记忆、长期记忆、推理记忆有什么区别？</h2><p>三种记忆各司其职：</p>
+<ul>
+<li>短期记忆：即上下文窗口，容量有限、随会话结束消失，类似 RAM  </li>
+<li>长期记忆：外部存储（向量库/图谱），容量大、持久化，类似硬盘  </li>
+<li>推理记忆：记录决策过程（为什么选 A 不选 B），用于可解释性和调试</li>
+</ul>
+<p>大多数框架只实现前两种，推理记忆是被严重低估的能力。</p>
+<h2 id="Mem0、Letta、Zep、Cognee-四个框架怎么选？"><a href="#Mem0、Letta、Zep、Cognee-四个框架怎么选？" class="headerlink" title="Mem0、Letta、Zep、Cognee 四个框架怎么选？"></a>Mem0、Letta、Zep、Cognee 四个框架怎么选？</h2><p>按场景选择：</p>
+<ul>
+<li>Mem0：快速原型、语音 Agent（低延迟 0.71s）  </li>
+<li>Letta：长期陪伴型 Agent（OS 式管理、推理记忆完整）  </li>
+<li>Zep：企业客服（渐进式摘要、事实提取）  </li>
+<li>Cognee：知识密集型 Agent（图谱强、多跳推理）</li>
+</ul>
+<p>建议先用 Mem0 跑通原型，再根据需求迁移到 Letta 或 Cognee。</p>
+<h2 id="向量数据库和知识图谱应该怎么配合使用？"><a href="#向量数据库和知识图谱应该怎么配合使用？" class="headerlink" title="向量数据库和知识图谱应该怎么配合使用？"></a>向量数据库和知识图谱应该怎么配合使用？</h2><p>向量库擅长语义相似度搜索（找相似的内容），知识图谱擅长关系推理（找关联的内容）。混合方案是：向量库存对话文本做语义检索，知识图谱存实体关系做多跳推理，关系数据库存结构化数据做精确查询。三者结合才能覆盖所有场景。</p>
+<h2 id="记忆系统会导致记忆膨胀吗？如何治理？"><a href="#记忆系统会导致记忆膨胀吗？如何治理？" class="headerlink" title="记忆系统会导致记忆膨胀吗？如何治理？"></a>记忆系统会导致记忆膨胀吗？如何治理？</h2><p>会。用户用得越久，记忆越多，检索越慢。治理策略：</p>
+<ul>
+<li>TTL 策略：按类型设过期时间（事件记忆几小时、任务记忆按周期、用户画像长期）  </li>
+<li>衰减机制：重要性分数随时间降低，低于阈值触发归档  </li>
+<li>定期清理：删除过期、重复、低价值记忆</li>
+</ul>
+<p>Letta 建议保留 70% 信息量，是连续性和压缩率的最佳平衡点。</p>
+<h2 id="什么是-Reasoning-Memory？为什么大多数框架没有实现？"><a href="#什么是-Reasoning-Memory？为什么大多数框架没有实现？" class="headerlink" title="什么是 Reasoning Memory？为什么大多数框架没有实现？"></a>什么是 Reasoning Memory？为什么大多数框架没有实现？</h2><p>Reasoning Memory（推理记忆）记录的是决策过程：为什么选择这个方案、放弃了哪些选项、当时的约束条件是什么。它对可解释性、调试、持续学习至关重要。实现难度在于需要结构化记录推理链，而非简单存储对话文本。目前只有 Letta、Zep 等少数框架支持。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/2125/">https://jingluo23.github.io/posts/2125/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/f104/" title="Agent 记忆系统设计：从会话到长期记忆"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Agent 记忆系统设计：从会话到长期记忆</div></div><div class="info-2"><div class="info-item-1">从零构建 Agent 记忆系统：四种记忆类型选型、五阶段流水线实现、Mem0/Zep/LangMem 框架对比与生产级成本优化策略</div></div></div></a><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/8a83/" title="Agent 状态机设计：为什么复杂任务不能只靠 Prompt"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-19</div><div class="info-item-2">Agent 状态机设计：为什么复杂任务不能只靠 Prompt</div></div><div class="info-2"><div class="info-item-1">复杂 Agent 任务不能只靠 prompt 记进度。本文用 state、event、transition、guard、action、checkpoint、retry、compensation、approval pause 和 terminal state，设计可恢复的 Agent 状态机。</div></div></div></a><a class="pagination-related" href="/posts/f34d/" title="Agent 工具调用实战：让 AI 调用外部 API 和服务"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-02</div><div class="info-item-2">Agent 工具调用实战：让 AI 调用外部 API 和服务</div></div><div class="info-2"><div class="info-item-1">从 Function Calling 到 MCP，详解 Claude 和 OpenAI 的工具调用机制，提供完整代码示例和最佳实践，助你打造具备 API 调用能力的 AI Agent</div></div></div></a><a class="pagination-related" href="/posts/5644/" title="Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-18</div><div class="info-item-2">Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 接入真实工具前，先设计权限模型：用户身份映射、service account、per-tool permission、scope、secret vault、key rotation、approval policy、data boundary 和 audit log。</div></div></div></a><a class="pagination-related" href="/posts/488b/" title="Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-17</div><div class="info-item-2">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch/Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。</div></div></div></a><a class="pagination-related" href="/posts/361d/" title="LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-07</div><div class="info-item-2">LangGraph 多 Agent 协作实战：Supervisor 模式与任务分发</div></div><div class="info-2"><div class="info-item-1">深入解析 LangGraph Supervisor 模式架构原理，通过 Research + Writing 团队实战案例，掌握多 Agent 任务分发与协作的核心技巧，包含完整可运行代码示例</div></div></div></a><a class="pagination-related" href="/posts/aa36/" title="多智能体协作实战：4 种架构模式选择指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">多智能体协作实战：4 种架构模式选择指南</div></div><div class="info-2"><div class="info-item-1">掌握多智能体协作系统的 4 种核心架构模式，从 Subagents 到 Router，附带 LangGraph 代码实现和生产级性能优化建议。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88-Agent-%E9%9C%80%E8%A6%81%E7%8B%AC%E7%AB%8B%E7%9A%84%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F"><span class="toc-number">1.</span> <span class="toc-text">为什么 Agent 需要独立的记忆系统</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8A%E4%B8%8B%E6%96%87%E8%85%90%E7%83%82%EF%BC%9A%E6%9B%B4%E5%A4%A7%E7%9A%84%E7%AA%97%E5%8F%A3%E5%8F%8D%E8%80%8C%E6%9B%B4%E7%B3%9F"><span class="toc-number">1.1.</span> <span class="toc-text">上下文腐烂：更大的窗口反而更糟</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E%E2%80%9D%E5%B7%A5%E5%85%B7%E2%80%9D%E5%88%B0%E2%80%9D%E4%BC%99%E4%BC%B4%E2%80%9D%EF%BC%9A%E8%B7%A8%E8%B6%8A%E4%BC%9A%E8%AF%9D%E8%BE%B9%E7%95%8C%E7%9A%84%E8%AE%B0%E5%BF%86"><span class="toc-number">1.2.</span> <span class="toc-text">从”工具”到”伙伴”：跨越会话边界的记忆</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E7%A7%8D%E6%A0%B8%E5%BF%83%E8%AE%B0%E5%BF%86%E7%B1%BB%E5%9E%8B%EF%BC%9A%E7%9F%AD%E6%9C%9F%E3%80%81%E9%95%BF%E6%9C%9F%E3%80%81%E6%8E%A8%E7%90%86%EF%BC%88%E5%A4%A7%E5%A4%9A%E6%95%B0%E4%BA%BA%E5%BF%BD%E7%95%A5%E4%BA%86%E7%AC%AC%E4%B8%89%E7%A7%8D%EF%BC%89"><span class="toc-number">1.3.</span> <span class="toc-text">三种核心记忆类型：短期、长期、推理（大多数人忽略了第三种）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Agent-%E8%AE%B0%E5%BF%86%E7%9A%84%E8%AE%A4%E7%9F%A5%E6%9E%B6%E6%9E%84"><span class="toc-number">2.</span> <span class="toc-text">Agent 记忆的认知架构</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E5%B1%82%E8%AE%B0%E5%BF%86%E6%A8%A1%E5%9E%8B"><span class="toc-number">2.1.</span> <span class="toc-text">四层记忆模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MemGPT-%E7%9A%84%E6%93%8D%E4%BD%9C%E7%B3%BB%E7%BB%9F%E5%BC%8F%E7%AE%A1%E7%90%86"><span class="toc-number">2.2.</span> <span class="toc-text">MemGPT 的操作系统式管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Sleep-time-Compute%EF%BC%9A%E5%BC%82%E6%AD%A5%E8%AE%B0%E5%BF%86%E5%A4%84%E7%90%86%EF%BC%8C%E4%B8%8D%E9%98%BB%E5%A1%9E%E5%93%8D%E5%BA%94"><span class="toc-number">2.3.</span> <span class="toc-text">Sleep-time Compute：异步记忆处理，不阻塞响应</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B0%E5%BF%86%E9%A9%B1%E9%80%90%E4%B8%8E%E9%80%92%E5%BD%92%E6%91%98%E8%A6%81%EF%BC%9A%E4%BF%9D%E7%95%99-70-%E7%A1%AE%E4%BF%9D%E8%BF%9E%E7%BB%AD%E6%80%A7"><span class="toc-number">2.4.</span> <span class="toc-text">记忆驱逐与递归摘要：保留 70% 确保连续性</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%9F%A5%E8%AF%86%E6%B2%BB%E7%90%86%EF%BC%9A%E8%AE%B0%E5%BF%86%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E7%AE%A1%E7%90%86"><span class="toc-number">3.</span> <span class="toc-text">知识治理：记忆的生命周期管理</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E7%B1%BB%E8%AE%B0%E5%BF%86%E7%9A%84-TTL-%E7%AD%96%E7%95%A5%EF%BC%9A%E7%94%A8%E6%88%B7%E5%81%8F%E5%A5%BD-vs-%E4%BB%BB%E5%8A%A1%E7%8A%B6%E6%80%81-vs-%E6%93%8D%E4%BD%9C%E6%97%A5%E5%BF%97"><span class="toc-number">3.1.</span> <span class="toc-text">三类记忆的 TTL 策略：用户偏好 vs 任务状态 vs 操作日志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%91%98%E8%A6%81%E5%8E%8B%E7%BC%A9%E7%9A%84%E8%89%BA%E6%9C%AF%EF%BC%9A200-%E5%AD%97%E7%BB%93%E6%9E%84%E5%8C%96%E6%91%98%E8%A6%81"><span class="toc-number">3.2.</span> <span class="toc-text">摘要压缩的艺术：200 字结构化摘要</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A3%80%E7%B4%A2%E6%B3%A8%E5%85%A5%E7%AD%96%E7%95%A5%EF%BC%9A%E4%BD%95%E6%97%B6%E4%B8%BB%E5%8A%A8%E6%B3%A8%E5%85%A5%E3%80%81%E4%BD%95%E6%97%B6%E8%A2%AB%E5%8A%A8%E6%A3%80%E7%B4%A2"><span class="toc-number">3.3.</span> <span class="toc-text">检索注入策略：何时主动注入、何时被动检索</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B0%E5%BF%86%E8%A1%B0%E5%87%8F%E4%B8%8E%E6%B8%85%E7%90%86%EF%BC%9A%E9%81%BF%E5%85%8D%E2%80%9D%E8%AE%B0%E5%BF%86%E8%86%A8%E8%83%80%E2%80%9D"><span class="toc-number">3.4.</span> <span class="toc-text">记忆衰减与清理：避免”记忆膨胀”</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B%EF%BC%9A%E5%90%91%E9%87%8F%E5%BA%93-vs-%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1"><span class="toc-number">4.</span> <span class="toc-text">技术选型：向量库 vs 知识图谱</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%91%E9%87%8F%E5%BA%93%E7%9A%84%E4%BC%98%E5%8A%BF%E4%B8%8E%E5%B1%80%E9%99%90%EF%BC%9A%E8%AF%AD%E4%B9%89%E6%90%9C%E7%B4%A2%E6%97%A0%E6%B3%95%E8%BF%98%E5%8E%9F%E5%85%B3%E7%B3%BB"><span class="toc-number">4.1.</span> <span class="toc-text">向量库的优势与局限：语义搜索无法还原关系</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Graph-RAG%EF%BC%9A%E8%AE%A9-Agent-%E7%90%86%E8%A7%A3%E8%BF%9E%E6%8E%A5"><span class="toc-number">4.2.</span> <span class="toc-text">Graph RAG：让 Agent 理解连接</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Reasoning-Memory%EF%BC%9A%E5%86%B3%E7%AD%96%E8%BF%BD%E8%B8%AA%E7%9A%84%E5%85%B3%E9%94%AE"><span class="toc-number">4.3.</span> <span class="toc-text">Reasoning Memory：决策追踪的关键</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B7%B7%E5%90%88%E6%96%B9%E6%A1%88%EF%BC%9A%E5%90%91%E9%87%8F-%E5%9B%BE%E8%B0%B1-%E7%BB%93%E6%9E%84%E5%8C%96%E5%AD%98%E5%82%A8"><span class="toc-number">4.4.</span> <span class="toc-text">混合方案：向量 + 图谱 + 结构化存储</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%AD%E5%A4%A7%E6%A1%86%E6%9E%B6%E5%AE%9E%E6%88%98%E5%AF%B9%E6%AF%94"><span class="toc-number">5.</span> <span class="toc-text">六大框架实战对比</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Mem0%EF%BC%9A%E5%BF%AB%E9%80%9F%E9%9B%86%E6%88%90%E3%80%81%E5%A4%9A%E7%BA%A7%E8%AE%B0%E5%BF%86"><span class="toc-number">5.1.</span> <span class="toc-text">Mem0：快速集成、多级记忆</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Letta%EF%BC%9A%E9%95%BF%E6%9C%9F%E8%BF%90%E8%A1%8C-Agent-%E7%9A%84%E9%A6%96%E9%80%89"><span class="toc-number">5.2.</span> <span class="toc-text">Letta：长期运行 Agent 的首选</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Zep%EF%BC%9A%E5%AF%B9%E8%AF%9D%E8%AE%B0%E5%BF%86%E4%B8%93%E5%AE%B6"><span class="toc-number">5.3.</span> <span class="toc-text">Zep：对话记忆专家</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Cognee%EF%BC%9A%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E6%96%B9%E6%A1%88"><span class="toc-number">5.4.</span> <span class="toc-text">Cognee：知识图谱方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E7%9F%A9%E9%98%B5"><span class="toc-number">5.5.</span> <span class="toc-text">选型决策矩阵</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%E4%B8%8E%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">6.</span> <span class="toc-text">实战案例与最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%AD%E9%9F%B3-Agent-%E8%AE%B0%E5%BF%86%E6%96%B9%E6%A1%88"><span class="toc-number">6.1.</span> <span class="toc-text">语音 Agent 记忆方案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%81%E4%B8%9A%E5%AE%A2%E6%9C%8D-Agent"><span class="toc-number">6.2.</span> <span class="toc-text">企业客服 Agent</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%AA%E4%BA%BA%E5%8A%A9%E7%90%86%EF%BC%9A%E8%B7%A8%E4%BC%9A%E8%AF%9D%E5%AD%A6%E4%B9%A0"><span class="toc-number">6.3.</span> <span class="toc-text">个人助理：跨会话学习</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%81%BF%E5%9D%91%E6%8C%87%E5%8D%97"><span class="toc-number">6.4.</span> <span class="toc-text">避坑指南</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">7.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">8.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-Agent-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E7%8B%AC%E7%AB%8B%E7%9A%84%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%EF%BC%9F%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AA%97%E5%8F%A3%E4%B8%8D%E5%A4%9F%E7%94%A8%E5%90%97%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">AI Agent 为什么需要独立的记忆系统？上下文窗口不够用吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9F%AD%E6%9C%9F%E8%AE%B0%E5%BF%86%E3%80%81%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86%E3%80%81%E6%8E%A8%E7%90%86%E8%AE%B0%E5%BF%86%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">短期记忆、长期记忆、推理记忆有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Mem0%E3%80%81Letta%E3%80%81Zep%E3%80%81Cognee-%E5%9B%9B%E4%B8%AA%E6%A1%86%E6%9E%B6%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">Mem0、Letta、Zep、Cognee 四个框架怎么选？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93%E5%92%8C%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E5%BA%94%E8%AF%A5%E6%80%8E%E4%B9%88%E9%85%8D%E5%90%88%E4%BD%BF%E7%94%A8%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">向量数据库和知识图谱应该怎么配合使用？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E4%BC%9A%E5%AF%BC%E8%87%B4%E8%AE%B0%E5%BF%86%E8%86%A8%E8%83%80%E5%90%97%EF%BC%9F%E5%A6%82%E4%BD%95%E6%B2%BB%E7%90%86%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">记忆系统会导致记忆膨胀吗？如何治理？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-Reasoning-Memory%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E5%A4%A7%E5%A4%9A%E6%95%B0%E6%A1%86%E6%9E%B6%E6%B2%A1%E6%9C%89%E5%AE%9E%E7%8E%B0%EF%BC%9F"><span class="toc-number">9.6.</span> <span class="toc-text">什么是 Reasoning Memory？为什么大多数框架没有实现？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

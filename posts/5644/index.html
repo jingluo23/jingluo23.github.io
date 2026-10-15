@@ -1,0 +1,855 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="把 AI Agent 接入真实工具前，先设计权限模型：用户身份映射、service account、per-tool permission、scope、secret vault、key rotation、approval policy、data boundary 和 audit log。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离">
+<meta property="og:url" content="https://jingluo23.github.io/posts/5644/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="把 AI Agent 接入真实工具前，先设计权限模型：用户身份映射、service account、per-tool permission、scope、secret vault、key rotation、approval policy、data boundary 和 audit log。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-08-18T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-15T13:06:05.293Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI Agent">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离",
+  "url": "https://jingluo23.github.io/posts/5644/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-08-18T07:12:21.000Z",
+  "dateModified": "2026-10-15T13:06:05.293Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/5644/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Agent 权限模型设计：用户身份、工具权限、审计日志和密钥隔离</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-08-18T07:12:21.000Z" title="发表于 2026-08-18 15:12:21">2026-08-18</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-15T13:06:05.293Z" title="更新于 2026-10-15 21:06:05">2026-10-15</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-Agent-%E5%B7%A5%E7%A8%8B%E5%8C%96%E4%B8%93%E9%A2%98%EF%BC%9A%E6%9E%B6%E6%9E%84%E3%80%81%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8%E3%80%81%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%81%A2%E5%A4%8D/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>11分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-15 21:06:05&quot;}" hidden></div><p>团队把同一个管理员 token 配给 Agent，想着”反正都是内部系统”。结果用户 A 提交的查询请求,Agent 用管理员身份读到了用户 B 的 CRM 记录——权限失控比没有 Agent 更致命。</p>
+<p>这不是假设场景。MCP Security Best Practices 明确把 token passthrough 标为反模式：绕过安全控制、破坏 audit trail、打破信任边界。OWASP AI Agent Security Cheat Sheet 把”工具滥用和权限越界”列为核心风险之一。</p>
+<p>问题归结为三个：Agent 代表谁、凭什么调、能访问什么。以下是完整的权限模型工程蓝图：身份映射表、工具权限字段清单、Secret Vault 的核心步骤、审计日志 schema 和脱敏规则、权限决策判断表、排障清单、落地步骤。</p>
+<h1 id="身份映射：Agent-代表谁？"><a href="#身份映射：Agent-代表谁？" class="headerlink" title="身份映射：Agent 代表谁？"></a>身份映射：Agent 代表谁？</h1><p>Agent 调用工具时，日志和权限系统首先要回答一个问题：谁发起的调用，代表谁操作。这两个实体可能相同，也可能不同。混淆它们会导致权限失控和审计混乱。</p>
+<h2 id="身份类型对照表"><a href="#身份类型对照表" class="headerlink" title="身份类型对照表"></a>身份类型对照表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">类型</th>
+<th style="text-align:center">actor</th>
+<th style="text-align:center">subject</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">权限边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">user identity</td>
+<td style="text-align:center">用户 A</td>
+<td style="text-align:center">用户 A</td>
+<td style="text-align:center">用户直接交互</td>
+<td style="text-align:center">继承用户权限</td>
+</tr>
+<tr>
+<td style="text-align:center">service account</td>
+<td style="text-align:center">system_bot</td>
+<td style="text-align:center">null</td>
+<td style="text-align:center">后台任务、定时作业</td>
+<td style="text-align:center">系统级权限，独立于用户</td>
+</tr>
+<tr>
+<td style="text-align:center">delegated token</td>
+<td style="text-align:center">workflow_123</td>
+<td style="text-align:center">用户 A</td>
+<td style="text-align:center">用户授权的自动化工作流</td>
+<td style="text-align:center">工作流 scope，受限于用户授权范围</td>
+</tr>
+<tr>
+<td style="text-align:center">tenant context</td>
+<td style="text-align:center">agent_456</td>
+<td style="text-align:center">tenant_B</td>
+<td style="text-align:center">多租户系统</td>
+<td style="text-align:center">租户隔离，不能跨租户访问</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>字段定义：actor 是发起调用的实体（用户、Agent、工作流、系统），日志中记录 actor 的 ID；subject 是被代表的实体（用户或 null），用户本人交互时 actor=subject，系统账号执行后台任务时 subject=null；delegatedBy 是委托来源，标识哪个用户授权了这个工作流；tenantId 是租户标识，用于多租户系统中的数据隔离。</p>
+<p>根据 MCP Authorization 规范，MCP servers 必须验证 access token 是签发给自己的 intended audience。Token 的 audience 字段必须指向该 MCP server 的资源标识。Token 不应放在 URI query string，因为 URI 会出现在日志、浏览器历史、代理缓存中。</p>
+<p>OWASP Access Control Cheat Sheet 强调 deny by default、least privilege，并在每个请求上执行检查。身份映射是权限检查的第一步：actor/subject/tenantId 决定了后续的权限判断。</p>
+<h1 id="工具权限：Agent-能调什么？"><a href="#工具权限：Agent-能调什么？" class="headerlink" title="工具权限：Agent 能调什么？"></a>工具权限：Agent 能调什么？</h1><p>工具注册时不只是定义 name、description、input_schema。OpenAI Agents SDK 工具参考中有一组字段用于权限和执行控制。</p>
+<h2 id="工具权限决策表"><a href="#工具权限决策表" class="headerlink" title="工具权限决策表"></a>工具权限决策表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">权限控制</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">实现方式</th>
+<th style="text-align:center">风险</th>
+<th style="text-align:center">per-tool permission</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">每个工具独立授权</td>
+<td style="text-align:center">工具注册时设置 permission_level（read/write/admin）</td>
+<td style="text-align:center">权限配置复杂，需要维护权限矩阵</td>
+<td style="text-align:center">scope minimization</td>
+<td style="text-align:center">渐进式最小权限</td>
+</tr>
+<tr>
+<td style="text-align:center">初始 scope 只包含低风险操作，高权限操作通过 scope challenge 增量扩展</td>
+<td style="text-align:center">Scope 管理成本高，需要动态调整</td>
+<td style="text-align:center">whitelist</td>
+<td style="text-align:center">工具白名单</td>
+<td style="text-align:center">只允许特定工具组合（如 read_customer + summarize）</td>
+</tr>
+<tr>
+<td style="text-align:center">白名单维护成本，可能限制灵活性</td>
+<td style="text-align:center">approval</td>
+<td style="text-align:center">人工审批</td>
+<td style="text-align:center">needs_approval=true 的工具在执行前暂停，等待人工审批</td>
+<td style="text-align:center">审批耗时，影响用户体验</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>OpenAI Agents SDK 工具字段包括：is_enabled 用于运行时启用控制，可根据用户角色、tenant、workflow context 动态禁用工具；needs_approval 标记是否需要人工审批，审批通过后仍会执行 tool_input_guardrails；tool_input_guardrails 负责输入校验（PII 检测、参数越界检查）；tool_output_guardrails 负责输出校验（内容过滤）。</p>
+<p>根据 MCP Security Best Practices，scope minimization 建议渐进式最小权限：初始 scope 只包含低风险的发现/读取操作（如 read:metadata、list:resources）；高权限操作通过精确的 scope challenge 增量扩展；避免 wildcard/full-access scopes。</p>
+<p>OWASP AI Agent Security Cheat Sheet 建议 per-tool permission scoping：不同 trust level 使用不同 tool sets；敏感操作显式授权；fail closed（权限检查失败时明确拒绝）。</p>
+<h1 id="Secret-隔离：Agent-怎么取用密钥？"><a href="#Secret-隔离：Agent-怎么取用密钥？" class="headerlink" title="Secret 隔离：Agent 怎么取用密钥？"></a>Secret 隔离：Agent 怎么取用密钥？</h1><p>Agent 不应直接持有长期明文 API key。OWASP Secrets Management Cheat Sheet 建议：集中和标准化 secret 管理；secret 管理系统也要支持 Authentication、Authorization、Accounting 和 lifecycle。</p>
+<h2 id="Secret-访问模式对照表"><a href="#Secret-访问模式对照表" class="headerlink" title="Secret 访问模式对照表"></a>Secret 访问模式对照表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">模式</th>
+<th style="text-align:center">风险</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">直接持有（明文 .env）</td>
+<td style="text-align:center">泄漏风险高，无法追踪，无法撤销</td>
+<td style="text-align:center">不推荐</td>
+<td style="text-align:center">硬编码 API key</td>
+</tr>
+<tr>
+<td style="text-align:center">环境变量</td>
+<td style="text-align:center">日志泄漏风险，仍无法追踪和撤销</td>
+<td style="text-align:center">单机部署</td>
+<td style="text-align:center">process.env.API_KEY</td>
+</tr>
+<tr>
+<td style="text-align:center">secret vault</td>
+<td style="text-align:center">集中管理、加密存储、审计追踪、可撤销</td>
+<td style="text-align:center">生产环境</td>
+<td style="text-align:center">AWS Secrets Manager、HashiCorp Vault</td>
+</tr>
+<tr>
+<td style="text-align:center">secret reference</td>
+<td style="text-align:center">Agent 持有 reference，执行时按需取用短期 token</td>
+<td style="text-align:center">多租户、高安全场景</td>
+<td style="text-align:center">vault.get(secretRef)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Secret 生命周期包括四个阶段：creation 时生成短期 token而非长期 key；rotation 定期轮换（每 30 天），自动化流程更新 secret 并通知相关系统；revocation 提供紧急撤销机制，发现泄漏时立即禁用 secret；expiration 设置过期时间，过期后自动失效。</p>
+<p>MCP Security Best Practices 明确指出 token passthrough 是反模式：把用户 OAuth token 直接传给 Agent 会绕过安全控制、破坏 audit trail、打破信任边界。正确做法是用户授权给 Agent 时生成 delegated token（短期、scope 受限、audience 明确）。</p>
+<p>OWASP Secrets Management 的核心原则：centralize、least privilege、automate、auditing。访问 secret 应遵循最小权限；人工维护会增加泄漏和错误风险，rotation/revocation/expiration 是生命周期的一部分。</p>
+<h1 id="审计日志：谁在什么时候调了什么？"><a href="#审计日志：谁在什么时候调了什么？" class="headerlink" title="审计日志：谁在什么时候调了什么？"></a>审计日志：谁在什么时候调了什么？</h1><p>审计日志要能还原”谁代表谁调用了哪个工具、访问了哪个对象、结果如何”，同时必须脱敏参数和 secret。</p>
+<h2 id="Audit-Log-Schema"><a href="#Audit-Log-Schema" class="headerlink" title="Audit Log Schema"></a>Audit Log Schema</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段</th>
+<th style="text-align:center">说明</th>
+<th style="text-align:center">脱敏规则</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">traceId</td>
+<td style="text-align:center">调用链路 ID（复用 N156 的 trace/runId 概念）</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+<tr>
+<td style="text-align:center">timestamp</td>
+<td style="text-align:center">调用时间（ISO 8601）</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+<tr>
+<td style="text-align:center">actor</td>
+<td style="text-align:center">发起调用的实体</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+<tr>
+<td style="text-align:center">subject</td>
+<td style="text-align:center">被代表的实体</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+<tr>
+<td style="text-align:center">tool</td>
+<td style="text-align:center">工具名</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+<tr>
+<td style="text-align:center">action</td>
+<td style="text-align:center">操作类型（read/write/delete）</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+<tr>
+<td style="text-align:center">resource</td>
+<td style="text-align:center">操作对象</td>
+<td style="text-align:center"><strong>脱敏</strong>：customer<em>id → cust</em><em>*</em></td>
+</tr>
+<tr>
+<td style="text-align:center">outcome</td>
+<td style="text-align:center">结果（success/failure/denied）</td>
+<td style="text-align:center">不脱敏</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>脱敏规则：不记录 token、secret、password、email、phone、PII。应记录 <code>who/what/when/where/outcome</code>。示例：<code>customer_id=12345 记为 cust_</code><em><strong>；</strong></em><code>_**email=user@example.com 记为 e**_@***.com</code>；<code>token=Bearer xxx 记为 Bearer ***</code>；<code>password=secret123 不记录</code>。</p>
+<p>根据 OWASP Logging Cheat Sheet，安全日志应支持调查、审计和监控，但不能记录密码、session id、access token、敏感个人数据。应记录 who/what/when/where/outcome 等可追溯信息。</p>
+<p>NIST SP 800-53 的 audit and accountability 控制族强调：审计日志是权限系统的最后一道防线。权限检查失败时，必须在日志中记录原因（actor 无权限、subject 无 target 权限、scope 不足）。</p>
+<h1 id="权限模型决策表：快速判断你的-Agent-应该用什么控制组合"><a href="#权限模型决策表：快速判断你的-Agent-应该用什么控制组合" class="headerlink" title="权限模型决策表：快速判断你的 Agent 应该用什么控制组合"></a>权限模型决策表：快速判断你的 Agent 应该用什么控制组合</h1><p>身份映射、工具权限、Secret 隔离、审计日志不是独立控制，而是组合约束。以下是不同场景的控制组合。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">identity type</th>
+<th style="text-align:center">tool permission</th>
+<th style="text-align:center">secret access</th>
+<th style="text-align:center">audit log</th>
+<th style="text-align:center">典型应用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">低风险内部工具</td>
+<td style="text-align:center">service account</td>
+<td style="text-align:center">whitelist（只允许 read 工具）</td>
+<td style="text-align:center">环境变量</td>
+<td style="text-align:center">actor/tool/outcome</td>
+<td style="text-align:center">内部报表生成、定时同步</td>
+</tr>
+<tr>
+<td style="text-align:center">多租户 SaaS</td>
+<td style="text-align:center">delegated token + tenantId</td>
+<td style="text-align:center">per-tool permission（按租户过滤）</td>
+<td style="text-align:center">secret vault（租户隔离）</td>
+<td style="text-align:center">full schema（含 tenantId）</td>
+<td style="text-align:center">CRM Agent、邮件助手</td>
+</tr>
+<tr>
+<td style="text-align:center">金融交易</td>
+<td style="text-align:center">user identity + approval</td>
+<td style="text-align:center">scope minimization + approval</td>
+<td style="text-align:center">secret reference（短期 token）</td>
+<td style="text-align:center">full schema + approvalId</td>
+<td style="text-align:center">交易审批、资金操作</td>
+</tr>
+<tr>
+<td style="text-align:center">敏感数据操作</td>
+<td style="text-align:center">delegated token + approval</td>
+<td style="text-align:center">whitelist + approval + guardrails</td>
+<td style="text-align:center">secret vault（紧急撤销）</td>
+<td style="text-align:center">full schema + 脱敏</td>
+<td style="text-align:center">数据导出、客户查询</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>OWASP AI Agent Security Cheat Sheet 建议 separate tool sets（不同 trust level 使用不同工具集合）和 explicit authorization（敏感操作显式授权）。权限模型决策表的核心是组合关系：高风险场景需要多层控制叠加，而不是单一控制。</p>
+<h1 id="排障清单：权限问题的常见症状"><a href="#排障清单：权限问题的常见症状" class="headerlink" title="排障清单：权限问题的常见症状"></a>排障清单：权限问题的常见症状</h1><p>以下是权限问题的常见症状、可能原因、检查步骤和解决方案。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">症状</th>
+<th style="text-align:center">可能原因</th>
+<th style="text-align:center">检查步骤</th>
+<th style="text-align:center">解决方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Agent 调工具时返回 403 Forbidden</td>
+<td style="text-align:center">actor 无 tool permission 或 subject 无 target permission</td>
+<td style="text-align:center">检查 actor 的 permission_level、subject 的 resource 权限</td>
+<td style="text-align:center">确认身份映射正确，调整权限矩阵</td>
+</tr>
+<tr>
+<td style="text-align:center">日志里看到 actor 为空或 subject 混乱</td>
+<td style="text-align:center">身份映射字段未正确传递</td>
+<td style="text-align:center">检查 Agent context 是否包含 actor/subject/tenantId</td>
+<td style="text-align:center">确保身份字段在调用链路中正确传递</td>
+</tr>
+<tr>
+<td style="text-align:center">工具调用成功但审计日志缺失必要字段</td>
+<td style="text-align:center">Audit Log Schema 未完整实现</td>
+<td style="text-align:center">检查日志写入逻辑是否包含所有字段</td>
+<td style="text-align:center">补齐 Schema，添加 traceId/approvalId</td>
+</tr>
+<tr>
+<td style="text-align:center">用户 A 的请求可以读到用户 B 的数据</td>
+<td style="text-align:center">tenantId 或 subject 未隔离，管理员 token 混用</td>
+<td style="text-align:center">检查是否使用 delegated token、tenantId 是否正确</td>
+<td style="text-align:center">改用 delegated token，强制 tenantId 校验</td>
+</tr>
+<tr>
+<td style="text-align:center">Secret rotation 后 Agent 仍用旧 key</td>
+<td style="text-align:center">Secret reference 未更新，或 rotation 未生效</td>
+<td style="text-align:center">检查 vault 是否返回新 secret、Agent 是否重新获取</td>
+<td style="text-align:center">确保 rotation 自动更新 reference</td>
+</tr>
+<tr>
+<td style="text-align:center">审批通过后工具仍调用失败</td>
+<td style="text-align:center">Guardrails 失败（参数越界、PII 检测）</td>
+<td style="text-align:center">检查 tool_input_guardrails 日志</td>
+<td style="text-align:center">调整参数或 guardrails 规则</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h1 id="落地清单：从-0-到-1-搭建-Agent-权限模型"><a href="#落地清单：从-0-到-1-搭建-Agent-权限模型" class="headerlink" title="落地清单：从 0 到 1 搭建 Agent 权限模型"></a>落地清单：从 0 到 1 搭建 Agent 权限模型</h1><p>以下是权限模型落地的 5 个核心步骤。</p>
+<h2 id="步骤-1：定义身份映射规则"><a href="#步骤-1：定义身份映射规则" class="headerlink" title="步骤 1：定义身份映射规则"></a>步骤 1：定义身份映射规则</h2><p>决策点：是否需要多租户隔离（添加 tenantId 字段）？是否有后台任务（定义 service account）？是否有自动化工作流（使用 delegated token）？</p>
+<p>代码示例（伪代码）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">interface IdentityContext &#123;</span><br><span class="line">  actor: string;        // 发起调用的实体</span><br><span class="line">  subject: string | null;  // 被代表的实体</span><br><span class="line">  delegatedBy?: string;  // 委托来源</span><br><span class="line">  tenantId?: string;    // 租户标识</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="步骤-2：设计工具权限矩阵"><a href="#步骤-2：设计工具权限矩阵" class="headerlink" title="步骤 2：设计工具权限矩阵"></a>步骤 2：设计工具权限矩阵</h2><p>决策点：是否需要审批（设置 needs_approval=true）？是否需要动态过滤（实现 is_enabled 的运行时判断）？是否需要参数校验（实现 tool_input_guardrails）？</p>
+<p>代码示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">interface ToolPermission &#123;</span><br><span class="line">  name: string;</span><br><span class="line">  permission_level: &#x27;read&#x27; | &#x27;write&#x27; | &#x27;admin&#x27;;</span><br><span class="line">  required_scope: string[];</span><br><span class="line">  needs_approval: boolean;</span><br><span class="line">  is_enabled: (context: IdentityContext) =&gt; boolean;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="步骤-3：接入-secret-vault"><a href="#步骤-3：接入-secret-vault" class="headerlink" title="步骤 3：接入 secret vault"></a>步骤 3：接入 secret vault</h2><p>决策点：是否需要短期凭证（使用 secret reference）？是否需要紧急撤销（确保 vault 支持紧急禁用）？</p>
+<p>代码示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">async function getSecret(secretRef: string, context: IdentityContext): Promise&lt;string&gt; &#123;</span><br><span class="line">  // 校验身份</span><br><span class="line">  await vault.authenticate(context.actor);</span><br><span class="line">  // 校验权限</span><br><span class="line">  await vault.authorize(context.actor, secretRef);</span><br><span class="line">  // 获取短期 token</span><br><span class="line">  const token = await vault.getToken(secretRef, expiresIn: &#x27;15m&#x27;);</span><br><span class="line">  // 记录审计</span><br><span class="line">  await auditLog.record(&#123;</span><br><span class="line">    actor: context.actor,</span><br><span class="line">    action: &#x27;get_secret&#x27;,</span><br><span class="line">    resource: secretRef,</span><br><span class="line">    outcome: &#x27;success&#x27;</span><br><span class="line">  &#125;);</span><br><span class="line">  return token;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="步骤-4：实现审计日志"><a href="#步骤-4：实现审计日志" class="headerlink" title="步骤 4：实现审计日志"></a>步骤 4：实现审计日志</h2><p>决策点：是否需要脱敏（实现 redaction 规则）？是否需要 traceId（复用 N156 的 trace/runId）？</p>
+<p>代码示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">interface AuditLogEntry &#123;</span><br><span class="line">  traceId: string;</span><br><span class="line">  timestamp: Date;</span><br><span class="line">  actor: string;</span><br><span class="line">  subject: string | null;</span><br><span class="line">  tool: string;</span><br><span class="line">  action: &#x27;read&#x27; | &#x27;write&#x27; | &#x27;delete&#x27;;</span><br><span class="line">  resource: string;  // 脱敏后</span><br><span class="line">  outcome: &#x27;success&#x27; | &#x27;failure&#x27; | &#x27;denied&#x27;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="步骤-5：测试权限边界"><a href="#步骤-5：测试权限边界" class="headerlink" title="步骤 5：测试权限边界"></a>步骤 5：测试权限边界</h2><p>决策点：是否测试越权场景（模拟用户 A 访问用户 B 的数据）？是否测试 token 泄漏（模拟 secret 泄漏后的撤销流程）？是否测试审计追踪（通过 traceId 回溯完整链路）？</p>
+<p>测试清单：越权测试（actor=user_A，resource=tenant_B → 应返回 403）；Token 泄漏测试（vault.revoke(secretRef) → Agent 应无法获取新 token）；Audit 追踪测试（通过 traceId 查询完整调用链路 → 应包含 actor/subject/tool/outcome）。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="Agent-调工具时到底代表用户、系统账号，还是-workflow-自己？"><a href="#Agent-调工具时到底代表用户、系统账号，还是-workflow-自己？" class="headerlink" title="Agent 调工具时到底代表用户、系统账号，还是 workflow 自己？"></a>Agent 调工具时到底代表用户、系统账号，还是 workflow 自己？</h2><p>看 actor/subject 的组合。用户本人交互时 actor=subject；后台任务时 actor=system_bot、subject=null；工作流委托时 actor=workflow_123、subject=user_a。日志和权限系统都要同时记录 actor 和 subject。</p>
+<h2 id="用户-OAuth-授权过了，为什么还需要-per-tool-permission？"><a href="#用户-OAuth-授权过了，为什么还需要-per-tool-permission？" class="headerlink" title="用户 OAuth 授权过了，为什么还需要 per-tool permission？"></a>用户 OAuth 授权过了，为什么还需要 per-tool permission？</h2><p>OAuth scope 是协议层权限，per-tool permission 是业务层权限。Scope 不足以完成业务授权，服务端还要检查 actor、subject、resource、action。</p>
+<h2 id="一个管理员-token-能不能让-Agent-替所有用户查数据？"><a href="#一个管理员-token-能不能让-Agent-替所有用户查数据？" class="headerlink" title="一个管理员 token 能不能让 Agent 替所有用户查数据？"></a>一个管理员 token 能不能让 Agent 替所有用户查数据？</h2><p>不能。这是典型的权限失控场景：Agent 用管理员身份读取所有用户的数据，导致用户 A 的请求可以读到用户 B 的 CRM 记录。正确做法是使用短期、scope 受限、audience 明确的 delegated token。</p>
+<h2 id="Agent-能不能直接读取-env-或用户-API-key？"><a href="#Agent-能不能直接读取-env-或用户-API-key？" class="headerlink" title="Agent 能不能直接读取 .env 或用户 API key？"></a>Agent 能不能直接读取 .env 或用户 API key？</h2><p>不能。Secret 应存在 vault，Agent 通过 secret reference 按需取用。直接读取 .env 会让 key 泄漏、追踪和撤销都变得困难。</p>
+<h2 id="审批通过后，是否可以长期复用同一个高权限-token？"><a href="#审批通过后，是否可以长期复用同一个高权限-token？" class="headerlink" title="审批通过后，是否可以长期复用同一个高权限 token？"></a>审批通过后，是否可以长期复用同一个高权限 token？</h2><p>不建议。Token 应该是 short-lived，审批后只用于当前工具调用，不长期持有。长期复用高权限 token 会扩大泄漏影响，也难以追踪审批和调用的对应关系。</p>
+<h2 id="审计日志要记参数吗？如何避免把-token、邮箱、客户数据写进日志？"><a href="#审计日志要记参数吗？如何避免把-token、邮箱、客户数据写进日志？" class="headerlink" title="审计日志要记参数吗？如何避免把 token、邮箱、客户数据写进日志？"></a>审计日志要记参数吗？如何避免把 token、邮箱、客户数据写进日志？</h2><p>参数需要记录摘要和目标资源，但要脱敏。不要记录密码、session id、access token、完整 secret 或敏感个人数据；例如 customer<em>id 记为 cust</em><strong><em>，email 记为 e</em></strong>@<strong><em>.com，token 记为 Bearer </em></strong>。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/5644/">https://jingluo23.github.io/posts/5644/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-Agent/">AI Agent</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/488b/" title="Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Agent 成本控制：模型路由、工具调用预算、缓存和失败重试怎么设计</div></div><div class="info-2"><div class="info-item-1">把 AI Agent 成本控制拆成可落地的预算对象：模型路由、工具调用限额、prompt caching、Batch/Flex、失败重试、熔断、成本日志和告警字段，避免生产任务无声烧钱。</div></div></div></a><a class="pagination-related" href="/posts/8a83/" title="Agent 状态机设计：为什么复杂任务不能只靠 Prompt"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Agent 状态机设计：为什么复杂任务不能只靠 Prompt</div></div><div class="info-2"><div class="info-item-1">复杂 Agent 任务不能只靠 prompt 记进度。本文用 state、event、transition、guard、action、checkpoint、retry、compensation、approval pause 和 terminal state，设计可恢复的 Agent 状态机。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/69d1/" title="2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-14</div><div class="info-item-2">2026 AI Agent 工程化全景：从 LangGraph 到 OpenAI Agents SDK 怎么选</div></div><div class="info-2"><div class="info-item-1">用状态管理、工具调用、HITL、guardrails、eval、可观测性和部署复杂度比较 LangGraph、OpenAI Agents SDK、AutoGen、CrewAI 与 Temporal，帮你从 Agent demo 进入生产选型。</div></div></div></a><a class="pagination-related" href="/posts/37a1/" title="AI Agent 开发实战：架构设计与实现指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-30</div><div class="info-item-2">AI Agent 开发实战：架构设计与实现指南</div></div><div class="info-2"><div class="info-item-1">深入解析 AI Agent 架构设计：ReAct、Plan-and-Execute、Multi-Agent 三大模式对比，五种多代理编排模式详解，Claude Agent SDK 实战代码示例，助你从理论到实践一网打尽。</div></div></div></a><a class="pagination-related" href="/posts/aa55/" title="Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-10</div><div class="info-item-2">Agent 评估基准实战：从 AgentBench 到 DeepEval 的性能测试指南</div></div><div class="info-2"><div class="info-item-1">详解 Agent 评估基准与性能测试框架，对比 AgentBench、WebArena、τ-Bench 等五大基准，介绍 DeepEval 组件级评估方法，提供完整代码示例。</div></div></div></a><a class="pagination-related" href="/posts/6050/" title="Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-29</div><div class="info-item-2">Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 沙盒环境搭建方案，从 gVisor 到 Firecracker 技术对比，提供本地开发到 Kubernetes 集群的完整部署指南</div></div></div></a><a class="pagination-related" href="/posts/f104/" title="Agent 记忆系统设计：从会话到长期记忆"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-31</div><div class="info-item-2">Agent 记忆系统设计：从会话到长期记忆</div></div><div class="info-2"><div class="info-item-1">从零构建 Agent 记忆系统：四种记忆类型选型、五阶段流水线实现、Mem0/Zep/LangMem 框架对比与生产级成本优化策略</div></div></div></a><a class="pagination-related" href="/posts/aa36/" title="多智能体协作实战：4 种架构模式选择指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-08-04</div><div class="info-item-2">多智能体协作实战：4 种架构模式选择指南</div></div><div class="info-2"><div class="info-item-1">掌握多智能体协作系统的 4 种核心架构模式，从 Subagents 到 Router，附带 LangGraph 代码实现和生产级性能优化建议。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">专注于JAVA研究 | JAVA项目实战 | JAVA 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">95</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">20</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">4</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索 JAVA，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BA%AB%E4%BB%BD%E6%98%A0%E5%B0%84%EF%BC%9AAgent-%E4%BB%A3%E8%A1%A8%E8%B0%81%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">身份映射：Agent 代表谁？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BA%AB%E4%BB%BD%E7%B1%BB%E5%9E%8B%E5%AF%B9%E7%85%A7%E8%A1%A8"><span class="toc-number">1.1.</span> <span class="toc-text">身份类型对照表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E6%9D%83%E9%99%90%EF%BC%9AAgent-%E8%83%BD%E8%B0%83%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">2.</span> <span class="toc-text">工具权限：Agent 能调什么？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B7%A5%E5%85%B7%E6%9D%83%E9%99%90%E5%86%B3%E7%AD%96%E8%A1%A8"><span class="toc-number">2.1.</span> <span class="toc-text">工具权限决策表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Secret-%E9%9A%94%E7%A6%BB%EF%BC%9AAgent-%E6%80%8E%E4%B9%88%E5%8F%96%E7%94%A8%E5%AF%86%E9%92%A5%EF%BC%9F"><span class="toc-number">3.</span> <span class="toc-text">Secret 隔离：Agent 怎么取用密钥？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Secret-%E8%AE%BF%E9%97%AE%E6%A8%A1%E5%BC%8F%E5%AF%B9%E7%85%A7%E8%A1%A8"><span class="toc-number">3.1.</span> <span class="toc-text">Secret 访问模式对照表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%A1%E8%AE%A1%E6%97%A5%E5%BF%97%EF%BC%9A%E8%B0%81%E5%9C%A8%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%B0%83%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">4.</span> <span class="toc-text">审计日志：谁在什么时候调了什么？</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Audit-Log-Schema"><span class="toc-number">4.1.</span> <span class="toc-text">Audit Log Schema</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9D%83%E9%99%90%E6%A8%A1%E5%9E%8B%E5%86%B3%E7%AD%96%E8%A1%A8%EF%BC%9A%E5%BF%AB%E9%80%9F%E5%88%A4%E6%96%AD%E4%BD%A0%E7%9A%84-Agent-%E5%BA%94%E8%AF%A5%E7%94%A8%E4%BB%80%E4%B9%88%E6%8E%A7%E5%88%B6%E7%BB%84%E5%90%88"><span class="toc-number">5.</span> <span class="toc-text">权限模型决策表：快速判断你的 Agent 应该用什么控制组合</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8E%92%E9%9A%9C%E6%B8%85%E5%8D%95%EF%BC%9A%E6%9D%83%E9%99%90%E9%97%AE%E9%A2%98%E7%9A%84%E5%B8%B8%E8%A7%81%E7%97%87%E7%8A%B6"><span class="toc-number">6.</span> <span class="toc-text">排障清单：权限问题的常见症状</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%90%BD%E5%9C%B0%E6%B8%85%E5%8D%95%EF%BC%9A%E4%BB%8E-0-%E5%88%B0-1-%E6%90%AD%E5%BB%BA-Agent-%E6%9D%83%E9%99%90%E6%A8%A1%E5%9E%8B"><span class="toc-number">7.</span> <span class="toc-text">落地清单：从 0 到 1 搭建 Agent 权限模型</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-1%EF%BC%9A%E5%AE%9A%E4%B9%89%E8%BA%AB%E4%BB%BD%E6%98%A0%E5%B0%84%E8%A7%84%E5%88%99"><span class="toc-number">7.1.</span> <span class="toc-text">步骤 1：定义身份映射规则</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-2%EF%BC%9A%E8%AE%BE%E8%AE%A1%E5%B7%A5%E5%85%B7%E6%9D%83%E9%99%90%E7%9F%A9%E9%98%B5"><span class="toc-number">7.2.</span> <span class="toc-text">步骤 2：设计工具权限矩阵</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-3%EF%BC%9A%E6%8E%A5%E5%85%A5-secret-vault"><span class="toc-number">7.3.</span> <span class="toc-text">步骤 3：接入 secret vault</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-4%EF%BC%9A%E5%AE%9E%E7%8E%B0%E5%AE%A1%E8%AE%A1%E6%97%A5%E5%BF%97"><span class="toc-number">7.4.</span> <span class="toc-text">步骤 4：实现审计日志</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4-5%EF%BC%9A%E6%B5%8B%E8%AF%95%E6%9D%83%E9%99%90%E8%BE%B9%E7%95%8C"><span class="toc-number">7.5.</span> <span class="toc-text">步骤 5：测试权限边界</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E8%B0%83%E5%B7%A5%E5%85%B7%E6%97%B6%E5%88%B0%E5%BA%95%E4%BB%A3%E8%A1%A8%E7%94%A8%E6%88%B7%E3%80%81%E7%B3%BB%E7%BB%9F%E8%B4%A6%E5%8F%B7%EF%BC%8C%E8%BF%98%E6%98%AF-workflow-%E8%87%AA%E5%B7%B1%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">Agent 调工具时到底代表用户、系统账号，还是 workflow 自己？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%A8%E6%88%B7-OAuth-%E6%8E%88%E6%9D%83%E8%BF%87%E4%BA%86%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E8%BF%98%E9%9C%80%E8%A6%81-per-tool-permission%EF%BC%9F"><span class="toc-number">8.2.</span> <span class="toc-text">用户 OAuth 授权过了，为什么还需要 per-tool permission？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E7%AE%A1%E7%90%86%E5%91%98-token-%E8%83%BD%E4%B8%8D%E8%83%BD%E8%AE%A9-Agent-%E6%9B%BF%E6%89%80%E6%9C%89%E7%94%A8%E6%88%B7%E6%9F%A5%E6%95%B0%E6%8D%AE%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">一个管理员 token 能不能让 Agent 替所有用户查数据？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Agent-%E8%83%BD%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E8%AF%BB%E5%8F%96-env-%E6%88%96%E7%94%A8%E6%88%B7-API-key%EF%BC%9F"><span class="toc-number">8.4.</span> <span class="toc-text">Agent 能不能直接读取 .env 或用户 API key？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E6%89%B9%E9%80%9A%E8%BF%87%E5%90%8E%EF%BC%8C%E6%98%AF%E5%90%A6%E5%8F%AF%E4%BB%A5%E9%95%BF%E6%9C%9F%E5%A4%8D%E7%94%A8%E5%90%8C%E4%B8%80%E4%B8%AA%E9%AB%98%E6%9D%83%E9%99%90-token%EF%BC%9F"><span class="toc-number">8.5.</span> <span class="toc-text">审批通过后，是否可以长期复用同一个高权限 token？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%A1%E8%AE%A1%E6%97%A5%E5%BF%97%E8%A6%81%E8%AE%B0%E5%8F%82%E6%95%B0%E5%90%97%EF%BC%9F%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E6%8A%8A-token%E3%80%81%E9%82%AE%E7%AE%B1%E3%80%81%E5%AE%A2%E6%88%B7%E6%95%B0%E6%8D%AE%E5%86%99%E8%BF%9B%E6%97%A5%E5%BF%97%EF%BC%9F"><span class="toc-number">8.6.</span> <span class="toc-text">审计日志要记参数吗？如何避免把 token、邮箱、客户数据写进日志？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
