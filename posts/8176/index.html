@@ -1,0 +1,691 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="用 OpenClaw 搭建从 YouTube 灵感到 Twitter&#x2F;LinkedIn 分发的全自动内容管道，实现 AI 营销自动化，每天节省 2 小时内容生产时间。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道">
+<meta property="og:url" content="https://jingluo23.github.io/posts/8176/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="用 OpenClaw 搭建从 YouTube 灵感到 Twitter&#x2F;LinkedIn 分发的全自动内容管道，实现 AI 营销自动化，每天节省 2 小时内容生产时间。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-22T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-16T06:01:54.109Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道",
+  "url": "https://jingluo23.github.io/posts/8176/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-22T07:12:21.000Z",
+  "dateModified": "2026-10-16T06:01:54.109Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/8176/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-22T07:12:21.000Z" title="发表于 2026-07-22 15:12:21">2026-07-22</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-16T06:01:54.109Z" title="更新于 2026-10-16 14:01:54">2026-10-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>13分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-16 14:01:54&quot;}" hidden></div><p>今天要发三条 Twitter、一条 LinkedIn 长文，还有周报要出——问题是发什么？打开五个标签页：YouTube 看行业视频、Twitter 刷热点、LinkedIn 瞄竞品动态、公众号找灵感。两个小时后，收集了一堆零零散散的笔记，却还没写出一个完整的句子。</p>
+<p>这种场景在过去三年里重复了太多次。直到遇到 OpenClaw——不是又一款”AI 写作工具”，而是真正的内容管道：从 YouTube 视频自动提取灵感，一键生成适配 Twitter 和 LinkedIn 的内容，定时发布，还能追踪效果。整个流程跑通后，内容生产时间从每天 3 小时压缩到了 30 分钟。</p>
+<p>如果是市场人、内容运营或者独立创作者，每天被”发什么”折磨，那这篇指南可能会改变工作方式。不聊虚的，直接上实操。</p>
+<h1 id="OpenClaw-营销自动化的核心逻辑"><a href="#OpenClaw-营销自动化的核心逻辑" class="headerlink" title="OpenClaw 营销自动化的核心逻辑"></a>OpenClaw 营销自动化的核心逻辑</h1><p>用 OpenClaw 做营销自动化，和用 ChatGPT 写文案完全是两回事。ChatGPT 是个”单点工具”——你输入 prompt，它输出文字。OpenClaw 是个”管道系统”——你把各种工具和数据源串起来，让内容像水一样自动流动。</p>
+<p>这套系统的核心有三块：<strong>技能（Skills）+ 渠道（Channels）+ 触发器（Triggers）</strong>。</p>
+<p><strong>技能</strong>是 OpenClaw 的能力模块。官方和社区开发了上百个技能，比如 YouTube 技能可以提取视频字幕，Twitter 技能可以发推和读时间线，LinkedIn 技能可以发布文章和分析数据。每个技能就像乐高积木的一块，你可以把它们拼成任意形状。</p>
+<p><strong>渠道</strong>是 OpenClaw 与外部世界的连接点。你想让 AI 帮你发 Twitter？那就配置 Twitter 渠道。想让 AI 从 YouTube 取数据？配置 YouTube 渠道。渠道负责认证、API 调用、数据格式化这些脏活累活。</p>
+<p><strong>触发器</strong>是管道的心跳。它可以是一个定时任务（每天早上 9 点执行），也可以是一个事件（收到新邮件时执行），还可以是手动触发（你在 Telegram 里敲个命令）。</p>
+<p>这三者组合起来，就形成了一个工作流。举个最简单的例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">触发器：每天早上 9 点</span><br><span class="line">  ↓</span><br><span class="line">技能：YouTube 搜索&quot;AI 营销&quot;相关视频</span><br><span class="line">  ↓</span><br><span class="line">技能：提取前三个视频的字幕</span><br><span class="line">  ↓</span><br><span class="line">技能：用 GPT-4 生成 Twitter 线程大纲</span><br><span class="line">  ↓</span><br><span class="line">渠道：发送到 Telegram 等我审核</span><br></pre></td></tr></table></figure>
+<p>这背后的思维方式转变很重要。以前我是”手动生产者”——想到一个选题，打开编辑器，一个字一个字写出来，再复制粘贴到各个平台。现在我是”管道设计师”——设计好规则和内容流，让 AI 处理重复劳动，我专注于策略和审核。</p>
+<p>有数据说营销团队用 OpenClaw 每周能节省 15-20 小时。我自己的感受是：省下来的时间不只是”不用写那么多字”，更重要的是”不用每天花两小时想选题”。这种脑力消耗的减少，对创意工作者来说价值更大。</p>
+<p>当然，这套系统不是让你完全放手不管。AI 会出错，会生成垃圾内容，会误解语境。<strong>人机协作</strong>才是关键——AI 做 80% 的体力活，你做 20% 的把关活。</p>
+<h1 id="搭建-YouTube-灵感抓取器"><a href="#搭建-YouTube-灵感抓取器" class="headerlink" title="搭建 YouTube 灵感抓取器"></a>搭建 YouTube 灵感抓取器</h1><p>灵感枯竭是内容人的噩梦。我以前每天花两小时刷 YouTube、Twitter、LinkedIn，收集”可能有用”的信息，结果收藏夹里堆了几百条视频，真正转化成内容的不到 10%。</p>
+<p>OpenClaw 的 YouTube 技能改变了这个局面。现在我把”刷视频找灵感”外包给了 AI。</p>
+<p>先安装 YouTube 技能：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw skills add youtube</span><br></pre></td></tr></table></figure>
+<p>然后在配置里设置监控规则。我的配置是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">skills:</span><br><span class="line">  youtube_monitor:</span><br><span class="line">    channels:</span><br><span class="line">      - &quot;UC_x5XG1OV2P6uZZ5FSM9Ttw&quot;  # Google Cloud 官方</span><br><span class="line">      - &quot;UCvjgXvBlbQiydffZU7m1_aw&quot;  # The Coding Train</span><br><span class="line">    keywords:</span><br><span class="line">      - &quot;AI marketing&quot;</span><br><span class="line">      - &quot;content strategy&quot;</span><br><span class="line">      - &quot;growth hacking&quot;</span><br><span class="line">    max_results: 5</span><br><span class="line">    lookback_days: 3</span><br></pre></td></tr></table></figure>
+<p>这段配置的意思是：监控这两个频道，抓取最近 3 天内标题或描述包含这些关键词的视频，最多取 5 条。你可以换成你关注的行业 KOL 或竞品频道。</p>
+<p>下一步是内容提取。YouTube 技能可以下载视频字幕（如果有的话），这是真正的金矿。字幕里有完整的口语化表达、案例、数据——比你自己听视频记笔记高效多了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">workflows:</span><br><span class="line">  content_research:</span><br><span class="line">    trigger: &quot;0 9 * * 1&quot;  # 每周一早 9 点</span><br><span class="line">    steps:</span><br><span class="line">      - skill: youtube.search</span><br><span class="line">        params:</span><br><span class="line">          keywords: [&quot;AI marketing trends&quot;]</span><br><span class="line">          max_results: 3</span><br><span class="line">      - skill: youtube.transcript</span><br><span class="line">        for_each: &quot;&#123;&#123; videos &#125;&#125;&quot;</span><br><span class="line">      - skill: ai.analyze</span><br><span class="line">        prompt: |</span><br><span class="line">          分析以下视频字幕，提取：</span><br><span class="line">          1. 核心观点（3 个）</span><br><span class="line">          2. 可复用的数据或案例</span><br><span class="line">          3. 适合改编成社交媒体内容的金句</span><br><span class="line">          4. 建议的内容角度</span><br><span class="line"></span><br><span class="line">          字幕：&#123;&#123; transcript &#125;&#125;</span><br><span class="line">      - channel: telegram</span><br><span class="line">        message: |</span><br><span class="line">          🎯 新内容灵感</span><br><span class="line"></span><br><span class="line">          视频：&#123;&#123; video.title &#125;&#125;</span><br><span class="line">          观点：&#123;&#123; analysis.key_points &#125;&#125;</span><br><span class="line">          建议角度：&#123;&#123; analysis.angles &#125;&#125;</span><br></pre></td></tr></table></figure>
+<p>这个工作流每周一早上自动执行。我起床刷 Telegram，就能看到 AI 已经帮我整理好的”本周选题建议”。每个建议包含视频来源、核心观点、可引用的数据、以及 AI 建议的内容角度。</p>
+<p>说实话，第一次跑通这个流程时我有点震惊。AI 从一个 30 分钟的视频里提取出的观点，比我边看边记还要全面。而且它不 bias——不会因为视频后半段听累了就漏掉重要信息。</p>
+<p>当然，YouTube 只是灵感来源之一。你可以用同样的思路配置 RSS 订阅监控、Reddit 热帖追踪、甚至竞品网站的更新检测。关键是把”信息收集”这个重复性工作自动化，把你的脑力留给”内容策略”。</p>
+<p>一个小技巧：给 AI 的 prompt 要写得具体。不要说”分析这个视频”，要说”提取 3 个核心观点、2 个数据案例、5 条金句”。越具体，输出越可用。</p>
+<h1 id="内容生成与多平台适配"><a href="#内容生成与多平台适配" class="headerlink" title="内容生成与多平台适配"></a>内容生成与多平台适配</h1><p>有了灵感，下一步是把它变成能发的内容。这里最大的痛点是：<strong>不同平台需要不同格式的内容</strong>。Twitter 要短平快带话题标签，LinkedIn 要专业长文带分段，Newsletter 要有深度分析。</p>
+<p>以前我的做法是：写一篇”母稿”，然后手动改编成各个平台的版本。一篇文章改三个平台，又要花一小时。</p>
+<p>现在这个过程也自动化了。</p>
+<h2 id="一键生成-Twitter-线程"><a href="#一键生成-Twitter-线程" class="headerlink" title="一键生成 Twitter 线程"></a>一键生成 Twitter 线程</h2><p>Twitter（X）的线程（Thread）是个技术活。要在 280 字的限制里把观点讲清楚，还要设计 Hook 吸引人看下去，最后还得有 CTA。</p>
+<p>我的 OpenClaw 配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">skills:</span><br><span class="line">  thread_writer:</span><br><span class="line">    model: &quot;gpt-4o&quot;</span><br><span class="line">    prompt: |</span><br><span class="line">      将以下内容改写为 Twitter 线程（5-7 条推文）：</span><br><span class="line"></span><br><span class="line">      原始内容：&#123;&#123; content &#125;&#125;</span><br><span class="line"></span><br><span class="line">      要求：</span><br><span class="line">      1. 第一条必须是强 Hook（用疑问句或惊人数据开头）</span><br><span class="line">      2. 每条推文不超过 270 字（留空间给标签）</span><br><span class="line">      3. 推文之间要有逻辑递进</span><br><span class="line">      4. 最后一条要有 CTA（转发/评论/关注）</span><br><span class="line">      5. 添加 2-3 个相关话题标签</span><br><span class="line"></span><br><span class="line">      输出格式：</span><br><span class="line">      1/ [第一条内容]</span><br><span class="line">      2/ [第二条内容]</span><br><span class="line">      ...</span><br></pre></td></tr></table></figure>
+<p>这个 prompt 已经迭代了十几版。一开始 AI 生成的 Hook 太弱，我就加了”疑问句或惊人数据”的要求。后来发现它经常超字数，就加了字数限制。现在生成的线程基本能直接发，或者改几个字就行。</p>
+<h2 id="LinkedIn-长文自动改写"><a href="#LinkedIn-长文自动改写" class="headerlink" title="LinkedIn 长文自动改写"></a>LinkedIn 长文自动改写</h2><p>LinkedIn 又是另一种风格。专业、结构化、适合”broetry”（那种一句话一段的格式）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">skills:</span><br><span class="line">  linkedin_writer:</span><br><span class="line">    model: &quot;gpt-4o&quot;</span><br><span class="line">    prompt: |</span><br><span class="line">      将以下内容改写为 LinkedIn 长文：</span><br><span class="line"></span><br><span class="line">      原始内容：&#123;&#123; content &#125;&#125;</span><br><span class="line"></span><br><span class="line">      要求：</span><br><span class="line">      1. 开头用个人故事或场景引入（2-3 句）</span><br><span class="line">      2. 正文用&quot;broetry&quot;格式：一句话一段，留白多</span><br><span class="line">      3. 添加 3-5 个相关 emoji</span><br><span class="line">      4. 结尾要有明确的 take-away</span><br><span class="line">      5. 添加 3-5 个话题标签</span><br><span class="line">      6. 鼓励评论的结尾句</span><br></pre></td></tr></table></figure>
+<h2 id="内容-Repurposing——一篇变多篇"><a href="#内容-Repurposing——一篇变多篇" class="headerlink" title="内容 Repurposing——一篇变多篇"></a>内容 Repurposing——一篇变多篇</h2><p>这是最省时间的玩法。你把一篇博客或 Newsletter 丢给 OpenClaw，它自动给你生成：</p>
+<ul>
+<li>Twitter 线程（5-7 条）</li>
+<li>LinkedIn 长文（broetry 格式）</li>
+<li>Instagram 文案（带 emoji 和话题标签）</li>
+<li>Newsletter 摘要版</li>
+</ul>
+<p>社区里有个叫 Genviral 的团队专门做了这个 Skill，支持 6 大平台（TikTok、Instagram、YouTube、Facebook、Pinterest、LinkedIn），包含 42 个 API 命令。你可以直接安装使用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw skills add genviral-social</span><br></pre></td></tr></table></figure>
+<p>说实话，AI 改编的内容不是 100% 完美。有时候它会误解原文的重点，有时候生成的 Hook 太平淡。但我发现，即便只有 70 分，也比我自己从零开始写要快得多。我在 AI 生成的版本上改 20%，比从零写省 80% 的时间。</p>
+<p>而且有个意外收获：AI 的”视角”和人不同。它可能会从原文里挑出我没注意到的点，或者用一种我没想到的方式表达。这种”意外之喜”经常出现。</p>
+<h1 id="自动分发与效果追踪"><a href="#自动分发与效果追踪" class="headerlink" title="自动分发与效果追踪"></a>自动分发与效果追踪</h1><p>内容生成完了，下一步是发出去。手动复制粘贴到各个平台？太原始了。</p>
+<h2 id="配置社交媒体渠道"><a href="#配置社交媒体渠道" class="headerlink" title="配置社交媒体渠道"></a>配置社交媒体渠道</h2><p>OpenClaw 支持 Twitter/X、LinkedIn、Mastodon、Instagram 等多个平台的 API 接入。配置起来也不复杂。</p>
+<p>以 Twitter 为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">channels:</span><br><span class="line">  twitter:</span><br><span class="line">    api_key: &quot;YOUR_API_KEY&quot;</span><br><span class="line">    api_secret: &quot;YOUR_API_SECRET&quot;</span><br><span class="line">    access_token: &quot;YOUR_ACCESS_TOKEN&quot;</span><br><span class="line">    access_secret: &quot;YOUR_ACCESS_SECRET&quot;</span><br></pre></td></tr></table></figure>
+<p>这些密钥在 Twitter Developer Portal 申请。LinkedIn 类似，在 LinkedIn Developer 页面创建应用获取 Client ID 和 Secret。</p>
+<p>这里有个小技巧：不要把 API 密钥直接写在配置文件里。用环境变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">channels:</span><br><span class="line">  twitter:</span><br><span class="line">    api_key: &quot;$&#123;TWITTER_API_KEY&#125;&quot;</span><br><span class="line">    api_secret: &quot;$&#123;TWITTER_API_SECRET&#125;&quot;</span><br></pre></td></tr></table></figure>
+<h2 id="定时发布与智能排期"><a href="#定时发布与智能排期" class="headerlink" title="定时发布与智能排期"></a>定时发布与智能排期</h2><p>内容不一定要立即发。OpenClaw 可以排期，让 AI 在最佳时间自动发布。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">workflows:</span><br><span class="line">  auto_post:</span><br><span class="line">    trigger: &quot;0 10 * * 1,3,5&quot;  # 每周一、三、五早 10 点</span><br><span class="line">    steps:</span><br><span class="line">      - skill: content.generate</span><br><span class="line">        template: &quot;weekly_tips&quot;</span><br><span class="line">      - channel: twitter</span><br><span class="line">        action: post_thread</span><br><span class="line">        delay_between: 300  # 每条推文间隔 5 分钟</span><br><span class="line">      - channel: linkedin</span><br><span class="line">        action: post_article</span><br><span class="line">        delay: 3600  # LinkedIn 晚 1 小时发</span><br></pre></td></tr></table></figure>
+<p>这个配置的意思是：每周一、三、五早上 10 点，生成内容先发 Twitter 线程，每条推文间隔 5 分钟（避免被判定为机器人），1 小时后再发 LinkedIn。</p>
+<p>为什么要间隔？两个原因：一是避免触发平台的反垃圾机制，二是让你的内容在不同时间段触达受众。</p>
+<h2 id="人工审核节点"><a href="#人工审核节点" class="headerlink" title="人工审核节点"></a>人工审核节点</h2><p>完全自动化的风险是 AI 可能说错话、生成不当内容。我建议加一个”人工审核”环节。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">workflows:</span><br><span class="line">  content_pipeline:</span><br><span class="line">    steps:</span><br><span class="line">      - skill: content.generate</span><br><span class="line">      - channel: telegram</span><br><span class="line">        message: &quot;内容已生成，请审核：\n\n&#123;&#123; content &#125;&#125;\n\n回复 &#x27;确认&#x27; 发布，或回复修改建议&quot;</span><br><span class="line">        wait_for_reply: true</span><br><span class="line">      - skill: conditional.publish</span><br><span class="line">        condition: &quot;&#123;&#123; reply == &#x27;确认&#x27; &#125;&#125;&quot;</span><br></pre></td></tr></table></figure>
+<p>这样内容不会直接发出去，而是先发到 Telegram 等你确认。你可以检查一遍，改几个字，再回复”确认”让它发布。</p>
+<p>说实话，这个审核环节是我用过最有价值的功能之一。它让我放心地把 80% 的工作交给 AI，同时保持对最终输出的控制。</p>
+<h2 id="基础数据分析"><a href="#基础数据分析" class="headerlink" title="基础数据分析"></a>基础数据分析</h2><p>发布后还要看效果。OpenClaw 的 Twitter 和 LinkedIn 技能可以拉取基础数据：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">skills:</span><br><span class="line">  analytics:</span><br><span class="line">    twitter:</span><br><span class="line">      metrics: [&quot;impressions&quot;, &quot;engagements&quot;, &quot;retweets&quot;, &quot;likes&quot;]</span><br><span class="line">    linkedin:</span><br><span class="line">      metrics: [&quot;views&quot;, &quot;clicks&quot;, &quot;reactions&quot;, &quot;comments&quot;]</span><br></pre></td></tr></table></figure>
+<p>每周让 AI 生成一份简单的周报，告诉你哪些内容表现好，哪些角度受众更喜欢。数据积累多了，AI 还能帮你总结规律：“带有数据的内容点击率高出 40%”、“早上 10 点发布的参与度最高”。</p>
+<p>这些数据反馈可以闭环到你的内容策略里，形成”灵感→生成→分发→反馈→优化”的完整循环。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实就四件事：</p>
+<p>第一，<strong>灵感自动化</strong>。别再每天花两小时刷 YouTube 找选题了。让 AI 帮你监控、提取、整理，你只需要在周一早上花十分钟看一眼。</p>
+<p>第二，<strong>内容生成自动化</strong>。一篇核心内容，AI 帮你改写成 Twitter、LinkedIn、Instagram 各个平台的版本。你不用从零写三遍，只需在 AI 的基础上改 20%。</p>
+<p>第三，<strong>分发自动化</strong>。配置好渠道和排期，内容到点就发。人工审核节点让你既省心又放心。</p>
+<p>第四，<strong>数据反馈闭环</strong>。追踪效果，总结规律，不断优化你的内容策略。</p>
+<p>分阶段来看，这套工作流解决了灵感焦虑。以前每天被”今天要发什么”的焦虑支配，现在打开消息应用就能看到 AI 准备好的选题和草稿。创意工作变成了审核工作，压力小了很多。</p>
+<p>当然，AI 不会替代好的市场人。它替代的是重复劳动，让你有更多时间思考策略、研究用户、打磨核心内容。</p>
+<p>如果你还没试过，我的建议是：从第二章的 YouTube 监控开始。花一小时配置好，跑一周看看效果。我敢打赌你会回来感谢我的。</p>
+<p>市场人的核心竞争力从来不是”谁更能写”，而是”谁更懂受众、更会策略”。让 AI 去写，你去思考。这才是未来的工作方式。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="没有技术背景能配置-OpenClaw-营销自动化吗？"><a href="#没有技术背景能配置-OpenClaw-营销自动化吗？" class="headerlink" title="没有技术背景能配置 OpenClaw 营销自动化吗？"></a>没有技术背景能配置 OpenClaw 营销自动化吗？</h2><p>完全可以。基础配置只需要：  </p>
+<ul>
+<li>会编辑 YAML 配置文件（类似写文档）  </li>
+<li>能在 Developer Portal 申请 API Key（有图形界面）  </li>
+<li>理解基本的逻辑流程</li>
+</ul>
+<p>整个搭建过程大约需要 1-2 小时，按照教程一步步来就行。遇到技术问题可以在 OpenClaw 社区寻求帮助。建议先从简单的 YouTube 监控开始，跑通后再添加其他功能。</p>
+<h2 id="使用-OpenClaw-自动发布会违反平台政策吗？"><a href="#使用-OpenClaw-自动发布会违反平台政策吗？" class="headerlink" title="使用 OpenClaw 自动发布会违反平台政策吗？"></a>使用 OpenClaw 自动发布会违反平台政策吗？</h2><p>合规使用是关键：  </p>
+<ul>
+<li>Twitter/X 允许通过 API 发布内容，但有速率限制  </li>
+<li>LinkedIn 同样支持 API 发布，需要遵循平台规范  </li>
+<li>建议控制发布频率，模拟人工行为  </li>
+<li>避免完全无人值守的自动化，保留人工审核节点  </li>
+<li>不要用于垃圾信息或滥用行为</li>
+</ul>
+<p>最佳实践：  </p>
+<ul>
+<li>在 Twitter 设置合理的发布间隔（5 分钟以上）  </li>
+<li>LinkedIn 每天发布 1-2 条为宜  </li>
+<li>确保内容质量，避免纯 AI 生成低质量内容</li>
+</ul>
+<h2 id="AI-生成的内容质量如何保证？"><a href="#AI-生成的内容质量如何保证？" class="headerlink" title="AI 生成的内容质量如何保证？"></a>AI 生成的内容质量如何保证？</h2><p>多层质量保障：  </p>
+<ul>
+<li>Prompt 工程：写得越具体，输出越可控  </li>
+<li>人工审核：必须加入审核节点，不要完全自动发布  </li>
+<li>迭代优化：根据数据反馈不断优化 prompt  </li>
+<li>个性化调整：在 AI 基础上改 20%，加入个人风格</li>
+</ul>
+<p>实际效果：  </p>
+<ul>
+<li>初期可能需要较多修改  </li>
+<li>随着 prompt 优化，质量会逐步提升  </li>
+<li>建议保留”母稿”作为核心内容，AI 负责改编  </li>
+<li>最终审核权始终在人手里</li>
+</ul>
+<p>OpenClaw 营销自动化适合什么类型的内容？</p>
+<p>最适合的内容类型：  </p>
+<ul>
+<li>行业资讯分享和观点解读  </li>
+<li>教程和 how-to 内容  </li>
+<li>数据报告和趋势分析  </li>
+<li>日常运营类内容（tips、金句）</li>
+</ul>
+<p>不太适合的类型：  </p>
+<ul>
+<li>深度原创研究（需要大量人工思考）  </li>
+<li>涉及敏感话题的内容  </li>
+<li>需要高度个性化的品牌故事  </li>
+<li>危机公关或重要声明</li>
+</ul>
+<p>建议：AI 处理 80% 的常规内容，人工专注 20% 的核心创作。</p>
+<h2 id="搭建这套系统需要多少成本？"><a href="#搭建这套系统需要多少成本？" class="headerlink" title="搭建这套系统需要多少成本？"></a>搭建这套系统需要多少成本？</h2><p>成本构成：  </p>
+<ul>
+<li>OpenClaw：开源免费  </li>
+<li>API 调用费用：  <ul>
+<li>Twitter API：有免费层级，付费版 $100/月起  </li>
+<li>LinkedIn API：免费但有配额限制  </li>
+<li>GPT-4：按 token 计费，一般每月 $10-50  </li>
+</ul>
+</li>
+<li>服务器：如果自托管，$5-20/月</li>
+</ul>
+<p>总体估算：  </p>
+<ul>
+<li>个人使用：每月 $20-50  </li>
+<li>小型团队：每月 $50-150  </li>
+<li>相比节省的人员工时，ROI 通常很高</li>
+</ul>
+<p>省钱技巧：  </p>
+<ul>
+<li>使用 GPT-3.5 代替 GPT-4 处理简单任务  </li>
+<li>合理设置监控频率，避免不必要的 API 调用</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/8176/">https://jingluo23.github.io/posts/8176/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/de4c/" title="程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug</div></div><div class="info-2"><div class="info-item-1">详解如何用 OpenClaw 24小时监控 + Claude Code 自动修复构建 AI 编程助手，实现 Bug 自动发现、修复、提交 PR 的完整工作流，提升程序员效率。</div></div></div></a><a class="pagination-related" href="/posts/cbb8/" title="打造第二大脑：OpenClaw 与 Obsidian/Notion 的深度记忆同步实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">打造第二大脑：OpenClaw 与 Obsidian/Notion 的深度记忆同步实战</div></div><div class="info-2"><div class="info-item-1">演示如何配置 obsidian-vault 技能，使 AI 的交互记忆自动同步至本地 Markdown 笔记库，构建你的 AI 第二大脑</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/de4c/" title="程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-21</div><div class="info-item-2">程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug</div></div><div class="info-2"><div class="info-item-1">详解如何用 OpenClaw 24小时监控 + Claude Code 自动修复构建 AI 编程助手，实现 Bug 自动发现、修复、提交 PR 的完整工作流，提升程序员效率。</div></div></div></a><a class="pagination-related" href="/posts/14cc/" title="OpenClaw云服务器vs本地运行：如何选择最适合你的部署方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-25</div><div class="info-item-2">OpenClaw云服务器vs本地运行：如何选择最适合你的部署方案</div></div><div class="info-2"><div class="info-item-1">深度对比OpenClaw云服务器与本地部署的成本、隐私、性能差异，提供6种用户画像的实战方案，帮助你找到最优部署策略。</div></div></div></a><a class="pagination-related" href="/posts/3561/" title="OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-10</div><div class="info-item-2">OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南</div></div><div class="info-2"><div class="info-item-1">手把手教你在30分钟内搭建Telegram AI助手，涵盖BotFather创建Bot、OpenClaw配置、白名单安全设置和常见问题排查，让AI助手随时在线。</div></div></div></a><a class="pagination-related" href="/posts/f1a8/" title="OpenClaw 2026 最终安装指南：从零开始部署你的个人 AI 助理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-17</div><div class="info-item-2">OpenClaw 2026 最终安装指南：从零开始部署你的个人 AI 助理</div></div><div class="info-2"><div class="info-item-1">详细对比 Docker、npm 及一键脚本安装 OpenClaw 的方法，涵盖 Windows（原生与 WSL2）、macOS 及服务器部署，附常见错误排查方案</div></div></div></a><a class="pagination-related" href="/posts/a81f/" title="OpenClaw架构深度解析：三层设计的技术原理与扩展实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-08</div><div class="info-item-2">OpenClaw架构深度解析：三层设计的技术原理与扩展实践</div></div><div class="info-2"><div class="info-item-1">深度剖析OpenClaw三层架构设计：Gateway会话管理、Channel消息路由、LLM模型接口的技术原理，提供二次开发和扩展实战指南，助你掌握OpenClaw核心机制。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#OpenClaw-%E8%90%A5%E9%94%80%E8%87%AA%E5%8A%A8%E5%8C%96%E7%9A%84%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91"><span class="toc-number">1.</span> <span class="toc-text">OpenClaw 营销自动化的核心逻辑</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%90%AD%E5%BB%BA-YouTube-%E7%81%B5%E6%84%9F%E6%8A%93%E5%8F%96%E5%99%A8"><span class="toc-number">2.</span> <span class="toc-text">搭建 YouTube 灵感抓取器</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%85%E5%AE%B9%E7%94%9F%E6%88%90%E4%B8%8E%E5%A4%9A%E5%B9%B3%E5%8F%B0%E9%80%82%E9%85%8D"><span class="toc-number">3.</span> <span class="toc-text">内容生成与多平台适配</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E9%94%AE%E7%94%9F%E6%88%90-Twitter-%E7%BA%BF%E7%A8%8B"><span class="toc-number">3.1.</span> <span class="toc-text">一键生成 Twitter 线程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#LinkedIn-%E9%95%BF%E6%96%87%E8%87%AA%E5%8A%A8%E6%94%B9%E5%86%99"><span class="toc-number">3.2.</span> <span class="toc-text">LinkedIn 长文自动改写</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%85%E5%AE%B9-Repurposing%E2%80%94%E2%80%94%E4%B8%80%E7%AF%87%E5%8F%98%E5%A4%9A%E7%AF%87"><span class="toc-number">3.3.</span> <span class="toc-text">内容 Repurposing——一篇变多篇</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%87%AA%E5%8A%A8%E5%88%86%E5%8F%91%E4%B8%8E%E6%95%88%E6%9E%9C%E8%BF%BD%E8%B8%AA"><span class="toc-number">4.</span> <span class="toc-text">自动分发与效果追踪</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E7%A4%BE%E4%BA%A4%E5%AA%92%E4%BD%93%E6%B8%A0%E9%81%93"><span class="toc-number">4.1.</span> <span class="toc-text">配置社交媒体渠道</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9A%E6%97%B6%E5%8F%91%E5%B8%83%E4%B8%8E%E6%99%BA%E8%83%BD%E6%8E%92%E6%9C%9F"><span class="toc-number">4.2.</span> <span class="toc-text">定时发布与智能排期</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%BA%E5%B7%A5%E5%AE%A1%E6%A0%B8%E8%8A%82%E7%82%B9"><span class="toc-number">4.3.</span> <span class="toc-text">人工审核节点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90"><span class="toc-number">4.4.</span> <span class="toc-text">基础数据分析</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">5.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B2%A1%E6%9C%89%E6%8A%80%E6%9C%AF%E8%83%8C%E6%99%AF%E8%83%BD%E9%85%8D%E7%BD%AE-OpenClaw-%E8%90%A5%E9%94%80%E8%87%AA%E5%8A%A8%E5%8C%96%E5%90%97%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">没有技术背景能配置 OpenClaw 营销自动化吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-OpenClaw-%E8%87%AA%E5%8A%A8%E5%8F%91%E5%B8%83%E4%BC%9A%E8%BF%9D%E5%8F%8D%E5%B9%B3%E5%8F%B0%E6%94%BF%E7%AD%96%E5%90%97%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">使用 OpenClaw 自动发布会违反平台政策吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-%E7%94%9F%E6%88%90%E7%9A%84%E5%86%85%E5%AE%B9%E8%B4%A8%E9%87%8F%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">AI 生成的内容质量如何保证？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%90%AD%E5%BB%BA%E8%BF%99%E5%A5%97%E7%B3%BB%E7%BB%9F%E9%9C%80%E8%A6%81%E5%A4%9A%E5%B0%91%E6%88%90%E6%9C%AC%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">搭建这套系统需要多少成本？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

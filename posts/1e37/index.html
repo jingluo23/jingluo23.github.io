@@ -1,0 +1,685 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解 openclaw-ha 技能配置，教你通过 WhatsApp 语音用自然语言控制 Philips Hue 灯光及空调系统，打造真正的 AI 智能家居体验。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略">
+<meta property="og:url" content="https://jingluo23.github.io/posts/1e37/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解 openclaw-ha 技能配置，教你通过 WhatsApp 语音用自然语言控制 Philips Hue 灯光及空调系统，打造真正的 AI 智能家居体验。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-25T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-16T05:49:24.984Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略",
+  "url": "https://jingluo23.github.io/posts/1e37/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-25T07:12:21.000Z",
+  "dateModified": "2026-10-16T05:49:24.984Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/1e37/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-25T07:12:21.000Z" title="发表于 2026-07-25 15:12:21">2026-07-25</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-16T05:49:24.984Z" title="更新于 2026-10-16 13:49:24">2026-10-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>10分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-16 13:49:24&quot;}" hidden></div><p>“把卧室灯调暗一点。”</p>
+<p>我对着手机重复了第三遍，Siri 依然固执地回复：“抱歉，我没听懂你在说什么。”</p>
+<p>那一刻我躺在床上，盯着天花板，突然意识到一个荒谬的事实：我家花了大几千装的 Philips Hue 智能灯具，居然听不懂这种最基础的人话。</p>
+<p>说实话，这种场景你可能也遇到过。我们装了一堆智能家居设备，下载了五六个 App，折腾了无数自动化规则，最后发现——想关个灯还得精确地说出”关闭主卧吸顶灯”这种机器语言。稍微含糊一点，比如”太亮了，暗一些”，系统就懵了。</p>
+<p>这就是传统语音助手的死结：它们在做关键词匹配，而不是真正理解你的意图。</p>
+<p>直到我遇到了 OpenClaw。</p>
+<p>第一次用它控制灯光时，我只是随手在 WhatsApp 里发了条语音：“客厅灯有点刺眼，帮我调成暖黄色，亮度大概六成吧。” 三秒后，灯光变了。不是预设的场景模式，而是 AI 真的听懂了我的描述，自动计算出色温和亮度值，然后执行了。</p>
+<p>那种感觉挺奇妙的。就像家里突然多了个懂行的管家，你不用教它每个设备的名称，不用记特定的指令格式，直接用平时说话的方式告诉它就行。</p>
+<p>今天我想和你聊聊，怎么把这个”管家”请回家。</p>
+<h1 id="什么是-OpenClaw？为什么选它做智能家居大脑？"><a href="#什么是-OpenClaw？为什么选它做智能家居大脑？" class="headerlink" title="什么是 OpenClaw？为什么选它做智能家居大脑？"></a>什么是 OpenClaw？为什么选它做智能家居大脑？</h1><p>OpenClaw（以前叫 Moltbot、ClawdBot）说白了就是一个常驻后台的 AI Agent。它可以被视为你的个人全能助手——它能连接到你的消息应用（WhatsApp、Telegram、Discord），读取你的日历和邮件，当然，还能接管你的智能家居。</p>
+<p>它和 Siri、Alexa 这类语音助手最大的区别在哪？</p>
+<p>传统的语音助手是在做”命令映射”。你说了 A，它去找有没有对应的指令 B。如果找不到，它就投降。这就是为什么你说”调暗一点”它听不懂——因为它没见过这个确切的表述。</p>
+<p>OpenClaw 不一样。它背后接的是 Claude，一个真正能”理解”语义的大模型。当你说”调暗一点”，它会自己推理：用户觉得当前太亮，想要降低亮度，可能还需要调整色温让光线更柔和。然后它主动去调用 Home Assistant 的 API，找到客厅灯的实体，计算出合适的数值，再执行。</p>
+<p>这完全是两种思维模式。</p>
+<p>Dan Malone 在他的博客里分享过一个有趣的案例：他给 OpenClaw 设置了一个浣熊人格（对，就是 Raccoon），结果这个 AI 不但会控制他的智能家居，还会吐槽。比如当他在深夜开灯时，AI 会回复：“这么晚还不睡？算了，给你开灯，但别熬太久。”</p>
+<p>听起来有点傻对吧？但这种个性化的互动恰恰是传统语音助手给不了的。</p>
+<p>对了，OpenClaw 是本地运行的。你的数据不会莫名其妙地被送到某个云端服务器去分析，这点对于在意隐私的人来说挺重要的。</p>
+<h1 id="环境准备与前置条件"><a href="#环境准备与前置条件" class="headerlink" title="环境准备与前置条件"></a>环境准备与前置条件</h1><p>好了，聊完是什么和为什么，咱们来说说怎么做。</p>
+<p>首先你得有这些基础条件：</p>
+<h2 id="Home-Assistant-系统"><a href="#Home-Assistant-系统" class="headerlink" title="Home Assistant 系统"></a>Home Assistant 系统</h2><ul>
+<li>版本建议 2024.1 以上</li>
+<li>能正常访问局域网内的其他设备</li>
+<li>已经接入了 Philips Hue（或者其他你想控制的智能设备）</li>
+</ul>
+<p>如果你还没装 Home Assistant，建议先用 HassOS 镜像快速搭起来。网上教程很多，这里就不展开了。</p>
+<h2 id="OpenClaw-运行环境"><a href="#OpenClaw-运行环境" class="headerlink" title="OpenClaw 运行环境"></a>OpenClaw 运行环境</h2><p>有三种安装方式可选：</p>
+<ul>
+<li><strong>Docker 方式</strong>：最灵活，适合有服务器的玩家</li>
+<li><strong>HA Add-on 方式</strong>：最简单，直接在 Home Assistant 里装</li>
+<li><strong>本地运行</strong>：需要 Node.js 环境</li>
+</ul>
+<p>我个人推荐 Docker 方式，升级和管理都比较方便。</p>
+<h2 id="网络要求"><a href="#网络要求" class="headerlink" title="网络要求"></a>网络要求</h2><ul>
+<li>Home Assistant 需要能被 OpenClaw 访问到（内网 IP 或域名）</li>
+<li>建议配置固定 IP 或者使用 mDNS 域名</li>
+</ul>
+<h2 id="Philips-Hue-接入"><a href="#Philips-Hue-接入" class="headerlink" title="Philips Hue 接入"></a>Philips Hue 接入</h2><p>确保你的 Hue Bridge 已经通过官方集成接入了 Home Assistant。在 HA 的”设置-设备与服务”里能看到 Philips Hue 的设备列表就对了。</p>
+<h1 id="openclaw-ha-技能详解与配置"><a href="#openclaw-ha-技能详解与配置" class="headerlink" title="openclaw-ha 技能详解与配置"></a>openclaw-ha 技能详解与配置</h1><p>这是整个方案的核心环节。openclaw-ha 是 OpenClaw 的一个 skill（技能插件），让它能和 Home Assistant 对话。</p>
+<h2 id="获取-Home-Assistant-的访问令牌"><a href="#获取-Home-Assistant-的访问令牌" class="headerlink" title="获取 Home Assistant 的访问令牌"></a>获取 Home Assistant 的访问令牌</h2><p>登录 Home Assistant，点击左下角你的用户名，然后选择”长期访问令牌”。</p>
+<p>点击”创建令牌”，随便起个名字（比如”openclaw-token”），复制生成的长串字符。注意：这个令牌只显示一次，记得保存好。</p>
+<h2 id="配置环境变量"><a href="#配置环境变量" class="headerlink" title="配置环境变量"></a>配置环境变量</h2><p>你需要设置两个环境变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">export HA_URL=&quot;http://你的HA地址:8123&quot;</span><br><span class="line">export HA_TOKEN=&quot;刚才复制的长串令牌&quot;</span><br></pre></td></tr></table></figure>
+<p>如果是 Docker 部署，在 docker-compose.yml 里加：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">environment:</span><br><span class="line">  - HA_URL=http://192.168.1.100:8123</span><br><span class="line">  - HA_TOKEN=eyJhbGciOiJIUzI1NiIs...</span><br></pre></td></tr></table></figure>
+<h2 id="安装-homeassistant-skill"><a href="#安装-homeassistant-skill" class="headerlink" title="安装 homeassistant skill"></a>安装 homeassistant skill</h2><p>进入 OpenClaw 的容器或目录，执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw add skill homeassistant</span><br></pre></td></tr></table></figure>
+<p>或者在配置文件里的 skills 数组中添加：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;skills&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;name&quot;: &quot;homeassistant&quot;,</span><br><span class="line">      &quot;enabled&quot;: true</span><br><span class="line">    &#125;</span><br><span class="line">  ]</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="验证连接"><a href="#验证连接" class="headerlink" title="验证连接"></a>验证连接</h2><p>重启 OpenClaw 后，在 WhatsApp 或 Telegram 里给它发消息：</p>
+<p>“列出我家所有的灯”</p>
+<p>如果配置正确，它会返回一个设备列表，类似这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">找到以下灯光设备：</span><br><span class="line">- light.living_room_main (客厅主灯)</span><br><span class="line">- light.bedroom_ceiling (卧室吸顶灯)</span><br><span class="line">- light.kitchen_spotlights (厨房射灯)</span><br></pre></td></tr></table></figure>
+<p>看到这一步，恭喜你，基础配置完成了！</p>
+<h1 id="实战演示——WhatsApp-语音控制-Philips-Hue"><a href="#实战演示——WhatsApp-语音控制-Philips-Hue" class="headerlink" title="实战演示——WhatsApp 语音控制 Philips Hue"></a>实战演示——WhatsApp 语音控制 Philips Hue</h1><p>这才是重头戏。让我们看看真正的自然语言控制是什么样子的。</p>
+<h2 id="基础控制"><a href="#基础控制" class="headerlink" title="基础控制"></a>基础控制</h2><p><strong>场景一：简单的开关</strong><br>你：“关掉客厅的灯”<br>AI：“好的，客厅主灯已关闭”</p>
+<p>不需要说”light.living_room_main”这种实体 ID，AI 会自动匹配”客厅”和”灯”这两个关键词，找到对应的设备。</p>
+<p><strong>场景二：调节亮度和色温</strong><br>你：“把卧室灯调暗一点，要那种睡前看书的光线”<br>AI：“已将卧室吸顶灯亮度调至 40%，色温调至 2700K 暖白光”</p>
+<p>注意到了吗？你没说具体数值，AI 自己根据”睡前看书”这个场景推断出了合适的参数。</p>
+<p><strong>场景三：颜色控制</strong><br>你：“把书房灯换成淡蓝色，像阴天窗外那种”<br>AI：“已将书房灯设置为淡蓝色（RGB: 173, 216, 230）”</p>
+<p>这种模糊的描述，传统语音助手根本处理不了。</p>
+<h2 id="复杂场景"><a href="#复杂场景" class="headerlink" title="复杂场景"></a>复杂场景</h2><p><strong>场景四：多设备联动</strong><br>你：“我准备看电影了”<br>AI：“观影模式已启动：</p>
+<ul>
+<li>客厅主灯已关闭</li>
+<li>氛围灯带已开启影院模式</li>
+<li>空调温度调至 24°C”</li>
+</ul>
+<p>这个场景需要在 Home Assistant 里预先定义好”观影模式”的脚本，但触发方式变得极其自然。</p>
+<p><strong>场景五：条件判断</strong><br>你：“天黑了，帮我开灯”<br>AI：“检测到当前室外光照强度为 50 lux，确实较暗。已为您打开客厅和走廊的灯光。”</p>
+<p>AI 不只是执行命令，它会结合传感器数据做出判断。</p>
+<h2 id="多轮对话"><a href="#多轮对话" class="headerlink" title="多轮对话"></a>多轮对话</h2><p>最有意思的是这个：</p>
+<p>你：“那个灯太亮了”<br>AI：“您是指哪个房间的灯？”<br>你：“客厅”<br>AI：“已将客厅主灯亮度从 80% 调至 50%，需要再暗一些吗？”<br>你：“再暗点，还有有点黄”<br>AI：“亮度调至 30%，色温调至 2200K。现在这个光线合适吗？”</p>
+<p>这种对话感，是不是有点像在跟家里的管家聊天？</p>
+<h1 id="进阶技巧与故障排查"><a href="#进阶技巧与故障排查" class="headerlink" title="进阶技巧与故障排查"></a>进阶技巧与故障排查</h1><h2 id="自定义实体别名"><a href="#自定义实体别名" class="headerlink" title="自定义实体别名"></a>自定义实体别名</h2><p>有时候设备名称不够直观，你可以在 Home Assistant 里给实体设置”友好名称”，或者在 OpenClaw 的配置里添加别名映射：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;aliases&quot;: &#123;</span><br><span class="line">    &quot;light.living_room_main&quot;: [&quot;大灯&quot;, &quot;主灯&quot;, &quot;客厅灯&quot;]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样一来，你说”大灯”、“主灯”还是”客厅灯”，AI 都知道指的是同一个设备。</p>
+<h2 id="安全建议"><a href="#安全建议" class="headerlink" title="安全建议"></a>安全建议</h2><ol>
+<li><p><strong>Token 权限控制</strong><br>建议先创建一个只读权限的 Token 测试，确认没问题再换读写权限。</p>
+</li>
+<li><p><strong>访问限制</strong><br>如果 OpenClaw 运行在公网服务器上，确保 HA_URL 使用 HTTPS，并且考虑配置防火墙只允许特定 IP 访问。</p>
+</li>
+<li><p><strong>日志监控</strong><br>定期检查 OpenClaw 的操作日志，看看有没有异常的设备控制请求。</p>
+</li>
+</ol>
+<h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><p><strong>问题一：AI 说找不到设备</strong></p>
+<ul>
+<li>检查 HA_TOKEN 是否有足够权限</li>
+<li>确认实体 ID 在 Home Assistant 的开发者工具里能查到</li>
+<li>尝试重启 OpenClaw 服务</li>
+</ul>
+<p><strong>问题二：响应很慢</strong></p>
+<ul>
+<li>检查网络延迟（OpenClaw 到 HA 的延迟应该 &lt;50ms）</li>
+<li>考虑使用 Claude 的本地代理减少 API 延迟</li>
+<li>如果设备很多，可以在配置里限制可控制的实体范围</li>
+</ul>
+<p><strong>问题三：误触发</strong></p>
+<ul>
+<li>在群聊里使用时，建议设置唤醒词或 @提及</li>
+<li>配置黑名单，排除敏感设备（比如门锁、摄像头）</li>
+</ul>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实核心就一句话：AI 终于开始理解人话了。</p>
+<p>从”关闭 light.living_room_main”到”把客厅灯调暗一点”，这不只是指令格式的变化，而是交互方式的质变。我们不再需要学习机器的语言，而是让机器学会理解我们的表达。</p>
+<p>OpenClaw + Home Assistant 的组合，让我第一次感觉家里的智能设备真的”智能”了起来。它不是在执行预设的程序，而是在理解我的需求，然后自主决定怎么满足。</p>
+<p>如果你也想试试这种体验，可以从 GitHub 上的 awesome-openclaw-skills 仓库开始，那里有完整的配置文档和社区讨论。遇到问题也可以在 Home Assistant 社区的 OpenClaw 板块提问，大家挺热心的。</p>
+<p>老实说，配置过程可能会有点小波折，但当第一次用自然语言成功控制灯光的那一刻，你会觉得值了。</p>
+<p>毕竟，未来已来，只是分布得不太均匀。而我们这些喜欢折腾的人，总能提前摸到一点边。</p>
+<h1 id="常见问题-1"><a href="#常见问题-1" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="OpenClaw-和传统语音助手（Siri-Alexa）有什么区别？"><a href="#OpenClaw-和传统语音助手（Siri-Alexa）有什么区别？" class="headerlink" title="OpenClaw 和传统语音助手（Siri/Alexa）有什么区别？"></a>OpenClaw 和传统语音助手（Siri/Alexa）有什么区别？</h2><p>核心区别在于理解方式：</p>
+<ul>
+<li>传统语音助手：基于关键词匹配，只能识别预设指令  </li>
+<li>OpenClaw：基于 Claude 大模型，能理解自然语言的语义和上下文</li>
+</ul>
+<p>例如你说”调暗一点”，传统助手可能无法识别，而 OpenClaw 会理解你的意图，主动计算合适的亮度值并执行。此外，OpenClaw 支持多轮对话，可以像聊天一样逐步细化需求。</p>
+<h2 id="openclaw-ha-技能和-Home-Assistant-的官方集成有什么不同？"><a href="#openclaw-ha-技能和-Home-Assistant-的官方集成有什么不同？" class="headerlink" title="openclaw-ha 技能和 Home Assistant 的官方集成有什么不同？"></a>openclaw-ha 技能和 Home Assistant 的官方集成有什么不同？</h2><p>openclaw-ha 是 OpenClaw 的一个 skill（技能插件），它作为桥梁连接 OpenClaw AI 和 Home Assistant。</p>
+<p>官方集成通常是设备厂商提供的，用于让 HA 控制特定品牌的设备。而 openclaw-ha 让你能通过自然语言与这些设备交互——它不负责直接控制设备，而是让 AI 理解你的意图，再由 AI 去调用 HA 的 API。</p>
+<p>简单说：官方集成 = HA 认识设备；openclaw-ha = AI 听懂你的话。</p>
+<h2 id="配置完成后无法控制设备，可能是什么原因？"><a href="#配置完成后无法控制设备，可能是什么原因？" class="headerlink" title="配置完成后无法控制设备，可能是什么原因？"></a>配置完成后无法控制设备，可能是什么原因？</h2><p>常见排查步骤：</p>
+<ol>
+<li>检查 Token 权限：确保 HA_TOKEN 有读写设备的权限  </li>
+<li>验证实体 ID：在 HA 的”开发者工具-状态”中确认设备实体 ID 存在  </li>
+<li>检查网络连通性：从 OpenClaw 所在机器 curl 测试 HA_URL 是否可达  </li>
+<li>查看日志：OpenClaw 日志会显示具体的 API 调用错误信息  </li>
+<li>重启服务：修改配置后需要重启 OpenClaw 才能生效</li>
+</ol>
+<h2 id="使用-OpenClaw-控制智能家居安全吗？"><a href="#使用-OpenClaw-控制智能家居安全吗？" class="headerlink" title="使用 OpenClaw 控制智能家居安全吗？"></a>使用 OpenClaw 控制智能家居安全吗？</h2><p>安全性取决于你的配置方式：</p>
+<ul>
+<li>本地运行：OpenClaw 本身在本地运行，数据不会上传到第三方服务器  </li>
+<li>Token 管理：建议使用 Long-Lived Access Token，并定期轮换  </li>
+<li>权限控制：可以先配置只读权限测试，确认无误再开放写入权限  </li>
+<li>网络安全：如果暴露到公网，务必使用 HTTPS 和访问控制  </li>
+<li>敏感设备：建议在配置中排除门锁、摄像头等敏感设备的控制权限</li>
+</ul>
+<h2 id="除了-Philips-Hue，还支持哪些智能设备？"><a href="#除了-Philips-Hue，还支持哪些智能设备？" class="headerlink" title="除了 Philips Hue，还支持哪些智能设备？"></a>除了 Philips Hue，还支持哪些智能设备？</h2><p>理论上支持所有接入 Home Assistant 的设备。</p>
+<p>Home Assistant 拥有 2500+ 种官方集成，包括：  </p>
+<ul>
+<li>灯光：Philips Hue、Yeelight、小米、TP-Link Kasa 等  </li>
+<li>空调/温控：美的、格力、Nest、Ecobee 等  </li>
+<li>开关/插座：小米、Sonoff、Tuya 等  </li>
+<li>窗帘/门锁：Aqara、Zigbee 设备等  </li>
+<li>传感器：温湿度、人体感应、光照等</li>
+</ul>
+<p>只要能在 HA 里看到的设备，都可以通过 OpenClaw 用自然语言控制。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/1e37/">https://jingluo23.github.io/posts/1e37/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/24d0/" title="警惕！ClawHub 技能库发现 800+ 恶意插件，你的 API Key 真的安全吗？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">警惕！ClawHub 技能库发现 800+ 恶意插件，你的 API Key 真的安全吗？</div></div><div class="info-2"><div class="info-item-1">基于 2026 年安全事故报告，深入分析 ClawHavoc 攻击事件，教你如何检测 OpenClaw 技能安全、扫描恶意插件、保护 API Key</div></div></div></a><a class="pagination-related" href="/posts/a8/" title="OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 2026.3 版本核心更新，包括 ContextEngine 引擎、插件三层架构、可插拔沙盒后端和 Firecrawl 集成，附完整配置示例和升级迁移指南。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/d5f3/" title="OpenClaw 实战完全手册：从入门到精通"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-27</div><div class="info-item-2">OpenClaw 实战完全手册：从入门到精通</div></div><div class="info-2"><div class="info-item-1">OpenClaw 实战完全手册：从入门到精通。涵盖核心概念、快速开始、工具技能系统、工作流自动化、安全部署，提供清晰学习路径和实战案例。</div></div></div></a><a class="pagination-related" href="/posts/c17/" title="OpenClaw完整安装指南：从环境准备到首次运行"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-24</div><div class="info-item-2">OpenClaw完整安装指南：从环境准备到首次运行</div></div><div class="info-2"><div class="info-item-1">详细讲解OpenClaw的完整安装流程，包括 Node.js 24 推荐与 22.14+ 最低版本、npm/pnpm 全局安装、openclaw onboard 引导设置等官方推荐步骤，帮助新手快速上手。</div></div></div></a><a class="pagination-related" href="/posts/de4c/" title="程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-21</div><div class="info-item-2">程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug</div></div><div class="info-2"><div class="info-item-1">详解如何用 OpenClaw 24小时监控 + Claude Code 自动修复构建 AI 编程助手，实现 Bug 自动发现、修复、提交 PR 的完整工作流，提升程序员效率。</div></div></div></a><a class="pagination-related" href="/posts/8e5e/" title="OpenClaw技能安全审查：5分钟识别恶意AgentSkills实战指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-01</div><div class="info-item-2">OpenClaw技能安全审查：5分钟识别恶意AgentSkills实战指南</div></div><div class="info-2"><div class="info-item-1">ClawHavoc事件曝光341个恶意技能，本文教你通过SKILL.md审查、危险权限识别、快速检查命令，在5分钟内判断技能安全性，保护开发环境免受供应链攻击。</div></div></div></a><a class="pagination-related" href="/posts/b884/" title="从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-20</div><div class="info-item-2">从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 本地网关认证、Docker 沙盒化、审批门禁等 5 个关键安全配置，建立 AI 代理使用安全意识</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-OpenClaw%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%89%E5%AE%83%E5%81%9A%E6%99%BA%E8%83%BD%E5%AE%B6%E5%B1%85%E5%A4%A7%E8%84%91%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">什么是 OpenClaw？为什么选它做智能家居大脑？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87%E4%B8%8E%E5%89%8D%E7%BD%AE%E6%9D%A1%E4%BB%B6"><span class="toc-number">2.</span> <span class="toc-text">环境准备与前置条件</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Home-Assistant-%E7%B3%BB%E7%BB%9F"><span class="toc-number">2.1.</span> <span class="toc-text">Home Assistant 系统</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw-%E8%BF%90%E8%A1%8C%E7%8E%AF%E5%A2%83"><span class="toc-number">2.2.</span> <span class="toc-text">OpenClaw 运行环境</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BD%91%E7%BB%9C%E8%A6%81%E6%B1%82"><span class="toc-number">2.3.</span> <span class="toc-text">网络要求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Philips-Hue-%E6%8E%A5%E5%85%A5"><span class="toc-number">2.4.</span> <span class="toc-text">Philips Hue 接入</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#openclaw-ha-%E6%8A%80%E8%83%BD%E8%AF%A6%E8%A7%A3%E4%B8%8E%E9%85%8D%E7%BD%AE"><span class="toc-number">3.</span> <span class="toc-text">openclaw-ha 技能详解与配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%8E%B7%E5%8F%96-Home-Assistant-%E7%9A%84%E8%AE%BF%E9%97%AE%E4%BB%A4%E7%89%8C"><span class="toc-number">3.1.</span> <span class="toc-text">获取 Home Assistant 的访问令牌</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E7%8E%AF%E5%A2%83%E5%8F%98%E9%87%8F"><span class="toc-number">3.2.</span> <span class="toc-text">配置环境变量</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85-homeassistant-skill"><span class="toc-number">3.3.</span> <span class="toc-text">安装 homeassistant skill</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AA%8C%E8%AF%81%E8%BF%9E%E6%8E%A5"><span class="toc-number">3.4.</span> <span class="toc-text">验证连接</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E6%BC%94%E7%A4%BA%E2%80%94%E2%80%94WhatsApp-%E8%AF%AD%E9%9F%B3%E6%8E%A7%E5%88%B6-Philips-Hue"><span class="toc-number">4.</span> <span class="toc-text">实战演示——WhatsApp 语音控制 Philips Hue</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E6%8E%A7%E5%88%B6"><span class="toc-number">4.1.</span> <span class="toc-text">基础控制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%8D%E6%9D%82%E5%9C%BA%E6%99%AF"><span class="toc-number">4.2.</span> <span class="toc-text">复杂场景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A%E8%BD%AE%E5%AF%B9%E8%AF%9D"><span class="toc-number">4.3.</span> <span class="toc-text">多轮对话</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7%E4%B8%8E%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5"><span class="toc-number">5.</span> <span class="toc-text">进阶技巧与故障排查</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E5%AE%9E%E4%BD%93%E5%88%AB%E5%90%8D"><span class="toc-number">5.1.</span> <span class="toc-text">自定义实体别名</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E5%BB%BA%E8%AE%AE"><span class="toc-number">5.2.</span> <span class="toc-text">安全建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">5.3.</span> <span class="toc-text">常见问题</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98-1"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw-%E5%92%8C%E4%BC%A0%E7%BB%9F%E8%AF%AD%E9%9F%B3%E5%8A%A9%E6%89%8B%EF%BC%88Siri-Alexa%EF%BC%89%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">OpenClaw 和传统语音助手（Siri&#x2F;Alexa）有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#openclaw-ha-%E6%8A%80%E8%83%BD%E5%92%8C-Home-Assistant-%E7%9A%84%E5%AE%98%E6%96%B9%E9%9B%86%E6%88%90%E6%9C%89%E4%BB%80%E4%B9%88%E4%B8%8D%E5%90%8C%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">openclaw-ha 技能和 Home Assistant 的官方集成有什么不同？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E5%AE%8C%E6%88%90%E5%90%8E%E6%97%A0%E6%B3%95%E6%8E%A7%E5%88%B6%E8%AE%BE%E5%A4%87%EF%BC%8C%E5%8F%AF%E8%83%BD%E6%98%AF%E4%BB%80%E4%B9%88%E5%8E%9F%E5%9B%A0%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">配置完成后无法控制设备，可能是什么原因？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-OpenClaw-%E6%8E%A7%E5%88%B6%E6%99%BA%E8%83%BD%E5%AE%B6%E5%B1%85%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">使用 OpenClaw 控制智能家居安全吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%A4%E4%BA%86-Philips-Hue%EF%BC%8C%E8%BF%98%E6%94%AF%E6%8C%81%E5%93%AA%E4%BA%9B%E6%99%BA%E8%83%BD%E8%AE%BE%E5%A4%87%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">除了 Philips Hue，还支持哪些智能设备？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

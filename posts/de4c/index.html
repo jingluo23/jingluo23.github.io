@@ -1,0 +1,742 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解如何用 OpenClaw 24小时监控 + Claude Code 自动修复构建 AI 编程助手，实现 Bug 自动发现、修复、提交 PR 的完整工作流，提升程序员效率。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug">
+<meta property="og:url" content="https://jingluo23.github.io/posts/de4c/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解如何用 OpenClaw 24小时监控 + Claude Code 自动修复构建 AI 编程助手，实现 Bug 自动发现、修复、提交 PR 的完整工作流，提升程序员效率。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-21T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-16T06:06:13.033Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug",
+  "url": "https://jingluo23.github.io/posts/de4c/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-21T07:12:21.000Z",
+  "dateModified": "2026-10-16T06:06:13.033Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/de4c/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">程序员 AI 工具实战：OpenClaw + Claude Code 24小时自动修 Bug</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-21T07:12:21.000Z" title="发表于 2026-07-21 15:12:21">2026-07-21</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-16T06:06:13.033Z" title="更新于 2026-10-16 14:06:13">2026-10-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.8k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>13分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-16 14:06:13&quot;}" hidden></div><p>一个支付回调超时的 Bug，从发现到合并修复，平均耗时 4.5 小时：发现 2 小时、定位 30 分钟、修复 30 分钟、测试 20 分钟、提交 PR 10 分钟。这类 Bug 的修复方案通常也很固定——加个指数退避，捕获异常，记录日志。属于”已知问题类型”，重复性高，不值得人工逐个处理。</p>
+<p>OpenClaw + Claude Code 的混合工作流能解决这个问题：OpenClaw 24小时监控 Sentry，发现 Bug 自动派单；Claude Code 接单后拉分支、修代码、跑测试、提交 PR。实测跑了三个月，自动捕获 127 个 Bug，成功修复 89 个（70%），最终人工合并 72 个（57%）。处理时间从 4.5 小时缩短到 15 分钟。</p>
+<p>这篇文章分享这套混合工作流的架构设计、配置步骤和实测效果。不是理论，是已经跑在生产环境三个月的真实数据。</p>
+<h1 id="OpenClaw-vs-Claude-Code——不是竞争，是互补"><a href="#OpenClaw-vs-Claude-Code——不是竞争，是互补" class="headerlink" title="OpenClaw vs Claude Code——不是竞争，是互补"></a>OpenClaw vs Claude Code——不是竞争，是互补</h1><p>很多人问我：OpenClaw 和 Claude Code 到底用哪个？</p>
+<p>说实话，这俩根本不是竞争关系。它们的定位完全不同，组合起来才是王炸。</p>
+<p><strong>OpenClaw</strong> 是 24/7 待命的”个人 AI Agent”。它常驻后台，能接 webhook、能监控各种数据源、能在你睡觉的时候继续干活。官方对它的定义是 “persistent personal AI”——持久化的个人 AI。它不擅长写复杂代码，但擅长”看着”事情发生，然后触发相应的动作并协调其他专门工具。</p>
+<p><strong>Claude Code</strong> 是专业的”AI 程序员”。它不懂怎么监控你的服务器，但让它看代码、改 Bug、重构逻辑，那是它的强项。它能深度理解代码库，知道哪里该改、怎么改才安全。</p>
+<p>你看，这俩完美互补：一个负责”看”，一个负责”干”。</p>
+<p>我在 OpenClaw Directory 上看到一个叫 “Sentry → Auto-Debug → Open PR” 的配方，简直就是为这种场景设计的。它的思路是：</p>
+<ol>
+<li>Sentry 监控到错误，触发 webhook</li>
+<li>OpenClaw 接收告警，分析堆栈信息</li>
+<li>OpenClaw 派生子代理，调用 Claude Code 修复</li>
+<li>Claude Code 生成修复代码，跑测试</li>
+<li>测试通过后，自动打开 GitHub PR</li>
+</ol>
+<p>整个流程完全自动，不需要人工介入。我在 Substack 上看到有人分享使用体验，说这套配置让他实现了”overnight code review with no human in the loop until the PR is ready”——晚上出 Bug，早上看 PR。</p>
+<h1 id="架构设计——混合工作流的核心组件"><a href="#架构设计——混合工作流的核心组件" class="headerlink" title="架构设计——混合工作流的核心组件"></a>架构设计——混合工作流的核心组件</h1><p>要理解这套工作流，你得先搞清楚 OpenClaw 的”子代理”机制。</p>
+<p>OpenClaw 本身是个”大管家”。它负责监听各种事件（webhook、定时任务、消息通知），但具体的执行可以派给”子代理”去做。子代理是临时创建的、专注于特定任务的 AI 实例。</p>
+<p>打个比方：OpenClaw 是项目经理，Claude Code 是程序员。项目经理接到需求（Sentry 告警），分析后派给程序员（子代理），程序员干活，干完汇报。</p>
+<p>整体架构长这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">┌─────────────────────────────────────────────────────────────┐</span><br><span class="line">│                         外部世界                            │</span><br><span class="line">│  ┌──────────┐  ┌──────────┐  ┌─────────────────────────┐   │</span><br><span class="line">│  │  Sentry  │  │  GitHub  │  │  Slack/Discord/Telegram │   │</span><br><span class="line">│  └────┬─────┘  └────▲─────┘  └──────────▲──────────────┘   │</span><br><span class="line">└───────┼─────────────┼───────────────────┼──────────────────┘</span><br><span class="line">        │             │                   │</span><br><span class="line">        │ webhook     │ create PR         │ notify</span><br><span class="line">        │             │                   │</span><br><span class="line">┌───────▼─────────────┴───────────────────┴──────────────────┐</span><br><span class="line">│                      OpenClaw Gateway                        │</span><br><span class="line">│  ┌──────────────────────────────────────────────────────┐  │</span><br><span class="line">│  │              OpenClaw 主代代理（监控者）                │  │</span><br><span class="line">│  │  • 24小时监听 Sentry webhook                         │  │</span><br><span class="line">│  │  • 分析错误类型和严重程度                            │  │</span><br><span class="line">│  │  • 决策：自动修复 / 人工介入 / 忽略                  │  │</span><br><span class="line">│  └─────────────────────┬────────────────────────────────┘  │</span><br><span class="line">│                        │ spawn                             │</span><br><span class="line">│                        ▼                                   │</span><br><span class="line">│  ┌──────────────────────────────────────────────────────┐  │</span><br><span class="line">│  │            Claude Code 子代理（执行者）               │  │</span><br><span class="line">│  │  • 拉取最新代码                                      │  │</span><br><span class="line">│  │  • 分析 Bug 根因                                     │  │</span><br><span class="line">│  │  • 编写修复代码                                      │  │</span><br><span class="line">│  │  • 运行测试验证                                      │  │</span><br><span class="line">│  │  • 推送分支并创建 PR                                 │  │</span><br><span class="line">│  └──────────────────────────────────────────────────────┘  │</span><br><span class="line">└────────────────────────────────────────────────────────────┘</span><br></pre></td></tr></table></figure>
+<p>关键点在于：<strong>OpenClaw 不直接改代码</strong>。它只做”决策”和”协调”，真正的代码修改交给 Claude Code 子代理。这样既保证了安全性（OpenClaw 有权限控制），又保证了修复质量（Claude Code 专业对口）。</p>
+<p>数据流向是这样的：</p>
+<ol>
+<li>Sentry webhook → OpenClaw（错误事件、堆栈信息、环境数据）</li>
+<li>OpenClaw → Claude Code 子代理（修复指令、上下文信息）</li>
+<li>Claude Code 子代理 → GitHub（修复代码、PR 描述）</li>
+<li>GitHub → OpenClaw（PR 状态、CI 结果）</li>
+<li>OpenClaw → Slack（通知人类审查）</li>
+</ol>
+<p>OpenClaw 的状态管理能力在这里很重要。它可以记录每个 Bug 的处理状态：“已接收”、“分析中”、“修复中”、“待审查”、“已合并”。这样即使流程中断，也能从断点恢复。</p>
+<h1 id="实战配置——从监控到自动提交-PR"><a href="#实战配置——从监控到自动提交-PR" class="headerlink" title="实战配置——从监控到自动提交 PR"></a>实战配置——从监控到自动提交 PR</h1><p>好，概念讲完了，来看具体怎么配置。</p>
+<p><strong>第一步：Sentry 配置 webhook</strong></p>
+<p>登录 Sentry，进入项目设置 → Integrations → Webhooks。添加你的 OpenClaw webhook URL：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://your-openclaw-gateway.com/hooks/sentry?sessionKey=bug-fix-pipeline</span><br></pre></td></tr></table></figure>
+<p>然后在 Alert Rules 里创建一条规则：当 error count &gt; 5 in 5 minutes 时，触发 webhook。</p>
+<p><strong>第二步：OpenClaw 配置监控代理</strong></p>
+<p>在 OpenClaw 里创建一个专门的 agent 来处理 Sentry 事件。配置文件大概长这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">name: sentry-bug-monitor</span><br><span class="line">hooks:</span><br><span class="line">  sentry:</span><br><span class="line">    path: /hooks/sentry</span><br><span class="line">    defaultSessionKey: bug-fix-pipeline</span><br><span class="line"></span><br><span class="line">steps:</span><br><span class="line">  - id: parse-error</span><br><span class="line">    command: json.parse stdin</span><br><span class="line">    description: &quot;解析 Sentry 的错误数据&quot;</span><br><span class="line"></span><br><span class="line">  - id: classify</span><br><span class="line">    command: llm-task &quot;分析错误类型和严重程度&quot;</span><br><span class="line">    args:</span><br><span class="line">      error: $parse-error.stacktrace</span><br><span class="line">      message: $parse-error.message</span><br><span class="line">    schema: error-classification.json</span><br><span class="line"></span><br><span class="line">  - id: decision</span><br><span class="line">    command: state.set &quot;action&quot; $classify.recommended_action</span><br><span class="line"></span><br><span class="line">  - id: auto-fix</span><br><span class="line">    command: subagent.spawn</span><br><span class="line">    args:</span><br><span class="line">      type: claude-code</span><br><span class="line">      task: &quot;修复 Bug: $&#123;parse-error.title&#125;&quot;</span><br><span class="line">      context: $parse-error</span><br><span class="line">      repo: $parse-error.project.repo</span><br><span class="line">    condition: $classify.severity == &quot;medium&quot; &amp;&amp; $classify.auto_fixable == true</span><br><span class="line"></span><br><span class="line">  - id: notify-human</span><br><span class="line">    command: slack.send &quot;#alerts&quot;</span><br><span class="line">    args:</span><br><span class="line">      message: &quot;发现严重错误，需要人工介入: $&#123;parse-error.url&#125;&quot;</span><br><span class="line">    condition: $classify.severity == &quot;critical&quot;</span><br></pre></td></tr></table></figure>
+<p>这里有几个关键点：</p>
+<ul>
+<li><code>classify</code> 步骤用 LLM 分析错误类型，判断是否适合自动修复</li>
+<li><code>decision</code> 根据严重程度分流：中等优先级且可自动修复的走 Claude Code，严重的通知人工</li>
+<li><code>subagent.spawn</code> 是派生子代理的指令，这里指定了 type 为 claude-code</li>
+</ul>
+<p><strong>第三步：Claude Code 子代理配置</strong></p>
+<p>子代理的任务是具体的代码修复。OpenClaw 会把上下文传递给它，包括错误堆栈、相关代码文件、环境信息。</p>
+<p>子代理的工作流程：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"># 1. 拉取最新代码</span><br><span class="line">git clone $REPO_URL /tmp/fix-workspace</span><br><span class="line">cd /tmp/fix-workspace</span><br><span class="line"></span><br><span class="line"># 2. 创建修复分支</span><br><span class="line">git checkout -b auto-fix/$ERROR_ID</span><br><span class="line"></span><br><span class="line"># 3. 分析问题（Claude Code 介入）</span><br><span class="line">claude-code --context $ERROR_CONTEXT --prompt &quot;分析这个 Bug 的根因&quot;</span><br><span class="line"></span><br><span class="line"># 4. 编写修复</span><br><span class="line">claude-code --prompt &quot;编写修复代码，确保包含测试&quot;</span><br><span class="line"></span><br><span class="line"># 5. 运行测试</span><br><span class="line">npm test</span><br><span class="line"></span><br><span class="line"># 6. 提交并推送</span><br><span class="line">git add .</span><br><span class="line">git commit -m &quot;fix: auto-fix for $ERROR_TITLE [skip ci]&quot;</span><br><span class="line">git push origin auto-fix/$ERROR_ID</span><br><span class="line"></span><br><span class="line"># 7. 创建 PR</span><br><span class="line">gh pr create --title &quot;Auto-fix: $ERROR_TITLE&quot; --body &quot;...&quot;</span><br></pre></td></tr></table></figure>
+<p>Claude Code 在这里的核心价值是”代码理解”。它不只是根据错误堆栈盲目修改，而是会：</p>
+<ul>
+<li>读取相关代码文件，理解业务逻辑</li>
+<li>分析错误传播路径，找到真正的根因</li>
+<li>编写符合项目代码风格的修复</li>
+<li>生成单元测试验证修复效果</li>
+</ul>
+<p><strong>第四步：GitHub PR 自动化</strong></p>
+<p>PR 创建后，OpenClaw 会继续监听 GitHub 的 webhook：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">- id: watch-pr</span><br><span class="line">  command: github.watch-pr $auto-fix.pr_number</span><br><span class="line"></span><br><span class="line">- id: ci-status</span><br><span class="line">  command: poll &quot;github.checks $auto-fix.pr_number&quot;</span><br><span class="line">  until: $ci-status.completed == true</span><br><span class="line">  timeout: 30m</span><br><span class="line"></span><br><span class="line">- id: notify-review</span><br><span class="line">  command: slack.send &quot;#dev&quot;</span><br><span class="line">  args:</span><br><span class="line">    message: |</span><br><span class="line">      自动修复 PR 已就绪: $&#123;auto-fix.pr_url&#125;</span><br><span class="line">      CI 状态: $&#123;ci-status.conclusion&#125;</span><br><span class="line">      请审查后合并</span><br></pre></td></tr></table></figure>
+<p>这样你就收到了一条 Slack 消息，包含 PR 链接和 CI 结果。你点进去审查代码，没问题就合并。整个过程中，你完全不需要手动拉代码、写修复、跑测试。</p>
+<h1 id="进阶技巧——让工作流更智能"><a href="#进阶技巧——让工作流更智能" class="headerlink" title="进阶技巧——让工作流更智能"></a>进阶技巧——让工作流更智能</h1><p>基础配置跑起来后，你可以加一些进阶功能让它更好用。</p>
+<p><strong>Bug 分级处理</strong></p>
+<p>不是所有 Bug 都值得自动修复。我在 classify 步骤加了个简单的规则引擎：</p>
+<ul>
+<li>P0（Critical）：系统宕机、数据丢失 → 立即通知人工</li>
+<li>P1（High）：核心功能不可用 → 通知 + 尝试自动修复（人工确认后提交）</li>
+<li>P2（Medium）：非核心功能异常 → 全自动修复</li>
+<li>P3（Low）：边缘 case、优化建议 → 记录到 backlog，每周批量处理</li>
+</ul>
+<p><strong>人工检查点</strong></p>
+<p>有些修复虽然技术上是正确的，但业务上可能有问题。我加了一个 approval 步骤：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">- id: propose-fix</span><br><span class="line">  command: claude-code.generate-fix</span><br><span class="line"></span><br><span class="line">- id: human-approval</span><br><span class="line">  command: slack.interactive</span><br><span class="line">  args:</span><br><span class="line">    message: &quot;AI 建议以下修复，是否批准提交？&quot;</span><br><span class="line">    buttons: [&quot;批准&quot;, &quot;拒绝&quot;, &quot;需要修改&quot;]</span><br><span class="line">  timeout: 4h</span><br><span class="line"></span><br><span class="line">- id: submit-if-approved</span><br><span class="line">  command: github.create-pr</span><br><span class="line">  condition: $human-approval.choice == &quot;批准&quot;</span><br></pre></td></tr></table></figure>
+<p>这样对于敏感操作，AI 不会自作主张。</p>
+<p><strong>失败重试和回滚</strong></p>
+<p>Claude Code 也不是每次都能修好。如果测试失败，可以自动重试：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">- id: fix-attempt</span><br><span class="line">  loop: 3</span><br><span class="line">  sub-lobster: claude-code-fix</span><br><span class="line">  break-on: $fix-attempt.tests_passed</span><br><span class="line"></span><br><span class="line">- id: escalate-if-failed</span><br><span class="line">  command: slack.send &quot;#dev-escalation&quot;</span><br><span class="line">  condition: !$fix-attempt.tests_passed</span><br></pre></td></tr></table></figure>
+<p>如果三次都失败，就通知人工接手。</p>
+<p><strong>多仓库支持</strong></p>
+<p>我们公司有十几个微服务，每个都有独立仓库。OpenClaw 可以配置多个项目映射：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">projects:</span><br><span class="line">  payment-service:</span><br><span class="line">    repo: github.com/acme/payment</span><br><span class="line">    sentry_project: payment-api</span><br><span class="line">    auto_fix: true</span><br><span class="line"></span><br><span class="line">  user-service:</span><br><span class="line">    repo: github.com/acme/users</span><br><span class="line">    sentry_project: user-api</span><br><span class="line">    auto_fix: false  # 这个暂时不开自动修复</span><br></pre></td></tr></table></figure>
+<p>这样一套 OpenClaw 实例可以服务多个项目。</p>
+<h1 id="效果评估与注意事项"><a href="#效果评估与注意事项" class="headerlink" title="效果评估与注意事项"></a>效果评估与注意事项</h1><p>这套系统我跑了三个月，数据是这样的：</p>
+<ul>
+<li>总捕获 Bug：127 个</li>
+<li>自动修复成功：89 个（70%）</li>
+<li>修复后测试通过：78 个（61%）</li>
+<li>人工审查后合并：72 个（57%）</li>
+</ul>
+<p>也就是说，<strong>接近六成的 Bug 完全不需要我动手</strong>，早上看看 PR 点一下合并就行。</p>
+<p>时间节省更明显。以前一个典型 Bug 的处理流程：发现（平均 2 小时）→ 定位（30 分钟）→ 修复（30 分钟）→ 测试（20 分钟）→ 提交 PR（10 分钟）。总共 4.5 小时。</p>
+<p>现在：发现（实时）→ AI 修复（10 分钟）→ 人工审查（5 分钟）。<strong>从 4.5 小时缩短到 15 分钟</strong>。</p>
+<p>但说实话，这套系统也有局限：</p>
+<p><strong>适用场景</strong>：</p>
+<ul>
+<li>已知问题类型的重复 Bug（如空指针、边界条件、API 超时）</li>
+<li>有明确堆栈信息的运行时错误</li>
+<li>代码库结构清晰、测试覆盖良好的项目</li>
+</ul>
+<p><strong>不适用场景</strong>：</p>
+<ul>
+<li>架构设计层面的问题（需要人类决策）</li>
+<li>需要跨多个系统协调的复杂 Bug</li>
+<li>没有测试覆盖的遗留代码（AI 改完你不敢合）</li>
+</ul>
+<p><strong>风险控制</strong>：</p>
+<ul>
+<li>永远不要给 AI 生产环境写权限</li>
+<li>所有自动修复必须通过 PR，走正常审查流程</li>
+<li>保留完整的审计日志，知道 AI 改了什么</li>
+<li>定期检查 AI 的修复质量，调整模型 prompt</li>
+</ul>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>说了这么多，OpenClaw + Claude Code 的混合工作流，本质上是把”监控”和”修复”这两个环节自动化了。OpenClaw 做它不擅长但必要的事情（24小时盯着），Claude Code 做它擅长的事情（写代码）。两者结合，实现了一个”永不疲倦的初级程序员”——能干活，但需要你把关。</p>
+<p>这套配置的核心价值不是”替代程序员”，而是<strong>消除重复性工作</strong>，让你把精力集中在真正需要人类智慧的地方。</p>
+<p>如果你也在为 on-call 痛苦，或者团队经常被重复 Bug 困扰，我建议试试这套方案。从最简单的场景开始——比如自动修复特定的错误类型——然后逐步扩展。</p>
+<p>未来的编程工作流，大概率就是这种”人类决策 + AI 执行”的模式。早点拥抱它，早点下班。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="OpenClaw-和-Claude-Code-的分工是什么？"><a href="#OpenClaw-和-Claude-Code-的分工是什么？" class="headerlink" title="OpenClaw 和 Claude Code 的分工是什么？"></a>OpenClaw 和 Claude Code 的分工是什么？</h2><p>两者的分工很明确：</p>
+<ul>
+<li><p>OpenClaw：负责”看”和”协调”——24小时监控、接收 webhook、分析错误、决策路由、派生子代理、通知人类。它不直接修改代码。</p>
+</li>
+<li><p>Claude Code：负责”干”——分析代码、定位 Bug、编写修复、运行测试、提交 PR。它是实际的代码执行者。</p>
+</li>
+</ul>
+<p>这个分工保证了安全性（OpenClaw 控制权限）和专业性（Claude Code 擅长编程）。</p>
+<h2 id="AI-自动修-Bug-会不会很危险？"><a href="#AI-自动修-Bug-会不会很危险？" class="headerlink" title="AI 自动修 Bug 会不会很危险？"></a>AI 自动修 Bug 会不会很危险？</h2><p>风险控制是这套系统的核心设计原则：</p>
+<ul>
+<li>无生产环境写权限：AI 只能创建 PR，不能直接 push 到主分支  </li>
+<li>强制人工审查：所有修复必须通过 PR 审查流程，至少一个人批准  </li>
+<li>分级处理：严重 Bug 不会自动修复，只会通知人工  </li>
+<li>审计日志：记录 AI 的所有操作，便于追踪和问题定位  </li>
+<li>逐步放开：先监控观察，再低风险修复，最后扩大范围</li>
+</ul>
+<p>本质上，AI 是”初级程序员”角色，负责重复性工作，但关键决策仍由人类把控。</p>
+<h2 id="这套方案的成本如何？"><a href="#这套方案的成本如何？" class="headerlink" title="这套方案的成本如何？"></a>这套方案的成本如何？</h2><p>成本主要包括：</p>
+<ul>
+<li>OpenClaw：自托管，主要成本是服务器（约 $10-50/月）  </li>
+<li>Claude Code：Anthropic API 调用，按 token 计费  </li>
+<li>Sentry：监控服务，根据事件量收费</li>
+</ul>
+<p>收益方面：  </p>
+<ul>
+<li>实测节省 70% 的重复 Bug 处理时间  </li>
+<li>对于时薪 $50+ 的程序员，每月节省 20+ 小时就是 $1000+ 的价值  </li>
+<li>更重要的是减少 on-call 痛苦，提升生活质量</li>
+</ul>
+<p>ROI 计算：一个小团队（3-5 人）每月处理 50+ Bug，这套系统能自动处理 30 个左右，投资回报率通常 3-6 个月回本。</p>
+<h2 id="什么样的-Bug-适合自动修复？"><a href="#什么样的-Bug-适合自动修复？" class="headerlink" title="什么样的 Bug 适合自动修复？"></a>什么样的 Bug 适合自动修复？</h2><p>适合自动修复的 Bug 类型：</p>
+<ul>
+<li>已知问题模式：空指针、数组越界、类型错误、API 超时  </li>
+<li>有明确堆栈：能定位到具体代码行和调用链  </li>
+<li>修复模式固定：如”加个 try-catch”、”补个边界检查”  </li>
+<li>有测试覆盖：能验证修复是否有效</li>
+</ul>
+<p>不适合自动修复的情况：</p>
+<ul>
+<li>架构设计问题：需要重构而不是简单修复  </li>
+<li>跨系统 Bug：涉及多个服务的协调  </li>
+<li>业务逻辑复杂：需要理解业务上下文才能判断  </li>
+<li>遗留代码：没有测试，AI 改完不敢合</li>
+</ul>
+<p>建议从最简单的 null pointer 修复开始，逐步积累经验。</p>
+<h2 id="Claude-Code-子代理是如何被调用的？"><a href="#Claude-Code-子代理是如何被调用的？" class="headerlink" title="Claude Code 子代理是如何被调用的？"></a>Claude Code 子代理是如何被调用的？</h2><p>调用机制：</p>
+<ol>
+<li>OpenClaw 收到 Sentry webhook，分析后判断需要修复  </li>
+<li>调用 subagent.spawn 指令，指定 type: claude-code  </li>
+<li>传递完整上下文：错误堆栈、相关代码、环境信息  </li>
+<li>Claude Code 子代理启动，加载指定的代码仓库  </li>
+<li>子代理分析、修复、测试、提交 PR  </li>
+<li>完成后向 OpenClaw 主代理报告结果</li>
+</ol>
+<p>技术细节：  </p>
+<ul>
+<li>子代理在隔离环境中运行（容器或临时目录）  </li>
+<li>有超时限制（默认 30 分钟）  </li>
+<li>支持重试机制（失败后可重新派生）  </li>
+<li>可以传递自定义 prompt 指导修复策略</li>
+</ul>
+<h2 id="这套方案和传统-CI-CD-自动化有什么区别？"><a href="#这套方案和传统-CI-CD-自动化有什么区别？" class="headerlink" title="这套方案和传统 CI/CD 自动化有什么区别？"></a>这套方案和传统 CI/CD 自动化有什么区别？</h2><p>核心区别：</p>
+<p>传统 CI/CD 自动化：  </p>
+<ul>
+<li>基于规则：预定义的 lint、format、test 规则  </li>
+<li>被动触发：代码提交后才运行  </li>
+<li>固定流程：相同的检查对每个提交都做</li>
+</ul>
+<p>OpenClaw + Claude Code：  </p>
+<ul>
+<li>AI 驱动：基于理解和推理，不是固定规则  </li>
+<li>主动监控：24小时盯着生产环境，发现问题主动修复  </li>
+<li>动态决策：根据错误类型和上下文决定如何处理  </li>
+<li>代码生成：不只是检查，还能写修复代码</li>
+</ul>
+<p>两者可以结合：  </p>
+<ul>
+<li>OpenClaw 发现问题并生成修复  </li>
+<li>传统 CI/CD 验证修复的质量  </li>
+<li>PR 审查后合并，再走正常部署流程</li>
+</ul>
+<p>这是从”自动化检查”到”自动化修复”的进化。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/de4c/">https://jingluo23.github.io/posts/de4c/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/b884/" title="从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 本地网关认证、Docker 沙盒化、审批门禁等 5 个关键安全配置，建立 AI 代理使用安全意识</div></div></div></a><a class="pagination-related" href="/posts/8176/" title="AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道</div></div><div class="info-2"><div class="info-item-1">用 OpenClaw 搭建从 YouTube 灵感到 Twitter/LinkedIn 分发的全自动内容管道，实现 AI 营销自动化，每天节省 2 小时内容生产时间。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/eae4/" title="OpenClaw社区技能推荐：解锁你的AI助手超能力"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-03</div><div class="info-item-2">OpenClaw社区技能推荐：解锁你的AI助手超能力</div></div><div class="info-2"><div class="info-item-1">介绍OpenClaw社区中最受欢迎和最实用的技能，包括Home Assistant智能家居控制、Tesla车辆管理、Gmail自动化、图片处理等，涵盖安装方法和使用场景，帮助用户充分发挥AI助手的潜力。</div></div></div></a><a class="pagination-related" href="/posts/6da9/" title="OpenClaw WhatsApp接入完整指南：从配置到实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-09</div><div class="info-item-2">OpenClaw WhatsApp接入完整指南：从配置到实战</div></div><div class="info-2"><div class="info-item-1">详细讲解OpenClaw WhatsApp集成流程，包括三种接入方法、权限配置、消息路由设置、QR码扫描步骤和常见问题排查，帮助用户在WhatsApp上快速部署AI助手。</div></div></div></a><a class="pagination-related" href="/posts/14cc/" title="OpenClaw云服务器vs本地运行：如何选择最适合你的部署方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-25</div><div class="info-item-2">OpenClaw云服务器vs本地运行：如何选择最适合你的部署方案</div></div><div class="info-2"><div class="info-item-1">深度对比OpenClaw云服务器与本地部署的成本、隐私、性能差异，提供6种用户画像的实战方案，帮助你找到最优部署策略。</div></div></div></a><a class="pagination-related" href="/posts/a8/" title="OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-26</div><div class="info-item-2">OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 2026.3 版本核心更新，包括 ContextEngine 引擎、插件三层架构、可插拔沙盒后端和 Firecrawl 集成，附完整配置示例和升级迁移指南。</div></div></div></a><a class="pagination-related" href="/posts/f2d6/" title="OpenClaw与ChatGPT的本质区别：从第一性原理理解自主AI代理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-26</div><div class="info-item-2">OpenClaw与ChatGPT的本质区别：从第一性原理理解自主AI代理</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw和ChatGPT的核心差异，从自主性、架构设计到安全风险，帮你理解什么是真正的AI代理，以及如何在实际场景中选择合适的AI工具。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#OpenClaw-vs-Claude-Code%E2%80%94%E2%80%94%E4%B8%8D%E6%98%AF%E7%AB%9E%E4%BA%89%EF%BC%8C%E6%98%AF%E4%BA%92%E8%A1%A5"><span class="toc-number">1.</span> <span class="toc-text">OpenClaw vs Claude Code——不是竞争，是互补</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1%E2%80%94%E2%80%94%E6%B7%B7%E5%90%88%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%9A%84%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6"><span class="toc-number">2.</span> <span class="toc-text">架构设计——混合工作流的核心组件</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E9%85%8D%E7%BD%AE%E2%80%94%E2%80%94%E4%BB%8E%E7%9B%91%E6%8E%A7%E5%88%B0%E8%87%AA%E5%8A%A8%E6%8F%90%E4%BA%A4-PR"><span class="toc-number">3.</span> <span class="toc-text">实战配置——从监控到自动提交 PR</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%9B%E9%98%B6%E6%8A%80%E5%B7%A7%E2%80%94%E2%80%94%E8%AE%A9%E5%B7%A5%E4%BD%9C%E6%B5%81%E6%9B%B4%E6%99%BA%E8%83%BD"><span class="toc-number">4.</span> <span class="toc-text">进阶技巧——让工作流更智能</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%95%88%E6%9E%9C%E8%AF%84%E4%BC%B0%E4%B8%8E%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">5.</span> <span class="toc-text">效果评估与注意事项</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw-%E5%92%8C-Claude-Code-%E7%9A%84%E5%88%86%E5%B7%A5%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">OpenClaw 和 Claude Code 的分工是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-%E8%87%AA%E5%8A%A8%E4%BF%AE-Bug-%E4%BC%9A%E4%B8%8D%E4%BC%9A%E5%BE%88%E5%8D%B1%E9%99%A9%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">AI 自动修 Bug 会不会很危险？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%99%E5%A5%97%E6%96%B9%E6%A1%88%E7%9A%84%E6%88%90%E6%9C%AC%E5%A6%82%E4%BD%95%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">这套方案的成本如何？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%A0%B7%E7%9A%84-Bug-%E9%80%82%E5%90%88%E8%87%AA%E5%8A%A8%E4%BF%AE%E5%A4%8D%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">什么样的 Bug 适合自动修复？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Claude-Code-%E5%AD%90%E4%BB%A3%E7%90%86%E6%98%AF%E5%A6%82%E4%BD%95%E8%A2%AB%E8%B0%83%E7%94%A8%E7%9A%84%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">Claude Code 子代理是如何被调用的？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%99%E5%A5%97%E6%96%B9%E6%A1%88%E5%92%8C%E4%BC%A0%E7%BB%9F-CI-CD-%E8%87%AA%E5%8A%A8%E5%8C%96%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">这套方案和传统 CI&#x2F;CD 自动化有什么区别？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

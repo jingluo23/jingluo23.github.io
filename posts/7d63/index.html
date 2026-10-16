@@ -1,0 +1,648 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="通过 OpenClaw 网关协议将 iOS&#x2F;安卓设备变成 AI 遥控器，实现截图、相机、定位等硬件能力的远程控制，打造真正的跨设备个人 AI 操作系统。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器">
+<meta property="og:url" content="https://jingluo23.github.io/posts/7d63/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="通过 OpenClaw 网关协议将 iOS&#x2F;安卓设备变成 AI 遥控器，实现截图、相机、定位等硬件能力的远程控制，打造真正的跨设备个人 AI 操作系统。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-19T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-16T06:28:23.845Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器",
+  "url": "https://jingluo23.github.io/posts/7d63/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-19T07:12:21.000Z",
+  "dateModified": "2026-10-16T06:28:23.845Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/7d63/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-19T07:12:21.000Z" title="发表于 2026-07-19 15:12:21">2026-07-19</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-16T06:28:23.845Z" title="更新于 2026-10-16 14:28:23">2026-10-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.9k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>12分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-16 14:28:23&quot;}" hidden></div><p>在咖啡馆时，手头有个急活需要查一份放在家里台式机桌面上的 PDF。掏出手机，给 Telegram 里的 “ClawBot” 发消息：「帮我截图看看桌面」。十秒后收到桌面截图，一眼看到那个 PDF 文件。又发了句：「打开这个文件，告诉我第三页写了什么」，两分钟后收到第三页内容概括。</p>
+<p>说实话，这种场景在过去半年里对我来说已经司空见惯了。自从把 OpenClaw 配置成<strong>个人 AI 操作系统</strong>，我的 iPhone 变成了一个真正的”遥控器”——能调家里电脑的摄像头，能获取定位，能远程截图。最重要的是，这一切都是通过开源工具实现的，数据完全在我自己手里。</p>
+<p>如果你也想过让手机成为你 AI 代理的真正控制台，而不是被局限在厂商提供的功能里，那这篇<strong>OpenClaw 远程控制</strong>指南就是为你写的。咱们不扯概念，直接上手。</p>
+<h1 id="理解-OpenClaw-网关协议（Layer-1-基础）"><a href="#理解-OpenClaw-网关协议（Layer-1-基础）" class="headerlink" title="理解 OpenClaw 网关协议（Layer 1 基础）"></a>理解 OpenClaw 网关协议（Layer 1 基础）</h1><p>想把手机变成 OpenClaw 的遥控器，得先搞清楚这套系统是怎么运转的。别被”网关协议”这种词吓到，说白了就是一套让不同设备互相认识的”接头暗号”。</p>
+<p>OpenClaw 用的是 Gateway WS Protocol（网关 WebSocket 协议）。这个名字听着唬人，其实原理很简单：所有设备——不管是你电脑上的主控端、手机上的节点端，还是 Telegram 里的聊天界面——都通过 WebSocket 这个长连接通道挂在一个统一的控制平面上。每个设备连上来的时候，都要报上自己的”身份”和”能力”。</p>
+<p>举个例子。你的 iPhone 连进来时会说：“我是 iOS 节点，我能用相机、能截图、能定位。“你的电脑会说：“我是网关，我负责协调。“Telegram Bot 会说：“我是客户端，我来接收用户指令。”</p>
+<p>这套机制里有三个核心角色，搞懂了它们，后面的配置就顺了：</p>
+<p><strong>Gateway（网关）</strong>：这是整个系统的”大脑”，跑在你主要的那台设备上（通常是电脑或服务器）。所有指令都先到这里，再由它分发给各个节点执行。</p>
+<p><strong>Node（节点）</strong>：执行具体任务的终端设备。你的 iPhone、安卓手机、甚至闲置的老手机，都可以注册成节点。每个节点都要声明自己的 <code>caps</code>（能力），比如 <code>camera</code>（相机）、<code>screen</code>（截图）、<code>location</code>（定位）、<code>voice</code>（语音）。</p>
+<p><strong>Client（客户端）</strong>：你用来发送指令的界面。可以是 Telegram 对话框、Discord 频道、专用的 iOS App，或者 Web 界面。</p>
+<p>说到这，你可能会想：让手机开放这么多权限，安全吗？</p>
+<p>坦白讲，这也是我最初最担心的问题。OpenClaw 在这方面做得还算周到。连接时要用 Token 认证，设备还要有签名验证，传输走 TLS 加密。更关键的是权限的细粒度控制——你的节点可以声明”我有相机能力”，但网关可以配置”这个客户端只能调用截图，不能调用相机”。</p>
+<p>实际配置时，你会在节点的连接参数里看到这样的 JSON 片段：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;role&quot;: &quot;node&quot;,</span><br><span class="line">  &quot;caps&quot;: [&quot;camera&quot;, &quot;screen&quot;, &quot;location&quot;],</span><br><span class="line">  &quot;commands&quot;: [&quot;camera.snap&quot;, &quot;screen.record&quot;, &quot;location.get&quot;],</span><br><span class="line">  &quot;permissions&quot;: &#123;</span><br><span class="line">    &quot;camera.capture&quot;: true,</span><br><span class="line">    &quot;screen.record&quot;: false</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段配置的意思很明确：我这个节点能拍照、能截图、能定位，但具体能不能用，还要看网关给的权限。这样一来，即便你的手机节点被入侵，攻击者能做的事情也被限制在了一个很小的范围里。</p>
+<h1 id="移动端节点配置实战（Layer-2-进阶）"><a href="#移动端节点配置实战（Layer-2-进阶）" class="headerlink" title="移动端节点配置实战（Layer 2 进阶）"></a>移动端节点配置实战（Layer 2 进阶）</h1><p>明白了协议原理，接下来就是动手环节。咱们分 iOS 和安卓两条线来讲，因为两者的配置路径差别挺大的。</p>
+<h2 id="iOS-节点配置"><a href="#iOS-节点配置" class="headerlink" title="iOS 节点配置"></a>iOS 节点配置</h2><p>先说 iPhone。OpenClaw 官方没有上架 App Store，所以你得有点心理准备——要么用 TestFlight（如果有内测资格），要么自己签名安装 IPA。我自己是用 AltStore 自签的，每个月重签一次，不算麻烦。</p>
+<p>装好之后，打开应用会看到节点配置界面。几个关键字段得填对：</p>
+<p><strong>Gateway URL</strong>：你网关的 WebSocket 地址。如果你在局域网内测试，可能是 <code>ws://192.168.1.100:8080</code>。如果想外网访问，得配置反向代理，用 wss:// 协议。我用的 Cloudflare Tunnel，这样不用暴露公网 IP。</p>
+<p><strong>Client ID</strong>：给这个节点起个名字，比如 “iphone-15-main”。</p>
+<p><strong>Auth Token</strong>：在网关那边生成的认证令牌。复制过来贴上。</p>
+<p><strong>Capabilities</strong>：勾选你要开放的能力。我建议第一次只开 <code>location</code>，测试通了再开 <code>camera</code> 和 <code>screen</code>。别一开始就全开，出了问题不好排查。</p>
+<p>填完点连接，如果看到绿色的 “Connected” 状态，恭喜你，节点已经挂到网关上了。</p>
+<p>对了，iOS 有个坑我得提前说：后台限制。iPhone 对后台运行的 App 管得很严，OpenClaw 节点如果切到后台太久会被系统杀掉。有两个办法：一是开启”后台 App 刷新”，二是偶尔打开一下保持活跃。我一般是把节点挂在备用机上，主力机该咋用咋用。</p>
+<h2 id="安卓节点配置"><a href="#安卓节点配置" class="headerlink" title="安卓节点配置"></a>安卓节点配置</h2><p>安卓这边灵活多了。你有两个选择：用官方 APK，或者 Termux 里跑 Node 版本。</p>
+<p>APK 方式和 iOS 差不多，装包、填配置、连网关。安卓的后台策略比 iOS 松，节点存活率更高。不过国产 ROM 各有各的省电策略，华为、小米、OPPO 都得手动设置”允许后台运行”，不然分分钟给你冻住。</p>
+<p>Termux 方案适合喜欢折腾的。在 Termux 里装 Node.js，然后 <code>npm install openclaw</code>，用命令行启动节点。好处是能看详细日志，出问题好排查。坏处是 Termux 后台一样会被杀，得配合 Termux:Boot 和 Tasker 之类的工具保活。</p>
+<p>不管是 iOS 还是安卓，安全配置都是同一条原则：<strong>最小权限原则</strong>。你的节点真的需要相机权限吗？如果只是用来定位和偶尔截图，就别开相机。权限开得越少，攻击面就越小。</p>
+<p>还有一点，设备签名。OpenClaw 支持用公私钥对设备进行签名验证。配置时生成一对密钥，公钥放网关，私钥放节点。这样即使有人拿到了你的 Token，没有私钥也连不上。我在自己的网关配置上强制要求设备签名，Token 泄露也不怕。</p>
+<h1 id="Telegram-遥控实战"><a href="#Telegram-遥控实战" class="headerlink" title="Telegram 遥控实战"></a>Telegram 遥控实战</h1><p>节点挂上去了，怎么控制它呢？最直接的方式就是 Telegram。说实话，这也是我最喜欢的方式——不用多装一个 App，打开 Telegram 就能用。</p>
+<p>配置 Telegram Bot 其实比想象中简单。先去 @BotFather 那里申请一个新 Bot，拿到 Token。然后在 OpenClaw 的 channel 配置里加上 Telegram 插件，把 Token 填进去。重启网关，你的 Bot 就活了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">channels:</span><br><span class="line">  telegram:</span><br><span class="line">    token: &quot;YOUR_BOT_TOKEN&quot;</span><br><span class="line">    mode: polling</span><br></pre></td></tr></table></figure>
+<p>Polling 模式是最省事的，适合个人用。Webhook 模式需要你有公网地址和 HTTPS，稍微麻烦点，但响应更快。</p>
+<p>Bot 连上之后，你就可以给它发消息了。OpenClaw 默认会把所有消息转发给 AI 处理，但咱们要做的是<strong>远程硬件控制</strong>，得用特定的命令格式。</p>
+<p>在 OpenClaw 的 skills 配置里，你可以给节点能力绑定命令。比如这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">skills:</span><br><span class="line">  remote_control:</span><br><span class="line">    commands:</span><br><span class="line">      camera:</span><br><span class="line">        target: &quot;iphone-15-main&quot;</span><br><span class="line">        action: &quot;camera.snap&quot;</span><br><span class="line">      screenshot:</span><br><span class="line">        target: &quot;iphone-15-main&quot;</span><br><span class="line">        action: &quot;screen.capture&quot;</span><br><span class="line">      where:</span><br><span class="line">        target: &quot;iphone-15-main&quot;</span><br><span class="line">        action: &quot;location.get&quot;</span><br></pre></td></tr></table></figure>
+<p>配置完之后，在 Telegram 里输入 <code>/camera</code>，Bot 就会让指定的 iPhone 拍一张照片发回来。输入 <code>/where</code>，它会回复当前的 GPS 坐标。</p>
+<p>我第一次成功让家里的手机拍照发回来时，说实话挺激动的。那种感觉就像是突然多了一个随时待命的助手，而且完全是自己的。</p>
+<p>Telegram 还有一个好处是支持群组。你可以把 Bot 拉到一个只有你自己的群组里，这样历史记录更方便查看。也可以和家人共享，让家人也能通过 Bot 调用你的节点能力——当然，权限要设置好，别让他们半夜给你截图（别问我怎么知道的）。</p>
+<p>对了，Telegram 还支持发送图片和文档给 Bot。比如你给家里的闲置手机发一张图，Bot 可以让 OpenClaw 分析这张图，或者把图存到指定目录。这在某种程度上实现了”跨设备剪贴板”的效果。</p>
+<h1 id="专用-App-与进阶场景"><a href="#专用-App-与进阶场景" class="headerlink" title="专用 App 与进阶场景"></a>专用 App 与进阶场景</h1><p>Telegram 虽然方便，但毕竟是聊天界面，有些场景还是不够顺手。比如你想快速看一眼家里的摄像头画面，或者想在一个界面里看到所有节点的状态。这时候就得考虑专用 App 了。</p>
+<p>OpenClaw 官方有一个 Web UI，默认跑在 <code>http://localhost:3000</code>。手机浏览器打开这个地址，就能看到一个仪表板界面。不过默认只监听本地，外网访问得配反向代理。</p>
+<p>我用 Nginx 配了一个，加上 HTTP Basic Auth，手机浏览器里收藏一下，用起来也还行。Web UI 能看到所有在线节点、它们的能力状态、最近的日志。点击节点可以手动触发能力，比如点一下 Camera 按钮，它就会让对应的手机拍照。</p>
+<p>社区里还有一些第三方开发的控制面板，功能更花哨。比如有个叫 ClawDash 的项目，支持自定义布局，可以把常用的控制按钮放在首页。不过这种第三方工具得自己评估安全性，毕竟要连你的网关。</p>
+<h2 id="自动化工作流"><a href="#自动化工作流" class="headerlink" title="自动化工作流"></a>自动化工作流</h2><p>说个更高级的玩法：自动化。OpenClaw 支持基于事件触发技能执行，这就很有意思了。</p>
+<p>比如我配置了一个地理围栏：当我的手机节点（也就是我随身携带的那台）进入”家”这个地理范围时，自动触发家里的电脑执行”打开音乐播放器”。这样一来，我到家的时候音乐已经响起来了。</p>
+<p>再举个例子：定时截图。我让闲置的安卓手机每天早上 8 点截图一次，然后 AI 分析截图里有没有异常（比如家里电器是不是忘了关），如果有就给我发 Telegram 提醒。</p>
+<p>这些自动化规则在 OpenClaw 的配置文件里写，格式大概这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">automations:</span><br><span class="line">  - name: &quot;arrive_home&quot;</span><br><span class="line">    trigger:</span><br><span class="line">      type: &quot;geofence&quot;</span><br><span class="line">      device: &quot;iphone-15-main&quot;</span><br><span class="line">      location: &quot;home&quot;</span><br><span class="line">    action:</span><br><span class="line">      target: &quot;macbook-pro&quot;</span><br><span class="line">      skill: &quot;music.play&quot;</span><br><span class="line">  - name: &quot;morning_check&quot;</span><br><span class="line">    trigger:</span><br><span class="line">      type: &quot;schedule&quot;</span><br><span class="line">      cron: &quot;0 8 * * *&quot;</span><br><span class="line">    action:</span><br><span class="line">      target: &quot;android-spare&quot;</span><br><span class="line">      skill: &quot;screen.analyze&quot;</span><br></pre></td></tr></table></figure>
+<h2 id="故障排查"><a href="#故障排查" class="headerlink" title="故障排查"></a>故障排查</h2><p>配置过程中难免遇到问题。我把自己踩过的坑列一下：</p>
+<p><strong>连不上网关</strong>：先检查 WebSocket 地址对不对，端口通不通。用 <code>curl ws://gateway-ip:port</code> 测试一下。如果是 wss，确保证书没问题。</p>
+<p><strong>节点显示离线但 App 里显示已连接</strong>：大概率是角色声明错了。检查节点配置里的 <code>role</code> 是不是填的 <code>&quot;node&quot;</code>，别填成 <code>&quot;client&quot;</code> 了。</p>
+<p><strong>命令没反应</strong>：看网关日志，确认命令路由到了正确的节点。有时候设备 ID 填错了，命令发到了不存在的节点上。</p>
+<p><strong>权限被拒绝</strong>：检查节点的 <code>permissions</code> 配置和网关的权限策略。OpenClaw 的权限是双向的，节点声明了能力，网关还要允许这个客户端调用才行。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实就是三件事：</p>
+<p>第一，OpenClaw 的 Gateway Protocol 提供了一套统一的设备连接标准，让你的手机能和电脑站在同一个”控制平面”上对话。这不是什么黑魔法，就是 WebSocket 加上一套简洁的角色和能力声明机制。</p>
+<p>第二，把手机配置成节点，你就拥有了一个随身携带的传感器和执行终端。相机、定位、屏幕——这些原本只属于手机的硬件能力，现在能被你的 AI 代理调用。</p>
+<p>第三，Telegram 或专用 App 作为控制界面，让你在任何地方都能向家里的 AI 系统发号施令。这种体验，说实话，比任何云端的”智能助手”都更实在——因为数据和决策权完全在你自己手里。</p>
+<p>如果你还没试过，我的建议是：今晚就找台闲置手机，按照第二章的步骤配置一下。哪怕只是实现一个”远程拍照”的功能，那种”随时拥有一双眼睛”的感觉也很奇妙。</p>
+<p>开源社区一直在迭代 OpenClaw，新的技能和集成不断加入。现在只是 Layer 2 的硬件控制，以后说不定还能控制更多东西。谁知道呢？</p>
+<p>至少现在，我的手机已经不只是手机了。它是我的 AI 操作系统的遥控器。你的也可以。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="OpenClaw-节点配置需要什么技术基础？"><a href="#OpenClaw-节点配置需要什么技术基础？" class="headerlink" title="OpenClaw 节点配置需要什么技术基础？"></a>OpenClaw 节点配置需要什么技术基础？</h2><p>基础要求不高：  </p>
+<ul>
+<li>会基本的命令行操作  </li>
+<li>理解 WebSocket 和 Token 认证概念  </li>
+<li>能配置 yaml 文件</li>
+</ul>
+<p>如果是 iOS 用户，还需要熟悉 TestFlight 或自签名安装流程。安卓用户如果用 Termux 方案，需要基本的 Linux 命令知识。整体来说，有一般开发者水平的用户都能在 30 分钟内完成配置。</p>
+<h2 id="手机作为节点会不会很耗电？"><a href="#手机作为节点会不会很耗电？" class="headerlink" title="手机作为节点会不会很耗电？"></a>手机作为节点会不会很耗电？</h2><p>耗电情况取决于配置：  </p>
+<ul>
+<li>仅开启 location 能力：耗电极低，几乎无感  </li>
+<li>开启 camera 和 screen：使用时才耗电，平时无影响  </li>
+<li>WebSocket 长连接：保持心跳的电量消耗很小</li>
+</ul>
+<p>建议：用备用机挂节点，主力机正常使用。或者只在需要远程控制时开启节点，用完关闭。iOS 用户注意后台限制，安卓用户注意省电策略设置。</p>
+<h2 id="OpenClaw-远程控制安全吗？"><a href="#OpenClaw-远程控制安全吗？" class="headerlink" title="OpenClaw 远程控制安全吗？"></a>OpenClaw 远程控制安全吗？</h2><p>安全性设计比较完善：  </p>
+<ul>
+<li>Token 认证：连接时必须提供有效令牌  </li>
+<li>设备签名：支持公私钥验证，防止 Token 泄露后被冒用  </li>
+<li>TLS 加密：外网访问时使用 wss 协议，数据传输加密  </li>
+<li>细粒度权限：节点声明能力，网关控制客户端调用权限  </li>
+<li>本地部署：数据不经过第三方服务器，完全自己掌控</li>
+</ul>
+<p>最佳实践：强制设备签名 + 最小权限原则 + 定期更换 Token。</p>
+<h2 id="Telegram-Bot-和专用-App-哪个更好用？"><a href="#Telegram-Bot-和专用-App-哪个更好用？" class="headerlink" title="Telegram Bot 和专用 App 哪个更好用？"></a>Telegram Bot 和专用 App 哪个更好用？</h2><p>各有优劣：</p>
+<p>Telegram Bot：  </p>
+<ul>
+<li>优点：无需额外安装 App，随时随地可用，支持群组共享  </li>
+<li>缺点：聊天界面不够直观，复杂操作不方便</li>
+</ul>
+<p>专用 App / Web UI：  </p>
+<ul>
+<li>优点：可视化界面，一键触发能力，查看节点状态方便  </li>
+<li>缺点：需要配置反向代理才能外网访问，可能需要多装一个应用</li>
+</ul>
+<p>建议：日常使用 Telegram Bot 足够，复杂场景或频繁操作时用 Web UI。</p>
+<h2 id="除了手机，还能控制什么设备？"><a href="#除了手机，还能控制什么设备？" class="headerlink" title="除了手机，还能控制什么设备？"></a>除了手机，还能控制什么设备？</h2><p>理论上任何能运行 OpenClaw 的设备都可以：  </p>
+<ul>
+<li>电脑（macOS/Windows/Linux）：作为主网关或其他节点  </li>
+<li>树莓派：低功耗长期运行的理想选择  </li>
+<li>安卓 TV / 电视盒子：远程控制家里的媒体中心  </li>
+<li>旧手机/平板：改造成专用监控节点</li>
+</ul>
+<p>关键限制是设备需要能运行 Node.js 或有 OpenClaw 客户端，并且支持 WebSocket 连接。随着社区发展，支持的设备类型会越来越多。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/7d63/">https://jingluo23.github.io/posts/7d63/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/33bd/" title="拒绝 API 账单焦虑：如何通过模型路由节省 80% 的 OpenClaw 成本"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">拒绝 API 账单焦虑：如何通过模型路由节省 80% 的 OpenClaw 成本</div></div><div class="info-2"><div class="info-item-1">学会 OpenClaw 三层模型路由策略，用本地 Llama 3 替代 Claude 处理简单任务，实测节省 70-80% API 成本。完整配置教程 + 真实账单对比。</div></div></div></a><a class="pagination-related" href="/posts/b884/" title="从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 本地网关认证、Docker 沙盒化、审批门禁等 5 个关键安全配置，建立 AI 代理使用安全意识</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/24d0/" title="警惕！ClawHub 技能库发现 800+ 恶意插件，你的 API Key 真的安全吗？"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-24</div><div class="info-item-2">警惕！ClawHub 技能库发现 800+ 恶意插件，你的 API Key 真的安全吗？</div></div><div class="info-2"><div class="info-item-1">基于 2026 年安全事故报告，深入分析 ClawHavoc 攻击事件，教你如何检测 OpenClaw 技能安全、扫描恶意插件、保护 API Key</div></div></div></a><a class="pagination-related" href="/posts/b884/" title="从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-20</div><div class="info-item-2">从小白到 Pro：OpenClaw 初始配置中不可忽略的 5 个安全开关</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 本地网关认证、Docker 沙盒化、审批门禁等 5 个关键安全配置，建立 AI 代理使用安全意识</div></div></div></a><a class="pagination-related" href="/posts/787d/" title="OpenClaw多平台配置实战：13个Channel统一管理AI助手"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-02</div><div class="info-item-2">OpenClaw多平台配置实战：13个Channel统一管理AI助手</div></div><div class="info-2"><div class="info-item-1">详解OpenClaw的Channel层架构，实战配置Telegram、WhatsApp、Discord三大平台，实现跨平台会话同步和安全管理。从安装到部署，15分钟搞定多渠道AI助手。</div></div></div></a><a class="pagination-related" href="/posts/d5f3/" title="OpenClaw 实战完全手册：从入门到精通"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-27</div><div class="info-item-2">OpenClaw 实战完全手册：从入门到精通</div></div><div class="info-2"><div class="info-item-1">OpenClaw 实战完全手册：从入门到精通。涵盖核心概念、快速开始、工具技能系统、工作流自动化、安全部署，提供清晰学习路径和实战案例。</div></div></div></a><a class="pagination-related" href="/posts/3561/" title="OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-10</div><div class="info-item-2">OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南</div></div><div class="info-2"><div class="info-item-1">手把手教你在30分钟内搭建Telegram AI助手，涵盖BotFather创建Bot、OpenClaw配置、白名单安全设置和常见问题排查，让AI助手随时在线。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%90%86%E8%A7%A3-OpenClaw-%E7%BD%91%E5%85%B3%E5%8D%8F%E8%AE%AE%EF%BC%88Layer-1-%E5%9F%BA%E7%A1%80%EF%BC%89"><span class="toc-number">1.</span> <span class="toc-text">理解 OpenClaw 网关协议（Layer 1 基础）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%A7%BB%E5%8A%A8%E7%AB%AF%E8%8A%82%E7%82%B9%E9%85%8D%E7%BD%AE%E5%AE%9E%E6%88%98%EF%BC%88Layer-2-%E8%BF%9B%E9%98%B6%EF%BC%89"><span class="toc-number">2.</span> <span class="toc-text">移动端节点配置实战（Layer 2 进阶）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#iOS-%E8%8A%82%E7%82%B9%E9%85%8D%E7%BD%AE"><span class="toc-number">2.1.</span> <span class="toc-text">iOS 节点配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%8D%93%E8%8A%82%E7%82%B9%E9%85%8D%E7%BD%AE"><span class="toc-number">2.2.</span> <span class="toc-text">安卓节点配置</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Telegram-%E9%81%A5%E6%8E%A7%E5%AE%9E%E6%88%98"><span class="toc-number">3.</span> <span class="toc-text">Telegram 遥控实战</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%93%E7%94%A8-App-%E4%B8%8E%E8%BF%9B%E9%98%B6%E5%9C%BA%E6%99%AF"><span class="toc-number">4.</span> <span class="toc-text">专用 App 与进阶场景</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E4%BD%9C%E6%B5%81"><span class="toc-number">4.1.</span> <span class="toc-text">自动化工作流</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5"><span class="toc-number">4.2.</span> <span class="toc-text">故障排查</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">5.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw-%E8%8A%82%E7%82%B9%E9%85%8D%E7%BD%AE%E9%9C%80%E8%A6%81%E4%BB%80%E4%B9%88%E6%8A%80%E6%9C%AF%E5%9F%BA%E7%A1%80%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">OpenClaw 节点配置需要什么技术基础？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%8B%E6%9C%BA%E4%BD%9C%E4%B8%BA%E8%8A%82%E7%82%B9%E4%BC%9A%E4%B8%8D%E4%BC%9A%E5%BE%88%E8%80%97%E7%94%B5%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">手机作为节点会不会很耗电？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw-%E8%BF%9C%E7%A8%8B%E6%8E%A7%E5%88%B6%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">OpenClaw 远程控制安全吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Telegram-Bot-%E5%92%8C%E4%B8%93%E7%94%A8-App-%E5%93%AA%E4%B8%AA%E6%9B%B4%E5%A5%BD%E7%94%A8%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">Telegram Bot 和专用 App 哪个更好用？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%99%A4%E4%BA%86%E6%89%8B%E6%9C%BA%EF%BC%8C%E8%BF%98%E8%83%BD%E6%8E%A7%E5%88%B6%E4%BB%80%E4%B9%88%E8%AE%BE%E5%A4%87%EF%BC%9F"><span class="toc-number">6.5.</span> <span class="toc-text">除了手机，还能控制什么设备？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

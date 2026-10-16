@@ -1,0 +1,826 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="vibecode-pro-max-kit 怎么用？本文解释安装审计、RIPER-5 规格驱动流程、项目记忆、多 agent 协作、安全门禁，以及它适合和不适合的 AI 编程场景。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作">
+<meta property="og:url" content="https://jingluo23.github.io/posts/a21a/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="vibecode-pro-max-kit 怎么用？本文解释安装审计、RIPER-5 规格驱动流程、项目记忆、多 agent 协作、安全门禁，以及它适合和不适合的 AI 编程场景。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-28T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-16T03:36:28.969Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作",
+  "url": "https://jingluo23.github.io/posts/a21a/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-28T07:12:21.000Z",
+  "dateModified": "2026-10-16T03:36:28.969Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/a21a/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-28T07:12:21.000Z" title="发表于 2026-07-28 15:12:21">2026-07-28</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-16T03:36:28.969Z" title="更新于 2026-10-16 11:36:28">2026-10-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">2.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>9分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-16 11:36:28&quot;}" hidden></div><blockquote>
+<p>“vibecode-pro-max-kit GitHub README 用于确认安装命令、non-destructive 安装说明、RIPER-5 阶段、agents / skills / hooks 数量、写入目录和安全机制。”</p>
+<p>“GitHub Spec Kit 文档用于确认 spec-driven development 的 Spec、Plan、Tasks、Implement 流程和多 agent 集成背景。”</p>
+<p>“OpenAI Codex Skills 文档用于确认 Codex skills 的目录结构、显式或隐式调用方式，以及可选 scripts、references、assets。”</p>
+</blockquote>
+<p>用 AI 写代码最容易失控的三个场景：上下文被截断、计划散落在聊天记录里、决策没有留下痕迹。每次改需求，都得重新解释整个项目。</p>
+<p>vibecode-pro-max-kit 解决的是流程问题：把 AI coding agent 变成 spec-driven engineering team。先写规格，再计划，再执行，每一步都留下可审计的记录。它不是聊天框架，也不替代 CI/CD，只做一件事：让 AI 编程的决策过程可追溯。</p>
+<h1 id="它解决什么问题"><a href="#它解决什么问题" class="headerlink" title="它解决什么问题"></a>它解决什么问题</h1><p><strong>上下文流失</strong>：长对话被 compaction 截断，设计决策、边界条件、排障思路都没了。下次改需求要么重新解释，要么靠 AI 瞎猜。</p>
+<p><strong>计划和决策不留痕迹</strong>：聊天的 Markdown 导出不是结构化文档。团队成员 review 时看不到历史，不知道为什么选这个方案、排除了哪些选项。</p>
+<p><strong>多 agent 协作成本高</strong>：一个任务拆成多步，每步交给不同 agent，交接靠模糊的自然语言描述。谁负责哪一步、输出格式是什么、验收标准在哪，都得人工盯着。</p>
+<p>这三件事叠加，AI 编程就变成“每次都像第一次”。vibecode-pro-max-kit 把它们收进一个 harness：spec 在前、plan 在中间、execution 有检查点、过程有记忆。</p>
+<h1 id="安装流程与安全审计"><a href="#安装流程与安全审计" class="headerlink" title="安装流程与安全审计"></a>安装流程与安全审计</h1><h2 id="安装命令"><a href="#安装命令" class="headerlink" title="安装命令"></a>安装命令</h2><p>README 给的是远程 shell 安装：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -fsSL https://raw.githubusercontent.com/withkynam/vibecode-pro-max-kit/main/install.sh | bash</span><br></pre></td></tr></table></figure>
+<p>安装完成后，在 Claude Code 里运行 <code>vc-setup</code>；Codex 用户按 README 的提示使用 <code>/vc-setup</code>。它会创建 <code>process/</code> 目录并初始化配置。</p>
+<h2 id="写入文件清单"><a href="#写入文件清单" class="headerlink" title="写入文件清单"></a>写入文件清单</h2><p>当前 README 把安装描述为 non-destructive：不会清空现有 <code>.claude/skills/</code>、<code>.claude/agents/</code>、<code>process/</code> 或 <code>settings.json</code>，只写入或更新 kit-owned 文件。它仍会在项目里放入这些目录和文件：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">路径</th>
+<th style="text-align:center">内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center"><code>.claude/agents</code></td>
+<td style="text-align:center">Claude Code 专用 agent 定义，当前 README 写 15 个</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>.claude/skills</code></td>
+<td style="text-align:center">Claude Code 专用 skill 定义，当前 README 写 33 个</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>.claude/hooks</code></td>
+<td style="text-align:center">生命周期 hooks，当前 README 写 10 个</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>.codex/agents</code></td>
+<td style="text-align:center">给 Codex 使用的 mirrored agents</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>.agents/skills</code></td>
+<td style="text-align:center">指向 <code>.claude/skills</code> 的 symlink，用于 Codex discovery</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>CLAUDE.md</code></td>
+<td style="text-align:center">Claude Code orchestrator 与 routing rules</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>AGENTS.md</code></td>
+<td style="text-align:center">跨工具 agent 与 skill registry</td>
+</tr>
+<tr>
+<td style="text-align:center"><code>process/</code></td>
+<td style="text-align:center">计划生命周期和项目记忆目录</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>README 还说明：已有配置会备份到 <code>.vibecode-backup/</code>，已有 <code>CLAUDE.md</code> 会备份为 <code>CLAUDE.md.pre-vibecode</code>，已有 <code>process/</code> 不由安装脚本直接迁移，而是由 <code>vc-setup</code> / <code>vc-update</code> 交互处理。</p>
+<h2 id="安全审计要点"><a href="#安全审计要点" class="headerlink" title="安全审计要点"></a>安全审计要点</h2><p><strong>不要在生产仓库直接 <code>curl | bash</code></strong>。即使 README 声称安装是 non-destructive，远程 shell 脚本仍然需要审计，因为它会写入 <code>.claude/</code>、<code>.codex/</code>、<code>CLAUDE.md</code>、<code>AGENTS.md</code> 等敏感路径。</p>
+<p>建议的第一次试用流程：</p>
+<ol>
+<li>fork 或 copy 一个非生产项目</li>
+<li>在 fork 里跑安装</li>
+<li><code>git diff</code> 检查写入的文件</li>
+<li>确认没有意料外的配置修改后再考虑迁移</li>
+</ol>
+<p>安装脚本的备份机制是否适合你的仓库，需要自己验证。尤其是已有自定义 <code>vc-</code> 前缀 skill 或 agent 的项目，要按 README 的 caveat 额外检查。</p>
+<p>这里的“不会覆盖”也不要理解成“没有风险”。它降低的是误删已有目录的概率，不等于你可以跳过供应链审计、权限隔离和回滚准备。对团队项目来说，最小安全动作仍然是：先读脚本，再在副本里跑，再让 reviewer 看 diff。</p>
+<h1 id="核心概念：spec-driven-workflow"><a href="#核心概念：spec-driven-workflow" class="headerlink" title="核心概念：spec-driven workflow"></a>核心概念：spec-driven workflow</h1><h2 id="Spec-Kit-背景"><a href="#Spec-Kit-背景" class="headerlink" title="Spec Kit 背景"></a>Spec Kit 背景</h2><p>vibecode-pro-max-kit 的核心理念来自 Spec Kit 一类 spec-driven development（SDD）工作流。Spec Kit 的流程是：先写规格，再细化成计划，再拆成任务，最后执行。</p>
+<p>每个阶段生成一个 Markdown artifact，为下一阶段提供结构化上下文：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">阶段</th>
+<th style="text-align:center">输入</th>
+<th style="text-align:center">输出</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Spec</td>
+<td style="text-align:center">需求描述</td>
+<td style="text-align:center">规格文档（边界、约束、验收标准）</td>
+</tr>
+<tr>
+<td style="text-align:center">Plan</td>
+<td style="text-align:center">规格文档</td>
+<td style="text-align:center">实施计划（步骤、责任人、依赖）</td>
+</tr>
+<tr>
+<td style="text-align:center">Tasks</td>
+<td style="text-align:center">实施计划</td>
+<td style="text-align:center">任务清单（具体、可验收）</td>
+</tr>
+<tr>
+<td style="text-align:center">Implement</td>
+<td style="text-align:center">任务清单</td>
+<td style="text-align:center">代码变更 + 过程记录</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这个流程不新鲜，但 vibecode-pro-max-kit 把它“装进项目”：agents、skills、hooks 都围绕这个流程设计。</p>
+<h2 id="计划生命周期"><a href="#计划生命周期" class="headerlink" title="计划生命周期"></a>计划生命周期</h2><p>当前 README 强调 RIPER-5 plan-first workflow，并把流程写成 7 个 gated phases：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">阶段</th>
+<th style="text-align:center">做什么</th>
+<th style="text-align:center">输出产物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Research</td>
+<td style="text-align:center">收集背景、确认边界</td>
+<td style="text-align:center">research artifact</td>
+</tr>
+<tr>
+<td style="text-align:center">Spec</td>
+<td style="text-align:center">写清用户故事和需求边界</td>
+<td style="text-align:center">spec artifact</td>
+</tr>
+<tr>
+<td style="text-align:center">Innovate</td>
+<td style="text-align:center">比较方案、做取舍判断</td>
+<td style="text-align:center">alternatives / decision notes</td>
+</tr>
+<tr>
+<td style="text-align:center">Plan</td>
+<td style="text-align:center">细化步骤、分配责任和验证方式</td>
+<td style="text-align:center">plan artifact</td>
+</tr>
+<tr>
+<td style="text-align:center">Validate</td>
+<td style="text-align:center">在执行前验证计划和风险</td>
+<td style="text-align:center">validation notes</td>
+</tr>
+<tr>
+<td style="text-align:center">Execute</td>
+<td style="text-align:center">按任务执行、记录过程</td>
+<td style="text-align:center">code changes + execution notes</td>
+</tr>
+<tr>
+<td style="text-align:center">Update-Process</td>
+<td style="text-align:center">更新记忆、清理过时记录</td>
+<td style="text-align:center">process / context 更新</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>每个阶段需要显式批准才能推进。这是防止 AI 跑偏的关键：human 在检查点介入，确认方向正确再放行。</p>
+<h2 id="agents-与-skills"><a href="#agents-与-skills" class="headerlink" title="agents 与 skills"></a>agents 与 skills</h2><p>README 当前写的是 15 agents、33 skills、10 hooks。这个数字是 2026-06-23 核验时的官方 README 口径，会随仓库更新，不应该写成永久定数。</p>
+<p>skills 结构与 Codex Skills、Claude Code skills 一致：每个 skill 有 <code>SKILL.md</code>（instructions），可选 <code>scripts/</code>、<code>references/</code>、<code>assets/</code>。skill 可以被显式调用，也可以在匹配边界内被隐式触发。</p>
+<p>另外两个概念：</p>
+<ul>
+<li><strong>context groups</strong>：按主题或功能组织的上下文块，避免每次加载全项目</li>
+<li><strong>feature folders</strong>：按功能模块组织文件，每个 folder 有自己的 spec 和 process</li>
+</ul>
+<h1 id="安全机制详解"><a href="#安全机制详解" class="headerlink" title="安全机制详解"></a>安全机制详解</h1><p>README 列了几类值得关注的安全和流程机制：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">机制</th>
+<th style="text-align:center">作用</th>
+<th style="text-align:center">触发时机</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">privacy guardrails</td>
+<td style="text-align:center">阻止敏感信息进入 process 或输出</td>
+<td style="text-align:center">agent 输出和流程更新前</td>
+</tr>
+<tr>
+<td style="text-align:center">gated phases</td>
+<td style="text-align:center">阻止 agent 直接跳到写代码</td>
+<td style="text-align:center">Research 到 Update-Process 的阶段推进</td>
+</tr>
+<tr>
+<td style="text-align:center">check loops</td>
+<td style="text-align:center">让执行过程能自我检查和回到计划</td>
+<td style="text-align:center">执行和验证阶段</td>
+</tr>
+<tr>
+<td style="text-align:center">deviation protocol</td>
+<td style="text-align:center">记录偏离原计划的行为</td>
+<td style="text-align:center">plan 被修改或执行偏离时</td>
+</tr>
+<tr>
+<td style="text-align:center">high-risk evidence pack</td>
+<td style="text-align:center">高风险决策需要额外证据</td>
+<td style="text-align:center">某些判断触发阈值时</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>这些机制让 AI 不容易在无人监督下做高风险决策。但它们依赖 hooks 和配置正确运行。如果 hooks 被禁用、权限过宽，或者团队没有审查 <code>process/</code>，机制仍然可能失效。</p>
+<h1 id="适用场景判断表"><a href="#适用场景判断表" class="headerlink" title="适用场景判断表"></a>适用场景判断表</h1><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">是否适合</th>
+<th style="text-align:center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">长期维护项目</td>
+<td style="text-align:center">适合</td>
+<td style="text-align:center">记忆沉淀在 <code>process/</code>，计划可审计</td>
+</tr>
+<tr>
+<td style="text-align:center">多人审阅</td>
+<td style="text-align:center">适合</td>
+<td style="text-align:center">决策留痕、偏离可追溯</td>
+</tr>
+<tr>
+<td style="text-align:center">复杂需求</td>
+<td style="text-align:center">适合</td>
+<td style="text-align:center">多 agent 协作、分阶段细化</td>
+</tr>
+<tr>
+<td style="text-align:center">容易丢上下文</td>
+<td style="text-align:center">适合</td>
+<td style="text-align:center">spec-driven 结构化对话</td>
+</tr>
+<tr>
+<td style="text-align:center">一次性脚本</td>
+<td style="text-align:center">不太适合</td>
+<td style="text-align:center">流程 overhead 过大</td>
+</tr>
+<tr>
+<td style="text-align:center">小修小补</td>
+<td style="text-align:center">不太适合</td>
+<td style="text-align:center">引入 harness 的成本高于收益</td>
+</tr>
+<tr>
+<td style="text-align:center">已有成熟工程流程</td>
+<td style="text-align:center">谨慎</td>
+<td style="text-align:center">可能与现有 CI/CD/review 流程冲突</td>
+</tr>
+<tr>
+<td style="text-align:center">不想引入外部 harness</td>
+<td style="text-align:center">不适合</td>
+<td style="text-align:center">README、AGENTS.md、CLAUDE.md 和 process 会改变仓库结构</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>判断核心：<strong>流程 overhead 是否值得</strong>。长期、复杂、多人协作的项目，overhead 换来可审计性和协作效率。短期、简单、单人的项目，overhead 就是纯成本。</p>
+<h1 id="与-Spec-Kit、Codex-Skills、Claude-Code-的关系"><a href="#与-Spec-Kit、Codex-Skills、Claude-Code-的关系" class="headerlink" title="与 Spec Kit、Codex Skills、Claude Code 的关系"></a>与 Spec Kit、Codex Skills、Claude Code 的关系</h1><p><strong>Spec Kit</strong>：定义 SDD（spec-driven development）的背景和流程框架。概念层，不绑定具体 agent。</p>
+<p><strong>Codex Skills</strong>：OpenAI 的 skill 目录结构：<code>SKILL.md</code> + <code>scripts/</code> + <code>references/</code>。它把 instructions、resources、scripts 打包成可复用工作流。</p>
+<p><strong>Claude Code skills</strong>：结构类似，<code>SKILL.md</code> + 支持文件。它把 skill 当成复用流程单元，可显式或隐式调用。</p>
+<p><strong>vibecode-pro-max-kit</strong>：把上述思路装进项目。它不是替代 Spec Kit，而是把 spec-driven 流程变成可执行的 agents + skills + hooks，同时兼容 Claude Code 和 Codex 的项目配置。</p>
+<p>迁移成本：如果项目已有 <code>.claude/agents</code>、<code>.claude/skills</code>、<code>CLAUDE.md</code> 或 <code>AGENTS.md</code>，必须评估 diff，确认没有丢失自己的定制配置。</p>
+<h1 id="第一次试用流程"><a href="#第一次试用流程" class="headerlink" title="第一次试用流程"></a>第一次试用流程</h1><p>按 README 建议，第一次试用在非生产项目：</p>
+<p><strong>步骤 1：fork 或 copy 非生产项目</strong></p>
+<p>不要直接在主仓库操作。fork 仓库或 copy 一个本地测试目录。</p>
+<p><strong>步骤 2：运行安装命令</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -fsSL https://raw.githubusercontent.com/withkynam/vibecode-pro-max-kit/main/install.sh | bash</span><br></pre></td></tr></table></figure>
+<p><strong>步骤 3：运行 vc-setup</strong></p>
+<p>在 Claude Code 里执行 <code>vc-setup</code>；在 Codex 里按 README 使用 <code>/vc-setup</code>。它会创建 <code>process/</code> 目录并初始化配置。</p>
+<p><strong>步骤 4：检查文件写入</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">git status</span><br><span class="line">git diff .claude/ .codex/ .agents/ CLAUDE.md AGENTS.md process/</span><br></pre></td></tr></table></figure>
+<p>确认写入的文件符合预期。</p>
+<p><strong>步骤 5：尝试第一个 spec-driven workflow</strong></p>
+<p>给 agent 一个简单需求，比如“添加一个日志打印函数”。观察 Research → Spec → Innovate → Plan → Validate → Execute → Update-Process 的过程，在每个阶段确认批准机制是否触发。</p>
+<p><strong>步骤 6：验收</strong></p>
+<p>看到 <code>process/</code> 目录有产物、<code>CLAUDE.md</code> / <code>AGENTS.md</code> 的变更可理解、hooks 和 agents 没有报错，再考虑迁移到真实项目。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="vibecode-pro-max-kit-是什么？"><a href="#vibecode-pro-max-kit-是什么？" class="headerlink" title="vibecode-pro-max-kit 是什么？"></a>vibecode-pro-max-kit 是什么？</h2><p>它是一个给 Claude Code、Codex、Cursor 等 AI coding agent 使用的项目级流程 harness，把 research、spec、plan、execute、review 和 context update 等动作固化到仓库文件、agent、skill 和 hooks 里。</p>
+<h2 id="vibecode-pro-max-kit-怎么用？"><a href="#vibecode-pro-max-kit-怎么用？" class="headerlink" title="vibecode-pro-max-kit 怎么用？"></a>vibecode-pro-max-kit 怎么用？</h2><p>通常先在项目副本或实验分支里运行安装命令，再按安装输出在 Claude Code 或 Codex 中运行 `vc-setup`，让它创建 `process/` 并初始化项目上下文。</p>
+<h2 id="第一次可以直接在生产仓库运行安装命令吗？"><a href="#第一次可以直接在生产仓库运行安装命令吗？" class="headerlink" title="第一次可以直接在生产仓库运行安装命令吗？"></a>第一次可以直接在生产仓库运行安装命令吗？</h2><p>不建议。README 声称安装不会覆盖用户文件，但它会写入项目级 AI 配置和流程目录，首次应先审计 `install.sh`、运行在副本里，并检查完整 `git diff`。</p>
+<h2 id="它和-Spec-Kit-有什么关系？"><a href="#它和-Spec-Kit-有什么关系？" class="headerlink" title="它和 Spec Kit 有什么关系？"></a>它和 Spec Kit 有什么关系？</h2><p>Spec Kit 是更通用的 spec-driven development 思路和工具箱；vibecode-pro-max-kit 把类似的先规格、再计划、再执行流程，与 agents、skills、hooks 和 context memory 组合成项目内套件。</p>
+<h2 id="什么项目最适合试用？"><a href="#什么项目最适合试用？" class="headerlink" title="什么项目最适合试用？"></a>什么项目最适合试用？</h2><p>真实但低风险的中等复杂任务最适合，例如只读状态页、后台列表页、非核心模块重构。不要一开始就让它碰支付、鉴权、迁移和生产部署。</p>
+<h2 id="错误记忆如何清理？"><a href="#错误记忆如何清理？" class="headerlink" title="错误记忆如何清理？"></a>错误记忆如何清理？</h2><p>需要定期 review `process/` 里的 plans、reports 和 context 文件，删除过时结论或重新跑 workflow 覆盖。项目记忆可审计，但错误记忆也会沉淀。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/a21a/">https://jingluo23.github.io/posts/a21a/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/d5f3/" title="OpenClaw 实战完全手册：从入门到精通"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">OpenClaw 实战完全手册：从入门到精通</div></div><div class="info-2"><div class="info-item-1">OpenClaw 实战完全手册：从入门到精通。涵盖核心概念、快速开始、工具技能系统、工作流自动化、安全部署，提供清晰学习路径和实战案例。</div></div></div></a><a class="pagination-related" href="/posts/6050/" title="Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Agent Sandbox 搭建指南：安全运行 AI 代码的完整方案</div></div><div class="info-2"><div class="info-item-1">详解 AI Agent 沙盒环境搭建方案，从 gVisor 到 Firecracker 技术对比，提供本地开发到 Kubernetes 集群的完整部署指南</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/3561/" title="OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-10</div><div class="info-item-2">OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南</div></div><div class="info-2"><div class="info-item-1">手把手教你在30分钟内搭建Telegram AI助手，涵盖BotFather创建Bot、OpenClaw配置、白名单安全设置和常见问题排查，让AI助手随时在线。</div></div></div></a><a class="pagination-related" href="/posts/8e5e/" title="OpenClaw技能安全审查：5分钟识别恶意AgentSkills实战指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-01</div><div class="info-item-2">OpenClaw技能安全审查：5分钟识别恶意AgentSkills实战指南</div></div><div class="info-2"><div class="info-item-1">ClawHavoc事件曝光341个恶意技能，本文教你通过SKILL.md审查、危险权限识别、快速检查命令，在5分钟内判断技能安全性，保护开发环境免受供应链攻击。</div></div></div></a><a class="pagination-related" href="/posts/17a8/" title="OpenClaw配置详解：openclaw.json完全指南与最佳实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-28</div><div class="info-item-2">OpenClaw配置详解：openclaw.json完全指南与最佳实践</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw配置文件的所有模块（Gateway/Channel/Skills/Provider/Security），包含安全策略、实战案例和CVE-2026-25253漏洞防护指南</div></div></div></a><a class="pagination-related" href="/posts/c663/" title="OpenClaw改名始末：Clawdbot到Moltbot再到OpenClaw的完整演变历程"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-23</div><div class="info-item-2">OpenClaw改名始末：Clawdbot到Moltbot再到OpenClaw的完整演变历程</div></div><div class="info-2"><div class="info-item-1">详解OpenClaw项目一个月内两次改名的完整故事。从Clawdbot到Moltbot再到OpenClaw，揭秘Anthropic商标争议、加密货币诈骗插曲，以及如何识别不同时期的文档和教程。</div></div></div></a><a class="pagination-related" href="/posts/a81f/" title="OpenClaw架构深度解析：三层设计的技术原理与扩展实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-08</div><div class="info-item-2">OpenClaw架构深度解析：三层设计的技术原理与扩展实践</div></div><div class="info-2"><div class="info-item-1">深度剖析OpenClaw三层架构设计：Gateway会话管理、Channel消息路由、LLM模型接口的技术原理，提供二次开发和扩展实战指南，助你掌握OpenClaw核心机制。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%83%E8%A7%A3%E5%86%B3%E4%BB%80%E4%B9%88%E9%97%AE%E9%A2%98"><span class="toc-number">1.</span> <span class="toc-text">它解决什么问题</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%89%E8%A3%85%E6%B5%81%E7%A8%8B%E4%B8%8E%E5%AE%89%E5%85%A8%E5%AE%A1%E8%AE%A1"><span class="toc-number">2.</span> <span class="toc-text">安装流程与安全审计</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85%E5%91%BD%E4%BB%A4"><span class="toc-number">2.1.</span> <span class="toc-text">安装命令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%85%A5%E6%96%87%E4%BB%B6%E6%B8%85%E5%8D%95"><span class="toc-number">2.2.</span> <span class="toc-text">写入文件清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E5%AE%A1%E8%AE%A1%E8%A6%81%E7%82%B9"><span class="toc-number">2.3.</span> <span class="toc-text">安全审计要点</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5%EF%BC%9Aspec-driven-workflow"><span class="toc-number">3.</span> <span class="toc-text">核心概念：spec-driven workflow</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Spec-Kit-%E8%83%8C%E6%99%AF"><span class="toc-number">3.1.</span> <span class="toc-text">Spec Kit 背景</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%A1%E5%88%92%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F"><span class="toc-number">3.2.</span> <span class="toc-text">计划生命周期</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#agents-%E4%B8%8E-skills"><span class="toc-number">3.3.</span> <span class="toc-text">agents 与 skills</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E6%9C%BA%E5%88%B6%E8%AF%A6%E8%A7%A3"><span class="toc-number">4.</span> <span class="toc-text">安全机制详解</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%80%82%E7%94%A8%E5%9C%BA%E6%99%AF%E5%88%A4%E6%96%AD%E8%A1%A8"><span class="toc-number">5.</span> <span class="toc-text">适用场景判断表</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%8E-Spec-Kit%E3%80%81Codex-Skills%E3%80%81Claude-Code-%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="toc-number">6.</span> <span class="toc-text">与 Spec Kit、Codex Skills、Claude Code 的关系</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%AF%95%E7%94%A8%E6%B5%81%E7%A8%8B"><span class="toc-number">7.</span> <span class="toc-text">第一次试用流程</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#vibecode-pro-max-kit-%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">vibecode-pro-max-kit 是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#vibecode-pro-max-kit-%E6%80%8E%E4%B9%88%E7%94%A8%EF%BC%9F"><span class="toc-number">8.2.</span> <span class="toc-text">vibecode-pro-max-kit 怎么用？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E6%AC%A1%E5%8F%AF%E4%BB%A5%E7%9B%B4%E6%8E%A5%E5%9C%A8%E7%94%9F%E4%BA%A7%E4%BB%93%E5%BA%93%E8%BF%90%E8%A1%8C%E5%AE%89%E8%A3%85%E5%91%BD%E4%BB%A4%E5%90%97%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">第一次可以直接在生产仓库运行安装命令吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%83%E5%92%8C-Spec-Kit-%E6%9C%89%E4%BB%80%E4%B9%88%E5%85%B3%E7%B3%BB%EF%BC%9F"><span class="toc-number">8.4.</span> <span class="toc-text">它和 Spec Kit 有什么关系？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E9%A1%B9%E7%9B%AE%E6%9C%80%E9%80%82%E5%90%88%E8%AF%95%E7%94%A8%EF%BC%9F"><span class="toc-number">8.5.</span> <span class="toc-text">什么项目最适合试用？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E8%AE%B0%E5%BF%86%E5%A6%82%E4%BD%95%E6%B8%85%E7%90%86%EF%BC%9F"><span class="toc-number">8.6.</span> <span class="toc-text">错误记忆如何清理？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>

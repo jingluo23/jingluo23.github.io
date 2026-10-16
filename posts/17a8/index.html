@@ -1,0 +1,1020 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>OpenClaw配置详解：openclaw.json完全指南与最佳实践 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="深入解析OpenClaw配置文件的所有模块（Gateway&#x2F;Channel&#x2F;Skills&#x2F;Provider&#x2F;Security），包含安全策略、实战案例和CVE-2026-25253漏洞防护指南">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenClaw配置详解：openclaw.json完全指南与最佳实践">
+<meta property="og:url" content="https://jingluo23.github.io/posts/17a8/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="深入解析OpenClaw配置文件的所有模块（Gateway&#x2F;Channel&#x2F;Skills&#x2F;Provider&#x2F;Security），包含安全策略、实战案例和CVE-2026-25253漏洞防护指南">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-06-28T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-16T08:32:17.181Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "OpenClaw配置详解：openclaw.json完全指南与最佳实践",
+  "url": "https://jingluo23.github.io/posts/17a8/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-06-28T07:12:21.000Z",
+  "dateModified": "2026-10-16T08:32:17.181Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/17a8/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'OpenClaw配置详解：openclaw.json完全指南与最佳实践',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">OpenClaw配置详解：openclaw.json完全指南与最佳实践</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">OpenClaw配置详解：openclaw.json完全指南与最佳实践</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-06-28T07:12:21.000Z" title="发表于 2026-06-28 15:12:21">2026-06-28</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-16T08:32:17.181Z" title="更新于 2026-10-16 16:32:17">2026-10-16</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>23分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-16 16:32:17&quot;}" hidden></div><p>OpenClaw服务运行起来后，打开<code>~/.openclaw/openclaw.json</code>，看到满屏幕的配置参数——gateway、channel、skills、provider……每个字段下面还有一堆嵌套的选项。<code>dmPolicy</code>应该设成<code>pairing</code>还是<code>allowlist</code>？<code>gateway.auth.token</code>是不是就是密码？技能要全部启用吗？</p>
+<p>更让人在意的是，2026年1月底OpenClaw刚修复了一个严重的安全漏洞（CVE-2026-25253，CVSS评分8.8），攻击者可以通过URL参数窃取认证token，进而执行任意命令。配置不当的话，AI助手可能变成别人的后门。</p>
+<p>这正是当时的我最想要的那份指南。下面系统性地拆解 openclaw.json 的所有配置模块：每个参数是什么意思、为什么需要它、生产环境该怎么设置，再附上踩过的坑和一份安全配置检查清单。</p>
+<h1 id="配置文件的基础认知"><a href="#配置文件的基础认知" class="headerlink" title="配置文件的基础认知"></a>配置文件的基础认知</h1><h2 id="文件在哪里，长什么样"><a href="#文件在哪里，长什么样" class="headerlink" title="文件在哪里，长什么样"></a>文件在哪里，长什么样</h2><p>OpenClaw的配置文件默认保存在<code>~/.openclaw/openclaw.json</code>。如果你是通过安装向导配置的，这个文件会自动生成；如果是手动安装，可能需要自己创建。字段名、嵌套层级与默认值以 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.openclaw.ai/gateway/configuration">Gateway 配置官方文档</a> 为准，下文示例用于理解结构，升级大版本后请对照文档核对。</p>
+<p>打开它，你会看到五大模块：</p>
+<ul>
+<li><strong>Gateway</strong>：网关服务的端口、认证、日志等设置</li>
+<li><strong>Channel</strong>：通信渠道（WhatsApp、Telegram等）的配置</li>
+<li><strong>Skills</strong>：技能模块的管理和权限</li>
+<li><strong>Provider</strong>：AI模型提供商（Anthropic、OpenAI、本地模型等）</li>
+<li><strong>Security</strong>：安全策略和访问控制</li>
+</ul>
+<p>这个结构其实挺合理——Gateway管入口，Channel管通信，Skills管能力，Provider管大脑，Security管防护。</p>
+<h2 id="配置方式和优先级"><a href="#配置方式和优先级" class="headerlink" title="配置方式和优先级"></a>配置方式和优先级</h2><p>OpenClaw支持四种配置方式：</p>
+<ol>
+<li><strong>交互式向导</strong>：安装时一步步选择，适合新手</li>
+<li><strong>直接编辑JSON</strong>：用vim或nano直接改文件，适合熟悉配置的人</li>
+<li><strong>环境变量</strong>：适合容器化部署或临时覆盖某个参数</li>
+<li><strong>脚本自动化</strong>：批量部署时用脚本生成配置</li>
+</ol>
+<p>重点来了：这几种方式有优先级。环境变量 &gt; 配置文件 &gt; 默认值。</p>
+<p>什么意思？比如你在配置文件里设置了<code>gateway.port: 18789</code>，但同时设置了环境变量<code>OPENCLAW_GATEWAY_PORT=9000</code>，最终生效的是9000。这个设计在调试时特别有用——不用改配置文件，临时设个环境变量就能测试。</p>
+<p>2026年的版本还增加了对MCP服务器（Model Context Protocol）的支持，可以统一接入多个搜索引擎和工具。另外，<code>openclaw doctor</code>命令现在能自动检查配置状态，发现问题会给出修复建议。</p>
+<h1 id="Gateway网关配置详解"><a href="#Gateway网关配置详解" class="headerlink" title="Gateway网关配置详解"></a>Gateway网关配置详解</h1><p>Gateway是OpenClaw的入口，负责Web界面访问和远程客户端连接。</p>
+<h2 id="基础配置：端口和认证"><a href="#基础配置：端口和认证" class="headerlink" title="基础配置：端口和认证"></a>基础配置：端口和认证</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;gateway&quot;: &#123;</span><br><span class="line">    &quot;port&quot;: 18789,</span><br><span class="line">    &quot;auth&quot;: &#123;</span><br><span class="line">      &quot;token&quot;: &quot;your-secret-token-here&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;remote&quot;: &#123;</span><br><span class="line">      &quot;token&quot;: &quot;your-remote-token-here&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><p><strong><code>port</code></strong>：Web界面的访问端口，默认18789。访问<code>http://localhost:18789</code>就能看到OpenClaw的控制面板。如果这个端口被占用，改成别的就行（比如19000）。</p>
+</li>
+<li><p><strong><code>auth.token</code></strong>：这是网关的认证令牌，等同于密码。任何人拿到这个token，就能完全控制你的OpenClaw实例。CVE-2026-25253漏洞就是因为token可以通过URL参数泄漏。</p>
+</li>
+<li><p><strong><code>remote.token</code></strong>：远程客户端（比如手机App或桌面客户端）连接时用的令牌。和<code>auth.token</code>分开，是为了可以单独轮换。</p>
+</li>
+</ul>
+<p><strong>安全提示</strong>：2026年1月29日的版本移除了<code>&quot;auth: none&quot;</code>选项。以前你可以关闭认证方便开发，现在强制要求使用token或password。这是针对安全漏洞的硬性修复。</p>
+<h2 id="高级配置：日志和WebSocket"><a href="#高级配置：日志和WebSocket" class="headerlink" title="高级配置：日志和WebSocket"></a>高级配置：日志和WebSocket</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;gateway&quot;: &#123;</span><br><span class="line">    &quot;logging&quot;: &#123;</span><br><span class="line">      &quot;redactSensitive&quot;: true</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>redactSensitive</code>设为true后，日志会自动脱敏——API密钥、token等敏感信息会被替换成<code>***</code>。查日志排错时不用担心不小心把密钥复制到公开的issue里。</p>
+<p>启动网关服务的命令是<code>openclaw gateway</code>。服务跑起来后，你会看到类似这样的输出：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[Gateway] Listening on http://localhost:18789</span><br><span class="line">[Gateway] Authentication: Token-based</span><br></pre></td></tr></table></figure>
+<h1 id="Channel渠道配置策略"><a href="#Channel渠道配置策略" class="headerlink" title="Channel渠道配置策略"></a>Channel渠道配置策略</h1><p>Channel模块决定了OpenClaw能通过哪些平台和你对话。</p>
+<h2 id="支持的渠道类型"><a href="#支持的渠道类型" class="headerlink" title="支持的渠道类型"></a>支持的渠道类型</h2><p>目前支持四种主要渠道：</p>
+<ol>
+<li><strong>WhatsApp</strong>：扫码配对，最常用</li>
+<li><strong>Telegram</strong>：Bot API，适合群组场景</li>
+<li><strong>Discord</strong>：适合技术社区</li>
+<li><strong>Mattermost</strong>：企业团队协作</li>
+</ol>
+<p>每个渠道的配置方式不同。WhatsApp是扫码配对流程，Telegram需要Bot Token，Discord需要创建Application。</p>
+<h2 id="DM（私信）策略配置"><a href="#DM（私信）策略配置" class="headerlink" title="DM（私信）策略配置"></a>DM（私信）策略配置</h2><p>这部分是很多人搞不清楚的地方。<code>dmPolicy</code>决定了陌生人能不能给你的AI助手发消息。</p>
+<p>有四种模式：</p>
+<p><strong>1. <code>pairing</code>（默认模式）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;dmPolicy&quot;: &quot;pairing&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>未知发送者需要先配对验证。OpenClaw会生成一个6位配对码，有效期1小时。你需要手动批准：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw pairing approve whatsapp ABC123</span><br></pre></td></tr></table></figure>
+<p>这个模式平衡了安全性和可用性——朋友第一次找你的AI助手时，你审核一下，之后就畅通无阻了。</p>
+<p><strong>2. <code>allowlist</code>（白名单模式）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;dmPolicy&quot;: &quot;allowlist&quot;,</span><br><span class="line">    &quot;allowFrom&quot;: [</span><br><span class="line">      &quot;+1234567890&quot;,</span><br><span class="line">      &quot;telegram:@username&quot;</span><br><span class="line">    ]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>只有白名单里的人能发消息，其他人直接被屏蔽。适合你明确知道哪些人会用的场景。</p>
+<p><strong>3. <code>open</code>（开放模式）</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;dmPolicy&quot;: &quot;open&quot;,</span><br><span class="line">    &quot;allowFrom&quot;: [&quot;*&quot;]</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>任何人都能发消息。老实讲，这个模式风险很高。除非你在做公开演示或者测试，否则不推荐用。</p>
+<p><strong>4. <code>disabled</code>（禁用模式）</strong></p>
+<p>完全关闭私信功能，只接受群组消息。</p>
+<p><strong>多用户场景的会话隔离</strong></p>
+<p>如果你的OpenClaw服务要给多个人用（比如团队共享），会话隔离很重要：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;session&quot;: &#123;</span><br><span class="line">      &quot;dmScope&quot;: &quot;per-channel-peer&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样每个人的对话历史是独立的，不会串话。</p>
+<h2 id="Group群组策略配置"><a href="#Group群组策略配置" class="headerlink" title="Group群组策略配置"></a>Group群组策略配置</h2><p>群组配置相对简单，但有个关键设置：<code>mentionGating</code>（@提及门控）。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;groupPolicy&quot;: &quot;mention&quot;,</span><br><span class="line">    &quot;mentionGating&quot;: true</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>开启后，AI助手只会回复@它的消息，而不是监听群里的每条消息。避免变成”always-on”机器人——你懂的，那种在群里疯狂刷屏的机器人。</p>
+<h1 id="Skills技能模块配置"><a href="#Skills技能模块配置" class="headerlink" title="Skills技能模块配置"></a>Skills技能模块配置</h1><p>Skills是OpenClaw最有意思的部分——它决定了AI助手能做什么。</p>
+<h2 id="Skills基础概念"><a href="#Skills基础概念" class="headerlink" title="Skills基础概念"></a>Skills基础概念</h2><p>技能是模块化的能力扩展。OpenClaw自带一些内置技能，ClawHub技能商店里有700+可用技能：</p>
+<ul>
+<li>日历管理（Google Calendar、Outlook）</li>
+<li>网页浏览（browser技能）</li>
+<li>文件管理（file_manager）</li>
+<li>终端命令（exec技能）</li>
+<li>代码执行（python、node）</li>
+</ul>
+<p>技能的安装路径是<code>~/.openclaw/skills/</code>。优先级规则：工作区技能 &gt; 用户技能 &gt; 内置技能。</p>
+<p>什么意思？如果你在项目目录里放了一个自定义的<code>browser</code>技能，它会覆盖全局安装的版本。这个设计让你可以针对特定项目定制能力。</p>
+<h2 id="技能配置与管理"><a href="#技能配置与管理" class="headerlink" title="技能配置与管理"></a>技能配置与管理</h2><p>每个技能都有一个<code>SKILL.md</code>文件，里面用YAML格式定义元数据：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">---</span><br><span class="line">name: google-calendar</span><br><span class="line">description: Manage Google Calendar events</span><br><span class="line">requirements:</span><br><span class="line">  bins:</span><br><span class="line">    - gcalcli</span><br><span class="line">  env:</span><br><span class="line">    - GOOGLE_CALENDAR_API_KEY</span><br><span class="line">---</span><br></pre></td></tr></table></figure>
+<p><code>bins</code>字段列出了依赖的二进制程序。比如这个日历技能需要<code>gcalcli</code>命令行工具。如果系统里没装，技能会加载失败。</p>
+<p>三种安装方式：</p>
+<ol>
+<li><strong>GUI安装</strong>：在Web界面点击”Add Skill”，搜索并安装</li>
+<li><strong>CLI安装</strong>：<code>openclaw skill install google-calendar</code></li>
+<li><strong>手动安装</strong>：把技能目录复制到<code>~/.openclaw/skills/</code></li>
+</ol>
+<h2 id="技能故障排查"><a href="#技能故障排查" class="headerlink" title="技能故障排查"></a>技能故障排查</h2><p>技能加载失败是常见问题。用这个命令检查依赖：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw skill check google-calendar</span><br></pre></td></tr></table></figure>
+<p>它会告诉你缺少哪些依赖、环境变量有没有设置、OS配置是否匹配。</p>
+<p>如果还是有问题，查看Gateway日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw gateway --verbose</span><br></pre></td></tr></table></figure>
+<p>日志会显示技能加载的详细过程，哪一步出错一目了然。</p>
+<h2 id="小模型场景的优化"><a href="#小模型场景的优化" class="headerlink" title="小模型场景的优化"></a>小模型场景的优化</h2><p>如果你用的是小上下文窗口的本地模型（比如7B参数的量化模型），可能需要禁用部分技能来控制上下文大小。技能越多，系统提示词越长，留给对话的空间就越少。</p>
+<h2 id="高风险技能的限制"><a href="#高风险技能的限制" class="headerlink" title="高风险技能的限制"></a>高风险技能的限制</h2><p>有些技能权限很高，需要谨慎使用：</p>
+<ul>
+<li><code>exec</code>：执行任意shell命令</li>
+<li><code>browser</code>：访问任意网页</li>
+<li><code>web_fetch</code>：抓取外部内容</li>
+<li><code>web_search</code>：搜索引擎查询</li>
+</ul>
+<p>这些技能在恶意输入的情况下可能被滥用。如果不是必需的，建议禁用。</p>
+<h1 id="Provider模型提供商配置"><a href="#Provider模型提供商配置" class="headerlink" title="Provider模型提供商配置"></a>Provider模型提供商配置</h1><p>Provider决定了OpenClaw用哪个AI大脑。</p>
+<h2 id="支持的AI-Provider"><a href="#支持的AI-Provider" class="headerlink" title="支持的AI Provider"></a>支持的AI Provider</h2><ol>
+<li><strong>Anthropic（Claude）</strong>：官方主要推荐，API稳定，安全特性完善</li>
+<li><strong>OpenAI</strong>：即将支持（GPT-5 等模型）</li>
+<li><strong>本地模型</strong>：LM Studio、Ollama等</li>
+<li><strong>OpenRouter</strong>：统一多模型访问接口，一个API Key用所有模型</li>
+<li><strong>MCP服务器</strong>：2026年新特性，支持Model Context Protocol</li>
+</ol>
+<h2 id="Provider配置参数"><a href="#Provider配置参数" class="headerlink" title="Provider配置参数"></a>Provider配置参数</h2><p>最简单的配置（使用Anthropic）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;provider&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;anthropic&quot;,</span><br><span class="line">    &quot;apiKey&quot;: &quot;sk-ant-...&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>但我建议不要把API Key直接写在配置文件里，用环境变量：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export ANTHROPIC_API_KEY=&quot;sk-ant-...&quot;</span><br></pre></td></tr></table></figure>
+<p>这样配置文件可以安全地提交到版本控制，API Key不会泄漏。</p>
+<h2 id="本地模型配置"><a href="#本地模型配置" class="headerlink" title="本地模型配置"></a>本地模型配置</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;provider&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;openai-compatible&quot;,</span><br><span class="line">    &quot;baseURL&quot;: &quot;http://localhost:1234/v1&quot;,</span><br><span class="line">    &quot;modelId&quot;: &quot;kimi-k2.5-chat&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<ul>
+<li><code>baseURL</code>：本地模型服务器地址（LM Studio默认1234端口）</li>
+<li><code>modelId</code>：指定使用的模型名称</li>
+</ul>
+<h2 id="MCP服务器配置（新特性）"><a href="#MCP服务器配置（新特性）" class="headerlink" title="MCP服务器配置（新特性）"></a>MCP服务器配置（新特性）</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;provider&quot;: &#123;</span><br><span class="line">    &quot;mcpServers&quot;: &#123;</span><br><span class="line">      &quot;onesearch&quot;: &#123;</span><br><span class="line">        &quot;command&quot;: &quot;npx&quot;,</span><br><span class="line">        &quot;args&quot;: [&quot;-y&quot;, &quot;@onesearch/mcp-server&quot;]</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>OneSearch MCP让你可以通过统一接口访问多个搜索引擎（Google、Bing、Brave等），不用给每个搜索引擎单独配API Key。</p>
+<h2 id="本地模型的注意事项"><a href="#本地模型的注意事项" class="headerlink" title="本地模型的注意事项"></a>本地模型的注意事项</h2><p>说实话，本地模型有它的优势——隐私、成本、离线可用。但安全特性确实比商业模型弱：</p>
+<ul>
+<li><strong>提示注入风险更高</strong>：小模型更容易被恶意输入欺骗</li>
+<li><strong>上下文窗口小</strong>：安全特性需要更多系统提示词，但小模型放不下</li>
+<li><strong>量化模型的局限</strong>：4-bit量化后，模型的指令遵循能力会下降</li>
+</ul>
+<p>如果你必须用本地模型，建议：</p>
+<ul>
+<li>严格限制技能权限</li>
+<li>开启沙箱模式</li>
+<li>不要在有敏感数据的机器上运行</li>
+</ul>
+<h1 id="安全配置最佳实践"><a href="#安全配置最佳实践" class="headerlink" title="安全配置最佳实践"></a>安全配置最佳实践</h1><p>安全配置永远是第一优先级。CVE-2026-25253漏洞的教训告诉我们，配置不当的后果可能很严重。</p>
+<h2 id="安全配置清单"><a href="#安全配置清单" class="headerlink" title="安全配置清单"></a>安全配置清单</h2><p><strong>基础安全（必做）</strong></p>
+<ul>
+<li>✅ 永不分享gateway token——就像你家钥匙，千万不能给别人</li>
+<li>✅ 使用防火墙，仅暴露必要端口（18789）</li>
+<li>✅ SSH使用密钥认证而非密码</li>
+<li>✅ 限制Web界面访问（VPN或IP白名单）</li>
+<li>✅ DM策略：优先用<code>pairing</code>或<code>allowlist</code></li>
+<li>✅ 群组策略：开启mention gating</li>
+</ul>
+<p><strong>进阶安全（强烈推荐）</strong></p>
+<ul>
+<li>✅ 定期轮换token（至少每季度一次）</li>
+<li>✅ 开启日志敏感信息脱敏</li>
+<li>✅ 限制高风险技能（exec、browser）</li>
+<li>✅ 使用专用服务器（不要和主要工作机混用）</li>
+</ul>
+<h2 id="输入安全与沙箱"><a href="#输入安全与沙箱" class="headerlink" title="输入安全与沙箱"></a>输入安全与沙箱</h2><p>有一条铁律：<strong>将所有外部输入视为恶意</strong>。</p>
+<p>链接、附件、粘贴的指令——都可能是精心构造的攻击。OpenClaw的沙箱功能（opt-in）可以隔离高风险操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;security&quot;: &#123;</span><br><span class="line">    &quot;sandbox&quot;: &#123;</span><br><span class="line">      &quot;enabled&quot;: true,</span><br><span class="line">      &quot;skills&quot;: [&quot;exec&quot;, &quot;browser&quot;]</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样exec和browser技能会在隔离环境中运行，即使被攻破也影响不到主系统。</p>
+<h2 id="Secrets管理"><a href="#Secrets管理" class="headerlink" title="Secrets管理"></a>Secrets管理</h2><p>API密钥、token等敏感信息的管理：</p>
+<ol>
+<li><strong>基础方案</strong>：用SCP传输<code>.env</code>文件到服务器，避免在聊天中粘贴</li>
+<li><strong>高级方案</strong>：使用Doppler、HashiCorp Vault等专业secrets管理器</li>
+</ol>
+<p>千万不要做的事情：</p>
+<ul>
+<li>❌ 在Telegram消息里发送API Key</li>
+<li>❌ 把secrets提交到Git仓库</li>
+<li>❌ 在公开的issue里贴日志（可能包含token）</li>
+</ul>
+<h2 id="安全审计与维护"><a href="#安全审计与维护" class="headerlink" title="安全审计与维护"></a>安全审计与维护</h2><p>OpenClaw内置了安全审计命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 基础检查</span><br><span class="line">openclaw security audit</span><br><span class="line"></span><br><span class="line"># 深度检查</span><br><span class="line">openclaw security audit --deep</span><br><span class="line"></span><br><span class="line"># 自动应用安全防护</span><br><span class="line">openclaw security audit --fix</span><br></pre></td></tr></table></figure>
+<p>这个命令会检查：</p>
+<ul>
+<li>Token强度是否足够</li>
+<li>端口是否暴露到公网</li>
+<li>文件权限是否正确（<code>~/.openclaw</code>应为700，配置文件应为600）</li>
+<li>高风险技能是否启用</li>
+<li>DM策略是否安全</li>
+</ul>
+<h2 id="本地文件权限"><a href="#本地文件权限" class="headerlink" title="本地文件权限"></a>本地文件权限</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chmod 700 ~/.openclaw</span><br><span class="line">chmod 600 ~/.openclaw/openclaw.json</span><br></pre></td></tr></table></figure>
+<p>这样只有你自己能读写配置文件，其他用户连看都看不到。</p>
+<h2 id="千万不要做的事情"><a href="#千万不要做的事情" class="headerlink" title="千万不要做的事情"></a>千万不要做的事情</h2><ul>
+<li>❌ 把18789端口暴露到公网</li>
+<li>❌ 在不理解风险的情况下授予shell访问</li>
+<li>❌ 安装未验证来源的技能</li>
+<li>❌ 使用<code>dmPolicy: &quot;open&quot;</code>而不设白名单</li>
+<li>❌ 在存有主要邮箱/银行信息的机器上运行OpenClaw</li>
+</ul>
+<h1 id="实战配置案例"><a href="#实战配置案例" class="headerlink" title="实战配置案例"></a>实战配置案例</h1><p>理论讲完了，来看几个实际场景的完整配置。</p>
+<h2 id="场景1：个人使用，仅WhatsApp，配对模式"><a href="#场景1：个人使用，仅WhatsApp，配对模式" class="headerlink" title="场景1：个人使用，仅WhatsApp，配对模式"></a>场景1：个人使用，仅WhatsApp，配对模式</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;gateway&quot;: &#123;</span><br><span class="line">    &quot;port&quot;: 18789,</span><br><span class="line">    &quot;auth&quot;: &#123;</span><br><span class="line">      &quot;token&quot;: &quot;generate-a-strong-random-token&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;logging&quot;: &#123;</span><br><span class="line">      &quot;redactSensitive&quot;: true</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;whatsapp&quot;,</span><br><span class="line">    &quot;dmPolicy&quot;: &quot;pairing&quot;,</span><br><span class="line">    &quot;session&quot;: &#123;</span><br><span class="line">      &quot;dmScope&quot;: &quot;per-channel-peer&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;skills&quot;: &#123;</span><br><span class="line">    &quot;enabled&quot;: [</span><br><span class="line">      &quot;calendar&quot;,</span><br><span class="line">      &quot;web_search&quot;,</span><br><span class="line">      &quot;file_manager&quot;</span><br><span class="line">    ],</span><br><span class="line">    &quot;disabled&quot;: [</span><br><span class="line">      &quot;exec&quot;,</span><br><span class="line">      &quot;browser&quot;</span><br><span class="line">    ]</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;provider&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;anthropic&quot;</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;security&quot;: &#123;</span><br><span class="line">    &quot;sandbox&quot;: &#123;</span><br><span class="line">      &quot;enabled&quot;: true</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这个配置适合普通个人用户——安全性好，功能够用，高风险技能被禁用。</p>
+<h2 id="场景2：团队协作，多渠道，白名单模式"><a href="#场景2：团队协作，多渠道，白名单模式" class="headerlink" title="场景2：团队协作，多渠道，白名单模式"></a>场景2：团队协作，多渠道，白名单模式</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;gateway&quot;: &#123;</span><br><span class="line">    &quot;port&quot;: 18789,</span><br><span class="line">    &quot;auth&quot;: &#123;</span><br><span class="line">      &quot;token&quot;: &quot;team-gateway-token&quot;</span><br><span class="line">    &#125;,</span><br><span class="line">    &quot;remote&quot;: &#123;</span><br><span class="line">      &quot;token&quot;: &quot;team-remote-token&quot;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;channel&quot;: [</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;type&quot;: &quot;telegram&quot;,</span><br><span class="line">      &quot;dmPolicy&quot;: &quot;allowlist&quot;,</span><br><span class="line">      &quot;allowFrom&quot;: [</span><br><span class="line">        &quot;telegram:@alice&quot;,</span><br><span class="line">        &quot;telegram:@bob&quot;,</span><br><span class="line">        &quot;telegram:@carol&quot;</span><br><span class="line">      ],</span><br><span class="line">      &quot;groupPolicy&quot;: &quot;mention&quot;,</span><br><span class="line">      &quot;mentionGating&quot;: true</span><br><span class="line">    &#125;,</span><br><span class="line">    &#123;</span><br><span class="line">      &quot;type&quot;: &quot;discord&quot;,</span><br><span class="line">      &quot;dmPolicy&quot;: &quot;allowlist&quot;,</span><br><span class="line">      &quot;allowFrom&quot;: [</span><br><span class="line">        &quot;discord:123456789&quot;</span><br><span class="line">      ]</span><br><span class="line">    &#125;</span><br><span class="line">  ],</span><br><span class="line">  &quot;skills&quot;: &#123;</span><br><span class="line">    &quot;enabled&quot;: [</span><br><span class="line">      &quot;calendar&quot;,</span><br><span class="line">      &quot;web_search&quot;,</span><br><span class="line">      &quot;github&quot;,</span><br><span class="line">      &quot;jira&quot;</span><br><span class="line">    ]</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;provider&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;anthropic&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>多渠道配置用数组形式，每个渠道独立管理白名单。群组开启mention gating避免刷屏。</p>
+<h2 id="场景3：本地模型，离线使用，技能精简"><a href="#场景3：本地模型，离线使用，技能精简" class="headerlink" title="场景3：本地模型，离线使用，技能精简"></a>场景3：本地模型，离线使用，技能精简</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">  &quot;gateway&quot;: &#123;</span><br><span class="line">    &quot;port&quot;: 19000</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;channel&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;whatsapp&quot;,</span><br><span class="line">    &quot;dmPolicy&quot;: &quot;allowlist&quot;,</span><br><span class="line">    &quot;allowFrom&quot;: [&quot;+1234567890&quot;]</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;skills&quot;: &#123;</span><br><span class="line">    &quot;enabled&quot;: [</span><br><span class="line">      &quot;calculator&quot;,</span><br><span class="line">      &quot;file_manager&quot;</span><br><span class="line">    ]</span><br><span class="line">  &#125;,</span><br><span class="line">  &quot;provider&quot;: &#123;</span><br><span class="line">    &quot;type&quot;: &quot;openai-compatible&quot;,</span><br><span class="line">    &quot;baseURL&quot;: &quot;http://localhost:1234/v1&quot;,</span><br><span class="line">    &quot;modelId&quot;: &quot;llama-3.1-8b&quot;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>本地模型场景下，技能尽量精简——小模型的上下文窗口装不下太多系统提示词。</p>
+<h2 id="常见配置错误与解决"><a href="#常见配置错误与解决" class="headerlink" title="常见配置错误与解决"></a>常见配置错误与解决</h2><p><strong>错误1：token不匹配导致无法连接</strong></p>
+<p>症状：Web界面显示”Authentication failed”</p>
+<p>解决：检查<code>gateway.auth.token</code>和你输入的token是否完全一致（注意空格、换行符）</p>
+<p><strong>错误2：技能依赖缺失导致加载失败</strong></p>
+<p>症状：日志显示“Skill ‘google-calendar’ failed to load”</p>
+<p>解决：运行<code>openclaw skill check google-calendar</code>，按提示安装缺失的依赖</p>
+<p><strong>错误3：端口冲突导致Gateway无法启动</strong></p>
+<p>症状：<code>Error: listen EADDRINUSE :::18789</code></p>
+<p>解决：改用其他端口，或找到占用18789的进程并杀掉</p>
+<p><strong>错误4：配置文件格式错误</strong></p>
+<p>症状：<code>SyntaxError: Unexpected token } in JSON</code></p>
+<p>解决：用JSON验证工具检查格式，常见问题是多余的逗号或引号不匹配</p>
+<p><strong>故障排查命令</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 查看服务状态</span><br><span class="line">openclaw status</span><br><span class="line"></span><br><span class="line"># 健康检查</span><br><span class="line">openclaw doctor</span><br><span class="line"></span><br><span class="line"># 详细日志</span><br><span class="line">openclaw gateway --verbose</span><br></pre></td></tr></table></figure>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，核心就三点：</p>
+<p><strong>第一，配置文件是OpenClaw的心脏</strong>。每个参数的含义都值得理解透彻——不是为了炫技，而是为了在出问题时能快速定位。</p>
+<p><strong>第二，安全配置永远是第一优先级</strong>。CVE-2026-25253漏洞证明了配置不当的风险是真实存在的。token要保密、端口要限制、DM策略要收紧、高风险技能要谨慎启用。</p>
+<p><strong>第三，配置不是一次性工作</strong>。随着使用场景变化、团队成员增减、新技能上线，配置需要持续优化。每隔一段时间回顾一下配置，跑一次<code>openclaw security audit</code>，确保一切在掌控之中。</p>
+<p>现在，立即做三件事：</p>
+<ol>
+<li>运行<code>openclaw security audit --deep</code>检查当前配置</li>
+<li>对照本文的最佳实践清单，逐项优化你的配置</li>
+<li>把优化后的配置备份到安全的地方（但别把token一起备份了）</li>
+</ol>
+<p>如果你在配置过程中遇到问题，OpenClaw社区很活跃，GitHub Discussions和Discord频道都有人帮忙。也欢迎分享你的配置经验——大家都是这样一步步摸索过来的。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="dmPolicy应该选pairing还是allowlist？"><a href="#dmPolicy应该选pairing还是allowlist？" class="headerlink" title="dmPolicy应该选pairing还是allowlist？"></a>dmPolicy应该选pairing还是allowlist？</h2><p>根据使用场景选择：</p>
+<p>pairing模式（推荐大多数场景）：  </p>
+<ul>
+<li>适合：不确定所有用户是谁，但需要审核  </li>
+<li>优点：灵活，朋友第一次配对后畅通无阻  </li>
+<li>流程：陌生人发消息 → 生成6位配对码 → 你批准 → 以后直接通信  </li>
+<li>命令：openclaw pairing approve whatsapp ABC123</li>
+</ul>
+<p>allowlist模式（推荐高安全场景）：  </p>
+<ul>
+<li>适合：明确知道所有使用者（家人、团队成员）  </li>
+<li>优点：最安全，非白名单直接屏蔽  </li>
+<li>配置：”allowFrom”: [“+1234567890”, “telegram:@username”]  </li>
+<li>维护：新增用户需手动添加到白名单</li>
+</ul>
+<p>选择建议：<br>个人使用不确定谁会联系 → pairing<br>团队固定成员使用 → allowlist<br>公开演示/测试 → open（临时使用，不推荐长期）</p>
+<h2 id="CVE-2026-25253漏洞具体是什么？如何防护？"><a href="#CVE-2026-25253漏洞具体是什么？如何防护？" class="headerlink" title="CVE-2026-25253漏洞具体是什么？如何防护？"></a>CVE-2026-25253漏洞具体是什么？如何防护？</h2><p>漏洞详情：  </p>
+<ul>
+<li>CVE编号：CVE-2026-25253  </li>
+<li>CVSS评分：8.8（严重）  </li>
+<li>发现时间：2026年1月底  </li>
+<li>影响版本：2026年1月29日前的版本</li>
+</ul>
+<p>攻击原理：<br>攻击者可通过URL参数窃取认证token，例如：<br><a target="_blank" rel="external nofollow noopener noreferrer" href="http://victim.com:18789/?token=leaked-token">http://victim.com:18789/?token=leaked-token</a><br>一旦获取token，即可完全控制OpenClaw实例，执行任意命令</p>
+<p>官方修复措施：  </p>
+<ol>
+<li>移除”auth: none”选项，强制启用认证  </li>
+<li>URL参数不再传递token  </li>
+<li>所有请求必须通过Header传递认证信息</li>
+</ol>
+<p>防护措施：  </p>
+<ul>
+<li>立即更新到最新版本（2026年1月29日后）  </li>
+<li>轮换所有现有token（旧token可能已泄漏）  </li>
+<li>永不在URL中包含token  </li>
+<li>限制Web界面访问（VPN/IP白名单/防火墙）  </li>
+<li>不将18789端口暴露到公网  </li>
+<li>定期运行openclaw security audit检查配置</li>
+</ul>
+<p>检查是否受影响：<br>openclaw —version<br>显示版本日期早于2026-01-29则需更新</p>
+<h2 id="本地模型和Anthropic-API在安全性上有什么区别？"><a href="#本地模型和Anthropic-API在安全性上有什么区别？" class="headerlink" title="本地模型和Anthropic API在安全性上有什么区别？"></a>本地模型和Anthropic API在安全性上有什么区别？</h2><p>Anthropic API的安全优势：</p>
+<ol>
+<li><p>提示注入防护：  </p>
+<ul>
+<li>内置安全层，能识别恶意prompt  </li>
+<li>拒绝执行危险指令  </li>
+<li>定期更新安全规则</li>
+</ul>
+</li>
+<li><p>指令遵循能力：  </p>
+<ul>
+<li>严格遵循系统提示词  </li>
+<li>不易被用户输入欺骗</li>
+</ul>
+</li>
+<li><p>上下文处理：  </p>
+<ul>
+<li>大窗口（200K tokens）可容纳完整安全提示词</li>
+</ul>
+</li>
+</ol>
+<p>本地模型的安全局限：</p>
+<ol>
+<li><p>提示注入风险高：  </p>
+<ul>
+<li>小模型（7B-13B）易被精心构造的输入绕过  </li>
+<li>缺少专门的安全训练</li>
+</ul>
+</li>
+<li><p>量化模型问题：  </p>
+<ul>
+<li>4-bit量化后，指令遵循能力显著下降  </li>
+<li>安全特性可能失效</li>
+</ul>
+</li>
+<li><p>上下文限制：  </p>
+<ul>
+<li>小窗口（4K-8K tokens）放不下完整安全提示词  </li>
+<li>只能精简技能和系统提示</li>
+</ul>
+</li>
+</ol>
+<p>本地模型安全使用建议：  </p>
+<ul>
+<li>严格限制技能权限（仅启用低风险技能）  </li>
+<li>必须开启沙箱模式隔离运行  </li>
+<li>不在有敏感数据的机器上部署  </li>
+<li>allowlist白名单限制用户  </li>
+<li>禁用exec、browser等高风险技能  </li>
+<li>定期审查日志，监控异常行为</li>
+</ul>
+<p>选择建议：<br>需要高安全性（处理敏感数据） → Anthropic API<br>重视隐私和离线可用 → 本地模型+严格安全配置</p>
+<h2 id="技能太多会影响性能吗？应该启用多少个？"><a href="#技能太多会影响性能吗？应该启用多少个？" class="headerlink" title="技能太多会影响性能吗？应该启用多少个？"></a>技能太多会影响性能吗？应该启用多少个？</h2><p>技能数量的影响：</p>
+<ol>
+<li><p>上下文占用：<br>每个技能会增加系统提示词长度  </p>
+<ul>
+<li>单个技能：平均200-500 tokens  </li>
+<li>10个技能：约2000-5000 tokens  </li>
+<li>留给对话的空间相应减少</li>
+</ul>
+</li>
+<li><p>模型类型决定策略：</p>
+<p> 大模型（Anthropic Claude）：  </p>
+<ul>
+<li>上下文窗口：200K tokens  </li>
+<li>建议：可启用10-20个常用技能  </li>
+<li><p>影响：几乎可忽略，性能不受影响</p>
+<p>中等模型（本地13B-30B）：  </p>
+</li>
+<li>上下文窗口：8K-32K tokens  </li>
+<li>建议：启用5-10个必需技能  </li>
+<li><p>影响：需权衡功能和上下文空间</p>
+<p>小模型（本地7B量化）：  </p>
+</li>
+<li>上下文窗口：4K-8K tokens  </li>
+<li>建议：仅启用2-5个核心技能  </li>
+<li>影响：必须精简，否则无法对话</li>
+</ul>
+</li>
+<li><p>按需启用策略：</p>
+<p> 个人助手场景（推荐）：  </p>
+<ul>
+<li>calendar（日历管理）  </li>
+<li>web_search（网络搜索）  </li>
+<li>file_manager（文件管理）  </li>
+<li><p>calculator（计算器）</p>
+<p>开发场景（推荐）：  </p>
+</li>
+<li>github（代码仓库）  </li>
+<li>web_search（技术搜索）  </li>
+<li><p>exec（命令执行，需沙箱）</p>
+<p>企业场景（推荐）：  </p>
+</li>
+<li>calendar（日历）  </li>
+<li>jira（项目管理）  </li>
+<li>slack（团队协作）  </li>
+<li>web_search（搜索）</li>
+</ul>
+</li>
+</ol>
+<p>动态调整：  </p>
+<ul>
+<li>工作区技能优先级高于全局  </li>
+<li>可针对不同项目创建不同配置  </li>
+<li>不常用技能及时禁用</li>
+</ul>
+<p>性能优化建议：<br>openclaw skill list<br>查看已启用技能及其上下文占用</p>
+<p>禁用不用的技能：<br>“skills”: {“disabled”: [“skill-name”]}</p>
+<h2 id="如何安全地管理多个环境（开发-测试-生产）的配置？"><a href="#如何安全地管理多个环境（开发-测试-生产）的配置？" class="headerlink" title="如何安全地管理多个环境（开发/测试/生产）的配置？"></a>如何安全地管理多个环境（开发/测试/生产）的配置？</h2><p>多环境配置管理策略：</p>
+<p>方法1：环境变量覆盖（推荐）</p>
+<p>基础配置文件（~/.openclaw/openclaw.json）：<br>包含通用配置，不含敏感信息</p>
+<p>开发环境（.env.development）：<br>export OPENCLAW_GATEWAY_PORT=18789<br>export OPENCLAW_DM_POLICY=open<br>export ANTHROPIC_API_KEY=sk-ant-dev-key</p>
+<p>生产环境（.env.production）：<br>export OPENCLAW_GATEWAY_PORT=18789<br>export OPENCLAW_DM_POLICY=allowlist<br>export ANTHROPIC_API_KEY=sk-ant-prod-key</p>
+<p>切换环境：<br>source .env.development<br>openclaw gateway</p>
+<p>优先级：环境变量 &gt; 配置文件 &gt; 默认值</p>
+<p>方法2：多配置文件</p>
+<p>创建不同配置：<br>~/.openclaw/openclaw.dev.json<br>~/.openclaw/openclaw.prod.json</p>
+<p>指定配置启动：<br>openclaw gateway —config ~/.openclaw/openclaw.prod.json</p>
+<p>方法3：Git管理（推荐团队）</p>
+<p>版本控制：<br>openclaw.json.template（模板，提交Git）<br>openclaw.json（实际配置，加入.gitignore）<br>.env.example（环境变量示例）</p>
+<p>.gitignore配置：<br>openclaw.json<br>.env<br>.env.local<br>.env.*.local</p>
+<p>团队协作流程：  </p>
+<ol>
+<li>拷贝模板：cp openclaw.json.template openclaw.json  </li>
+<li>填入本地配置  </li>
+<li>使用环境变量存储敏感信息</li>
+</ol>
+<p>方法4：Secrets管理器（企业推荐）</p>
+<p>Doppler示例：<br>doppler secrets set GATEWAY_TOKEN xxx<br>doppler run — openclaw gateway</p>
+<p>HashiCorp Vault示例：<br>vault kv get -field=token secret/openclaw/gateway</p>
+<p>安全检查清单：<br>✅ 配置文件不包含API密钥和token<br>✅ 使用环境变量存储敏感信息<br>✅ .gitignore包含所有配置文件<br>✅ 生产环境token与开发环境不同<br>✅ 定期轮换生产环境token<br>✅ 配置文件权限正确（600）<br>✅ 不在聊天/issue中分享配置</p>
+<p>备份策略：<br>开发配置：可提交Git（无敏感信息）<br>生产配置：加密备份到安全位置（1Password/Bitwarden）</p>
+<h2 id="群组中AI助手疯狂回复怎么办？"><a href="#群组中AI助手疯狂回复怎么办？" class="headerlink" title="群组中AI助手疯狂回复怎么办？"></a>群组中AI助手疯狂回复怎么办？</h2><p>问题原因：<br>未开启mention gating，AI监听群内所有消息并回复</p>
+<p>解决方案：</p>
+<ol>
+<li><p>开启Mention Gating（推荐）</p>
+<p> 配置：  </p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&quot;channel&quot;: &#123;</span><br><span class="line">  &quot;groupPolicy&quot;: &quot;mention&quot;,</span><br><span class="line">  &quot;mentionGating&quot;: true</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 效果：AI仅回复@提及的消息</p>
+<p> 使用：<br> 群成员发送 “@OpenClaw 今天天气怎么样”<br> AI才会响应</p>
+</li>
+<li><p>关键词触发（备选）</p>
+<p> 配置： </p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&quot;channel&quot;: &#123;  </span><br><span class="line">  &quot;groupPolicy&quot;: &quot;keyword&quot;,  </span><br><span class="line">  &quot;keywords&quot;: [&quot;openclaw&quot;, &quot;助手&quot;]  </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 效果：仅包含关键词的消息触发回复</p>
+</li>
+<li><p>完全禁用群组</p>
+<p> 配置：  </p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&quot;channel&quot;: &#123;</span><br><span class="line">  &quot;groupPolicy&quot;: &quot;disabled&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 效果：AI不响应任何群组消息，仅处理私信</p>
+</li>
+<li><p>消息频率限制</p>
+</li>
+</ol>
+<p>配置：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">&quot;channel&quot;: &#123;</span><br><span class="line">  &quot;rateLimit&quot;: &#123;</span><br><span class="line">    &quot;maxMessages&quot;: 10,</span><br><span class="line">    &quot;perMinutes&quot;: 1</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>效果：限制每分钟最多回复10条消息</p>
+<p>临时紧急处理：</p>
+<p>立即关闭群组响应：<br>openclaw channel disable —group</p>
+<p>移除AI从群组：<br>从WhatsApp/Telegram群组中移除OpenClaw</p>
+<p>重启Gateway：<br>openclaw gateway restart</p>
+<p>最佳实践配置：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">&quot;channel&quot;: &#123;</span><br><span class="line">  &quot;groupPolicy&quot;: &quot;mention&quot;,</span><br><span class="line">  &quot;mentionGating&quot;: true,</span><br><span class="line">  &quot;rateLimit&quot;: &#123;</span><br><span class="line">    &quot;maxMessages&quot;: 5,</span><br><span class="line">    &quot;perMinutes&quot;: 1</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这样配置：  </p>
+<ul>
+<li>AI仅响应@提及  </li>
+<li>每分钟最多5条回复  </li>
+<li>避免刷屏和滥用</li>
+</ul>
+<p>配置文件突然失效，Gateway无法启动怎么排查？</p>
+<p>系统性排查流程：</p>
+<p>第一步：检查配置文件格式</p>
+<p>验证JSON格式：<br>cat ~/.openclaw/openclaw.json | python -m json.tool</p>
+<p>常见格式错误：  </p>
+<ul>
+<li>多余的逗号：{“key”: “value”,}  </li>
+<li>引号不匹配：”key: “value”  </li>
+<li>注释（JSON不支持）：// this is wrong</li>
+</ul>
+<p>在线验证工具：jsonlint.com</p>
+<p>第二步：检查文件权限</p>
+<p>查看权限：<br>ls -la ~/.openclaw/openclaw.json</p>
+<p>正确权限：<br>-rw———- (600) 仅所有者可读写</p>
+<p>修复权限：<br>chmod 600 ~/.openclaw/openclaw.json<br>chmod 700 ~/.openclaw</p>
+<p>第三步：查看详细错误日志</p>
+<p>启动详细模式：<br>openclaw gateway —verbose</p>
+<p>日志位置：<br>~/.openclaw/logs/gateway.log</p>
+<p>查看最近错误：<br>tail -n 50 ~/.openclaw/logs/gateway.log</p>
+<p>第四步：运行健康检查</p>
+<p>基础检查：<br>openclaw doctor</p>
+<p>输出会显示：  </p>
+<ul>
+<li>配置文件是否可读  </li>
+<li>必需字段是否存在  </li>
+<li>依赖是否满足  </li>
+<li>端口是否可用</li>
+</ul>
+<p>深度检查：<br>openclaw security audit —deep</p>
+<p>第五步：常见故障和解决</p>
+<p>故障1：端口被占用<br>错误：Error: listen EADDRINUSE :::18789<br>解决：<br>查找占用进程：lsof -i :18789<br>杀掉进程：kill -9 [PID]<br>或改用其他端口：”port”: 19000</p>
+<p>故障2：Token格式错误<br>错误：Invalid authentication token<br>解决：<br>检查token无换行符：cat -A ~/.openclaw/openclaw.json<br>重新生成token：openssl rand -hex 32</p>
+<p>故障3：环境变量冲突<br>错误：配置被意外覆盖<br>解决：<br>查看环境变量：env | grep OPENCLAW<br>清除冲突变量：unset OPENCLAW_GATEWAY_PORT</p>
+<p>故障4：配置文件损坏<br>错误：SyntaxError或Unexpected token<br>解决：<br>恢复备份：cp ~/.openclaw/openclaw.json.backup ~/.openclaw/openclaw.json<br>或使用模板：cp openclaw.json.template ~/.openclaw/openclaw.json</p>
+<p>第六步：重置配置（最后手段）</p>
+<p>备份当前配置：<br>cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.broken</p>
+<p>删除配置：<br>rm ~/.openclaw/openclaw.json</p>
+<p>重新运行引导向导：<br>openclaw onboard</p>
+<p>验证启动：<br>openclaw gateway —verbose</p>
+<p>预防措施：</p>
+<ol>
+<li><p>定期备份配置：<br>crontab -e<br>添加：0 0 * * * cp ~/.openclaw/openclaw.json ~/.openclaw/backup/openclaw-$(date +%Y%m%d).json</p>
+</li>
+<li><p>版本控制（无敏感信息的模板）：<br>git init ~/.openclaw<br>git add openclaw.json.template</p>
+</li>
+<li><p>修改前测试：<br>cp openclaw.json openclaw.json.test<br># 修改test文件<br>openclaw gateway —config openclaw.json.test —dry-run</p>
+</li>
+<li><p>使用配置验证脚本：<br>openclaw config validate</p>
+</li>
+</ol>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/17a8/">https://jingluo23.github.io/posts/17a8/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/cda7/" title="OpenClaw核心能力矩阵：7大模块100+技能完全解析"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">OpenClaw核心能力矩阵：7大模块100+技能完全解析</div></div><div class="info-2"><div class="info-item-1">深度解析OpenClaw的7大核心能力模块和100+预配置技能，从Shell命令到智能家居控制，从入门到精通的完整实战指南，附安全最佳实践。</div></div></div></a><a class="pagination-related" href="/posts/3db4/" title="OpenClaw安全警示：你必须知道的5大风险"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">OpenClaw安全警示：你必须知道的5大风险</div></div><div class="info-2"><div class="info-item-1">OpenClaw存在远程代码执行漏洞(CVE-2026-25253)、API密钥泄露、Prompt注入攻击等严重安全问题，ClawHub上12%的Skills为恶意软件。本文详解5大风险及实用防护建议。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/24f7/" title="OpenClaw装不上？这7个坑我都踩过了"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-16</div><div class="info-item-2">OpenClaw装不上？这7个坑我都踩过了</div></div><div class="info-2"><div class="info-item-1">OpenClaw安装遇到问题？本文覆盖Node.js版本、npm权限、Docker配置、API密钥、WSL2环境等7大类常见问题，提供清晰的诊断步骤和解决方案，帮你快速排查并解决安装难题。</div></div></div></a><a class="pagination-related" href="/posts/8176/" title="AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-22</div><div class="info-item-2">AI 营销自动化实战：用 OpenClaw 打造一键内容生产与分发管道</div></div><div class="info-2"><div class="info-item-1">用 OpenClaw 搭建从 YouTube 灵感到 Twitter/LinkedIn 分发的全自动内容管道，实现 AI 营销自动化，每天节省 2 小时内容生产时间。</div></div></div></a><a class="pagination-related" href="/posts/cbb8/" title="打造第二大脑：OpenClaw 与 Obsidian&#x2F;Notion 的深度记忆同步实战"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-23</div><div class="info-item-2">打造第二大脑：OpenClaw 与 Obsidian&#x2F;Notion 的深度记忆同步实战</div></div><div class="info-2"><div class="info-item-1">演示如何配置 obsidian-vault 技能，使 AI 的交互记忆自动同步至本地 Markdown 笔记库，构建你的 AI 第二大脑</div></div></div></a><a class="pagination-related" href="/posts/d5f3/" title="OpenClaw 实战完全手册：从入门到精通"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-27</div><div class="info-item-2">OpenClaw 实战完全手册：从入门到精通</div></div><div class="info-2"><div class="info-item-1">OpenClaw 实战完全手册：从入门到精通。涵盖核心概念、快速开始、工具技能系统、工作流自动化、安全部署，提供清晰学习路径和实战案例。</div></div></div></a><a class="pagination-related" href="/posts/3561/" title="OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-10</div><div class="info-item-2">OpenClaw Telegram集成教程：从创建Bot到配置完成的完整指南</div></div><div class="info-2"><div class="info-item-1">手把手教你在30分钟内搭建Telegram AI助手，涵盖BotFather创建Bot、OpenClaw配置、白名单安全设置和常见问题排查，让AI助手随时在线。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">131</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">21</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6%E7%9A%84%E5%9F%BA%E7%A1%80%E8%AE%A4%E7%9F%A5"><span class="toc-number">1.</span> <span class="toc-text">配置文件的基础认知</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%87%E4%BB%B6%E5%9C%A8%E5%93%AA%E9%87%8C%EF%BC%8C%E9%95%BF%E4%BB%80%E4%B9%88%E6%A0%B7"><span class="toc-number">1.1.</span> <span class="toc-text">文件在哪里，长什么样</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E6%96%B9%E5%BC%8F%E5%92%8C%E4%BC%98%E5%85%88%E7%BA%A7"><span class="toc-number">1.2.</span> <span class="toc-text">配置方式和优先级</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Gateway%E7%BD%91%E5%85%B3%E9%85%8D%E7%BD%AE%E8%AF%A6%E8%A7%A3"><span class="toc-number">2.</span> <span class="toc-text">Gateway网关配置详解</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E7%A1%80%E9%85%8D%E7%BD%AE%EF%BC%9A%E7%AB%AF%E5%8F%A3%E5%92%8C%E8%AE%A4%E8%AF%81"><span class="toc-number">2.1.</span> <span class="toc-text">基础配置：端口和认证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AB%98%E7%BA%A7%E9%85%8D%E7%BD%AE%EF%BC%9A%E6%97%A5%E5%BF%97%E5%92%8CWebSocket"><span class="toc-number">2.2.</span> <span class="toc-text">高级配置：日志和WebSocket</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Channel%E6%B8%A0%E9%81%93%E9%85%8D%E7%BD%AE%E7%AD%96%E7%95%A5"><span class="toc-number">3.</span> <span class="toc-text">Channel渠道配置策略</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%94%AF%E6%8C%81%E7%9A%84%E6%B8%A0%E9%81%93%E7%B1%BB%E5%9E%8B"><span class="toc-number">3.1.</span> <span class="toc-text">支持的渠道类型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DM%EF%BC%88%E7%A7%81%E4%BF%A1%EF%BC%89%E7%AD%96%E7%95%A5%E9%85%8D%E7%BD%AE"><span class="toc-number">3.2.</span> <span class="toc-text">DM（私信）策略配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Group%E7%BE%A4%E7%BB%84%E7%AD%96%E7%95%A5%E9%85%8D%E7%BD%AE"><span class="toc-number">3.3.</span> <span class="toc-text">Group群组策略配置</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Skills%E6%8A%80%E8%83%BD%E6%A8%A1%E5%9D%97%E9%85%8D%E7%BD%AE"><span class="toc-number">4.</span> <span class="toc-text">Skills技能模块配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Skills%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5"><span class="toc-number">4.1.</span> <span class="toc-text">Skills基础概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8A%80%E8%83%BD%E9%85%8D%E7%BD%AE%E4%B8%8E%E7%AE%A1%E7%90%86"><span class="toc-number">4.2.</span> <span class="toc-text">技能配置与管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8A%80%E8%83%BD%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5"><span class="toc-number">4.3.</span> <span class="toc-text">技能故障排查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%8F%E6%A8%A1%E5%9E%8B%E5%9C%BA%E6%99%AF%E7%9A%84%E4%BC%98%E5%8C%96"><span class="toc-number">4.4.</span> <span class="toc-text">小模型场景的优化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%AB%98%E9%A3%8E%E9%99%A9%E6%8A%80%E8%83%BD%E7%9A%84%E9%99%90%E5%88%B6"><span class="toc-number">4.5.</span> <span class="toc-text">高风险技能的限制</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Provider%E6%A8%A1%E5%9E%8B%E6%8F%90%E4%BE%9B%E5%95%86%E9%85%8D%E7%BD%AE"><span class="toc-number">5.</span> <span class="toc-text">Provider模型提供商配置</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%94%AF%E6%8C%81%E7%9A%84AI-Provider"><span class="toc-number">5.1.</span> <span class="toc-text">支持的AI Provider</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Provider%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0"><span class="toc-number">5.2.</span> <span class="toc-text">Provider配置参数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E6%A8%A1%E5%9E%8B%E9%85%8D%E7%BD%AE"><span class="toc-number">5.3.</span> <span class="toc-text">本地模型配置</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MCP%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%85%8D%E7%BD%AE%EF%BC%88%E6%96%B0%E7%89%B9%E6%80%A7%EF%BC%89"><span class="toc-number">5.4.</span> <span class="toc-text">MCP服务器配置（新特性）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E6%A8%A1%E5%9E%8B%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">5.5.</span> <span class="toc-text">本地模型的注意事项</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">6.</span> <span class="toc-text">安全配置最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E9%85%8D%E7%BD%AE%E6%B8%85%E5%8D%95"><span class="toc-number">6.1.</span> <span class="toc-text">安全配置清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BE%93%E5%85%A5%E5%AE%89%E5%85%A8%E4%B8%8E%E6%B2%99%E7%AE%B1"><span class="toc-number">6.2.</span> <span class="toc-text">输入安全与沙箱</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Secrets%E7%AE%A1%E7%90%86"><span class="toc-number">6.3.</span> <span class="toc-text">Secrets管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E5%AE%A1%E8%AE%A1%E4%B8%8E%E7%BB%B4%E6%8A%A4"><span class="toc-number">6.4.</span> <span class="toc-text">安全审计与维护</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E6%96%87%E4%BB%B6%E6%9D%83%E9%99%90"><span class="toc-number">6.5.</span> <span class="toc-text">本地文件权限</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%83%E4%B8%87%E4%B8%8D%E8%A6%81%E5%81%9A%E7%9A%84%E4%BA%8B%E6%83%85"><span class="toc-number">6.6.</span> <span class="toc-text">千万不要做的事情</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E9%85%8D%E7%BD%AE%E6%A1%88%E4%BE%8B"><span class="toc-number">7.</span> <span class="toc-text">实战配置案例</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF1%EF%BC%9A%E4%B8%AA%E4%BA%BA%E4%BD%BF%E7%94%A8%EF%BC%8C%E4%BB%85WhatsApp%EF%BC%8C%E9%85%8D%E5%AF%B9%E6%A8%A1%E5%BC%8F"><span class="toc-number">7.1.</span> <span class="toc-text">场景1：个人使用，仅WhatsApp，配对模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF2%EF%BC%9A%E5%9B%A2%E9%98%9F%E5%8D%8F%E4%BD%9C%EF%BC%8C%E5%A4%9A%E6%B8%A0%E9%81%93%EF%BC%8C%E7%99%BD%E5%90%8D%E5%8D%95%E6%A8%A1%E5%BC%8F"><span class="toc-number">7.2.</span> <span class="toc-text">场景2：团队协作，多渠道，白名单模式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF3%EF%BC%9A%E6%9C%AC%E5%9C%B0%E6%A8%A1%E5%9E%8B%EF%BC%8C%E7%A6%BB%E7%BA%BF%E4%BD%BF%E7%94%A8%EF%BC%8C%E6%8A%80%E8%83%BD%E7%B2%BE%E7%AE%80"><span class="toc-number">7.3.</span> <span class="toc-text">场景3：本地模型，离线使用，技能精简</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%85%8D%E7%BD%AE%E9%94%99%E8%AF%AF%E4%B8%8E%E8%A7%A3%E5%86%B3"><span class="toc-number">7.4.</span> <span class="toc-text">常见配置错误与解决</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">8.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#dmPolicy%E5%BA%94%E8%AF%A5%E9%80%89pairing%E8%BF%98%E6%98%AFallowlist%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">dmPolicy应该选pairing还是allowlist？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CVE-2026-25253%E6%BC%8F%E6%B4%9E%E5%85%B7%E4%BD%93%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E5%A6%82%E4%BD%95%E9%98%B2%E6%8A%A4%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">CVE-2026-25253漏洞具体是什么？如何防护？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9C%AC%E5%9C%B0%E6%A8%A1%E5%9E%8B%E5%92%8CAnthropic-API%E5%9C%A8%E5%AE%89%E5%85%A8%E6%80%A7%E4%B8%8A%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">本地模型和Anthropic API在安全性上有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8A%80%E8%83%BD%E5%A4%AA%E5%A4%9A%E4%BC%9A%E5%BD%B1%E5%93%8D%E6%80%A7%E8%83%BD%E5%90%97%EF%BC%9F%E5%BA%94%E8%AF%A5%E5%90%AF%E7%94%A8%E5%A4%9A%E5%B0%91%E4%B8%AA%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">技能太多会影响性能吗？应该启用多少个？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%AE%89%E5%85%A8%E5%9C%B0%E7%AE%A1%E7%90%86%E5%A4%9A%E4%B8%AA%E7%8E%AF%E5%A2%83%EF%BC%88%E5%BC%80%E5%8F%91-%E6%B5%8B%E8%AF%95-%E7%94%9F%E4%BA%A7%EF%BC%89%E7%9A%84%E9%85%8D%E7%BD%AE%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">如何安全地管理多个环境（开发&#x2F;测试&#x2F;生产）的配置？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BE%A4%E7%BB%84%E4%B8%ADAI%E5%8A%A9%E6%89%8B%E7%96%AF%E7%8B%82%E5%9B%9E%E5%A4%8D%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">9.6.</span> <span class="toc-text">群组中AI助手疯狂回复怎么办？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"></a><div class="content"><a class="title" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</a><time datetime="2026-10-31T07:06:23.000Z" title="发表于 2026-10-31 15:06:23">2026-10-31</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 生产环境监控：日志配置与 Prometheus 告警实战"></a><div class="content"><a class="title" href="/posts/9838/" title="Ollama 生产环境监控：日志配置与 Prometheus 告警实战">Ollama 生产环境监控：日志配置与 Prometheus 告警实战</a><time datetime="2026-10-30T07:06:23.000Z" title="发表于 2026-10-30 15:06:23">2026-10-30</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Ollama 模型量化实战：GGUF 格式与精度损失完全解析"></a><div class="content"><a class="title" href="/posts/c204/" title="Ollama 模型量化实战：GGUF 格式与精度损失完全解析">Ollama 模型量化实战：GGUF 格式与精度损失完全解析</a><time datetime="2026-10-29T07:06:23.000Z" title="发表于 2026-10-29 15:06:23">2026-10-29</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><!-- hexo injector body_end end --></body></html>
