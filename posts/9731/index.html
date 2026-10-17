@@ -1,0 +1,738 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>LangChain LCEL 实战：从传统链到流式响应的现代范式 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="LCEL 用 | 运算符重构 LangChain 开发，代码量减少 70%，自动支持流式响应。详解 Pipe 原理、Runnable 接口、流式机制，提供迁移实战指南。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LangChain LCEL 实战：从传统链到流式响应的现代范式">
+<meta property="og:url" content="https://jingluo23.github.io/posts/9731/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="LCEL 用 | 运算符重构 LangChain 开发，代码量减少 70%，自动支持流式响应。详解 Pipe 原理、Runnable 接口、流式机制，提供迁移实战指南。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-04T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:27:07.318Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI 开发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "LangChain LCEL 实战：从传统链到流式响应的现代范式",
+  "url": "https://jingluo23.github.io/posts/9731/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-04T02:00:00.000Z",
+  "dateModified": "2026-10-17T08:27:07.318Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/9731/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'LangChain LCEL 实战：从传统链到流式响应的现代范式',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">LangChain LCEL 实战：从传统链到流式响应的现代范式</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">LangChain LCEL 实战：从传统链到流式响应的现代范式</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-04T02:00:00.000Z" title="发表于 2026-11-04 10:00:00">2026-11-04</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:27:07.318Z" title="更新于 2026-10-17 16:27:07">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-%E5%BC%80%E5%8F%91%E5%AE%9E%E6%88%98/">AI 开发实战</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.1k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>23分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:27:07&quot;}" hidden></div><p>去年接手一个老项目，翻开源码那一刻我愣住了——单个对话链的代码足足写了 200 多行。初始化 PromptTemplate、配置 LLMChain、手动处理输入输出映射、还要自己写回调函数处理流式响应。更崩溃的是，团队里没人敢动这块代码，“反正能跑”成了最大共识。</p>
+<p>这是 LangChain 早期版本的遗留问题。LLMChain、SequentialChain 这些旧 API 在 2023 年还是主流，现在已经被官方标记为废弃。问题是，网上大部分教程还在用那套老写法。</p>
+<p>本文是 AI 开发实战系列的第 13 篇。我会用实际代码对比，告诉你为什么 LCEL（LangChain Expression Language）能让同样功能的代码缩减 70%，以及它怎么自动搞定流式响应、异步执行这些原本需要写大量样板代码的事情。</p>
+<p>对了，如果你在构建 RAG 系统或者 Agent 应用，这篇文章跟系列里的 RAG 系统优化实战 和 LangGraph 状态管理 能串起来看，都是 LangChain 生态里绕不过去的东西。</p>
+<h1 id="LCEL-是什么？为什么要用它？"><a href="#LCEL-是什么？为什么要用它？" class="headerlink" title="LCEL 是什么？为什么要用它？"></a>LCEL 是什么？为什么要用它？</h1><p>如果你从 2023 年的教程开始学 LangChain，大概率写过类似这样的代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 传统 LLMChain 写法（已废弃）</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> LLMChain</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> PromptTemplate</span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> OpenAI</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 初始化模型</span></span><br><span class="line">llm = OpenAI(temperature=<span class="number">0.7</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 定义 Prompt 模板</span></span><br><span class="line">template = <span class="string">&quot;&quot;&quot;你是一个资深&#123;role&#125;。</span></span><br><span class="line"><span class="string">用户问题：&#123;question&#125;</span></span><br><span class="line"><span class="string">请给出专业回答：&quot;&quot;&quot;</span></span><br><span class="line">prompt = PromptTemplate(</span><br><span class="line">    template=template,</span><br><span class="line">    input_variables=[<span class="string">&quot;role&quot;</span>, <span class="string">&quot;question&quot;</span>]</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 创建链</span></span><br><span class="line">chain = LLMChain(llm=llm, prompt=prompt)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 调用链（注意这里的参数传递方式）</span></span><br><span class="line">result = chain.run(role=<span class="string">&quot;前端工程师&quot;</span>, question=<span class="string">&quot;React 和 Vue 怎么选？&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(result)</span><br></pre></td></tr></table></figure>
+<p>看着还行？但如果要加流式输出、批量处理、或者组合多个链，代码量会指数级增长。传统链有三个致命问题：</p>
+<p><strong>第一，流式响应支持差</strong>。LLMChain 默认不支持流式输出，你得手动写回调函数，监听 token 生成事件。代码变得臃肿不说，异步处理还容易出错。</p>
+<p><strong>第二，组合方式笨重</strong>。想把两个链串起来？用 <code>SequentialChain</code>。想并行执行？用另一个 API。每换一种组合方式就要学一套新接口，心智负担重。</p>
+<p><strong>第三，输入输出映射显式且繁琐</strong>。每个链都要声明 <code>input_variables</code> 和 <code>output_variables</code>，数据在链之间流动时还要手动对齐字段名。</p>
+<p>LCEL 就是冲着这些问题来的。看看同样的功能用 LCEL 怎么写：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># LCEL 写法（LangChain v0.3+ 推荐）</span></span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 定义模型</span></span><br><span class="line">model = ChatOpenAI(model=<span class="string">&quot;gpt-4o-mini&quot;</span>, temperature=<span class="number">0.7</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 定义 Prompt</span></span><br><span class="line">prompt = ChatPromptTemplate.from_template(</span><br><span class="line">    <span class="string">&quot;你是一个资深&#123;role&#125;。\n用户问题：&#123;question&#125;\n请给出专业回答：&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 用管道符连接组件</span></span><br><span class="line">chain = prompt | model</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 调用链（自动处理输入输出映射）</span></span><br><span class="line">result = chain.invoke(&#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;前端工程师&quot;</span>, <span class="string">&quot;question&quot;</span>: <span class="string">&quot;React 和 Vue 怎么选？&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result.content)</span><br></pre></td></tr></table></figure>
+<p>代码从 15 行缩减到 9 行，但真正厉害的是：</p>
+<ul>
+<li><strong>自动支持流式输出</strong>：把 <code>invoke</code> 换成 <code>stream</code> 就行，不用改任何其他代码</li>
+<li><strong>自动支持异步</strong>：用 <code>ainvoke</code> 或 <code>astream</code>，异步执行一行搞定</li>
+<li><strong>自动支持批量处理</strong>：用 <code>batch</code> 方法，传入列表自动并发执行</li>
+</ul>
+<p>Pipe 运算符 <code>|</code> 的设计灵感来自 Linux 管道。在 Linux 里，<code>cat log.txt | grep error | wc -l</code> 把三个命令串起来，前一个的输出直接变成后一个的输入。LCEL 把同样的思想搬到了 LangChain：<code>prompt | model | output_parser</code>，数据从左往右流动，代码读起来像句子一样自然。</p>
+<p>说实话，我刚看到这个语法时有点不适应——Python 里 <code>|</code> 不是按位或运算符吗？后来才知道这是 Python 3.10 引入的语法糖，配合 <code>__or__</code> 魔术方法实现管道语义。这个设计确实巧妙。</p>
+<h1 id="Pipe-运算符的工作原理"><a href="#Pipe-运算符的工作原理" class="headerlink" title="Pipe 运算符的工作原理"></a>Pipe 运算符的工作原理</h1><p>Pipe 运算符看着简单，背后其实有一套完整的设计。先看个实验：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableLambda</span><br><span class="line"></span><br><span class="line"><span class="comment"># 创建两个简单的 Runnable</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">add_one</span>(<span class="params">x: <span class="built_in">int</span></span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">return</span> x + <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">multiply_two</span>(<span class="params">x: <span class="built_in">int</span></span>) -&gt; <span class="built_in">int</span>:</span><br><span class="line">    <span class="keyword">return</span> x * <span class="number">2</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 用 RunnableLambda 包装普通函数</span></span><br><span class="line">add_one_runnable = RunnableLambda(add_one)</span><br><span class="line">multiply_two_runnable = RunnableLambda(multiply_two)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 用管道符连接</span></span><br><span class="line">chain = add_one_runnable | multiply_two_runnable</span><br><span class="line"></span><br><span class="line"><span class="comment"># 执行</span></span><br><span class="line">result = chain.invoke(<span class="number">3</span>)  <span class="comment"># 3 -&gt; 4 -&gt; 8</span></span><br><span class="line"><span class="built_in">print</span>(result)  <span class="comment"># 输出: 8</span></span><br></pre></td></tr></table></figure>
+<p><code>chain = add_one_runnable | multiply_two_runnable</code> 这行代码执行时，Python 实际上调用的是 <code>add_one_runnable.__or__(multiply_two_runnable)</code>。</p>
+<p>LangChain 的 Runnable 类实现了 <code>__or__</code> 方法，返回一个新的 <code>RunnableSequence</code> 对象。这个对象内部存了所有被串联的 Runnable，当调用 <code>invoke</code> 时，它会按顺序执行每个组件，把前一个的输出传给下一个。</p>
+<p>Runnable 是 LCEL 的核心抽象。它定义了一套统一的接口，任何实现了这四个方法的组件都能参与管道组合：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>作用</th>
+<th>同步/异步</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>invoke</code></td>
+<td>单次调用，返回完整结果</td>
+<td>同步</td>
+</tr>
+<tr>
+<td><code>stream</code></td>
+<td>单次调用，返回流式输出</td>
+<td>同步</td>
+</tr>
+<tr>
+<td><code>batch</code></td>
+<td>批量调用，并行处理多个输入</td>
+<td>同步</td>
+</tr>
+<tr>
+<td><code>ainvoke</code></td>
+<td>单次调用，返回完整结果</td>
+<td>异步</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>每个方法都有对应的异步版本：<code>astream</code>、<code>abatch</code>、<code>abatch_as_completed</code>。</p>
+<p>这套接口统一了所有 LangChain 组件的调用方式。无论是 PromptTemplate、ChatModel、OutputParser，还是你自己写的 RunnableLambda，都能用同样的方法调用。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 统一的调用方式</span></span><br><span class="line">chain.invoke(&#123;<span class="string">&quot;input&quot;</span>: <span class="string">&quot;hello&quot;</span>&#125;)        <span class="comment"># 单次调用</span></span><br><span class="line">chain.stream(&#123;<span class="string">&quot;input&quot;</span>: <span class="string">&quot;hello&quot;</span>&#125;)        <span class="comment"># 流式调用</span></span><br><span class="line">chain.batch([&#123;<span class="string">&quot;input&quot;</span>: <span class="string">&quot;a&quot;</span>&#125;, &#123;<span class="string">&quot;input&quot;</span>: <span class="string">&quot;b&quot;</span>&#125;])  <span class="comment"># 批量调用</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 异步版本</span></span><br><span class="line"><span class="keyword">await</span> chain.ainvoke(&#123;<span class="string">&quot;input&quot;</span>: <span class="string">&quot;hello&quot;</span>&#125;)</span><br><span class="line"><span class="keyword">async</span> <span class="keyword">for</span> chunk <span class="keyword">in</span> chain.astream(&#123;<span class="string">&quot;input&quot;</span>: <span class="string">&quot;hello&quot;</span>&#125;):</span><br><span class="line">    <span class="built_in">print</span>(chunk, end=<span class="string">&quot;&quot;</span>, flush=<span class="literal">True</span>)</span><br></pre></td></tr></table></figure>
+<p>数据在管道里怎么流动？看个稍微复杂的例子：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"><span class="keyword">from</span> langchain_core.output_parsers <span class="keyword">import</span> StrOutputParser</span><br><span class="line"></span><br><span class="line"><span class="comment"># 三个组件</span></span><br><span class="line">prompt = ChatPromptTemplate.from_template(<span class="string">&quot;翻译成英文：&#123;text&#125;&quot;</span>)</span><br><span class="line">model = ChatOpenAI(model=<span class="string">&quot;gpt-4o-mini&quot;</span>)</span><br><span class="line">parser = StrOutputParser()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 组合</span></span><br><span class="line">chain = prompt | model | parser</span><br><span class="line"></span><br><span class="line"><span class="comment"># 调用</span></span><br><span class="line">result = chain.invoke(&#123;<span class="string">&quot;text&quot;</span>: <span class="string">&quot;你好世界&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result)  <span class="comment"># 输出: Hello World</span></span><br></pre></td></tr></table></figure>
+<p>数据流向是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">&#123;&quot;text&quot;: &quot;你好世界&quot;&#125;</span><br><span class="line">       ↓</span><br><span class="line">   [prompt] → ChatPromptValue(messages=[HumanMessage(&quot;翻译成英文：你好世界&quot;)])</span><br><span class="line">       ↓</span><br><span class="line">   [model]  → AIMessage(content=&quot;Hello World&quot;)</span><br><span class="line">       ↓</span><br><span class="line">   [parser] → &quot;Hello World&quot; (str)</span><br></pre></td></tr></table></figure>
+<p>每个组件接收的输入类型和返回的输出类型都有约定。Prompt 接收 dict，输出 ChatPromptValue；Model 接收 PromptValue，输出 AIMessage；Parser 接收 Message，输出 str。</p>
+<p>这套类型约定让管道组合变得安全。如果你把顺序搞错了，比如 <code>model | prompt</code>，代码会在运行时报错，提示类型不匹配。IDE 也能通过类型提示提前发现问题。</p>
+<h1 id="流式响应实战"><a href="#流式响应实战" class="headerlink" title="流式响应实战"></a>流式响应实战</h1><p>流式响应是 LCEL 最让我惊艳的功能。</p>
+<p>想象你在构建一个客服机器人，用户问了个复杂问题：“帮我分析一下这款产品的优缺点，顺便跟竞品对比一下”。GPT-4o-mini 生成完整回答大概需要 5-8 秒。</p>
+<p>如果没有流式输出，用户盯着空白屏幕等 8 秒。这 8 秒里，用户会想：系统崩了？网络断了？要不要刷新页面？焦虑指数直线上升。</p>
+<p>流式输出改变了这个体验。用户问完问题，屏幕上立刻出现第一个字，然后一个词接一个词蹦出来，像有人在实时打字回答。心理上，等待感消失了。</p>
+<p>传统 LangChain 实现流式输出要写一堆代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 传统流式实现（LLMChain 时代）</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> LLMChain</span><br><span class="line"><span class="keyword">from</span> langchain.callbacks.streaming_stdout <span class="keyword">import</span> StreamingStdOutCallbackHandler</span><br><span class="line"></span><br><span class="line">llm = OpenAI(</span><br><span class="line">    temperature=<span class="number">0.7</span>,</span><br><span class="line">    streaming=<span class="literal">True</span>,</span><br><span class="line">    callbacks=[StreamingStdOutCallbackHandler()]</span><br><span class="line">)</span><br><span class="line">chain = LLMChain(llm=llm, prompt=prompt)</span><br><span class="line">chain.run(role=<span class="string">&quot;客服&quot;</span>, question=<span class="string">&quot;...&quot;</span>)</span><br></pre></td></tr></table></figure>
+<p>这个方案有几个问题：</p>
+<ol>
+<li><strong>回调函数写起来麻烦</strong>。想自定义处理逻辑（比如把 token 发到前端），得继承 <code>BaseCallbackHandler</code> 写自己的回调类。</li>
+<li><strong>流式和非流式切换要改代码</strong>。<code>streaming=True/False</code> 是初始化参数，运行时不能切换。</li>
+<li><strong>异步流式更复杂</strong>。需要配合 <code>AsyncCallbackHandler</code>，代码量翻倍。</li>
+</ol>
+<p>LCEL 把流式处理变成了内置能力：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># LCEL 流式实现</span></span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"></span><br><span class="line">model = ChatOpenAI(model=<span class="string">&quot;gpt-4o-mini&quot;</span>)</span><br><span class="line">prompt = ChatPromptTemplate.from_template(</span><br><span class="line">    <span class="string">&quot;你是一个专业的&#123;role&#125;。请回答用户问题：&#123;question&#125;&quot;</span></span><br><span class="line">)</span><br><span class="line">chain = prompt | model</span><br><span class="line"></span><br><span class="line"><span class="comment"># 非流式调用</span></span><br><span class="line">result = chain.invoke(&#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;客服&quot;</span>, <span class="string">&quot;question&quot;</span>: <span class="string">&quot;帮我分析这款产品的优缺点&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result.content)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 流式调用（只改一个方法名）</span></span><br><span class="line"><span class="keyword">for</span> chunk <span class="keyword">in</span> chain.stream(&#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;客服&quot;</span>, <span class="string">&quot;question&quot;</span>: <span class="string">&quot;帮我分析这款产品的优缺点&quot;</span>&#125;):</span><br><span class="line">    <span class="built_in">print</span>(chunk.content, end=<span class="string">&quot;&quot;</span>, flush=<span class="literal">True</span>)</span><br></pre></td></tr></table></figure>
+<p>就这么简单。<code>invoke</code> 改成 <code>stream</code>，其他代码完全不动。</p>
+<p>来看一个完整的实时聊天应用示例：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> asyncio</span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"><span class="keyword">from</span> langchain_core.output_parsers <span class="keyword">import</span> StrOutputParser</span><br><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableWithMessageHistory</span><br><span class="line"><span class="keyword">from</span> langchain_community.chat_message_histories <span class="keyword">import</span> ChatMessageHistory</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 定义模型和 Prompt</span></span><br><span class="line">model = ChatOpenAI(model=<span class="string">&quot;gpt-4o-mini&quot;</span>, temperature=<span class="number">0.7</span>)</span><br><span class="line">prompt = ChatPromptTemplate.from_messages([</span><br><span class="line">    (<span class="string">&quot;system&quot;</span>, <span class="string">&quot;你是一个友好的 AI 助手，擅长解答技术问题。&quot;</span>),</span><br><span class="line">    (<span class="string">&quot;human&quot;</span>, <span class="string">&quot;&#123;input&#125;&quot;</span>)</span><br><span class="line">])</span><br><span class="line">parser = StrOutputParser()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 构建基础链</span></span><br><span class="line">chain = prompt | model | parser</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 添加对话历史（每个用户独立的记忆）</span></span><br><span class="line">memory = ChatMessageHistory()</span><br><span class="line"></span><br><span class="line">chain_with_history = RunnableWithMessageHistory(</span><br><span class="line">    chain,</span><br><span class="line">    get_session_history=<span class="keyword">lambda</span> session_id: memory,</span><br><span class="line">    input_messages_key=<span class="string">&quot;input&quot;</span>,</span><br><span class="line">    history_messages_key=<span class="string">&quot;chat_history&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 流式对话函数</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">chat_stream</span>(<span class="params">user_input: <span class="built_in">str</span></span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;流式输出对话响应&quot;&quot;&quot;</span></span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;AI: &quot;</span>, end=<span class="string">&quot;&quot;</span>, flush=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">async</span> <span class="keyword">for</span> chunk <span class="keyword">in</span> chain_with_history.astream(</span><br><span class="line">        &#123;<span class="string">&quot;input&quot;</span>: user_input&#125;,</span><br><span class="line">        config=&#123;<span class="string">&quot;configurable&quot;</span>: &#123;<span class="string">&quot;session_id&quot;</span>: <span class="string">&quot;demo&quot;</span>&#125;&#125;</span><br><span class="line">    ):</span><br><span class="line">        <span class="built_in">print</span>(chunk, end=<span class="string">&quot;&quot;</span>, flush=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;\n&quot;</span>)  <span class="comment"># 换行</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 5. 运行对话</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">def</span> <span class="title function_">main</span>():</span><br><span class="line">    <span class="built_in">print</span>(<span class="string">&quot;=== AI 助手（流式响应演示） ===&quot;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">await</span> chat_stream(<span class="string">&quot;什么是 LangChain？&quot;</span>)</span><br><span class="line">    <span class="keyword">await</span> chat_stream(<span class="string">&quot;它能用来做什么？&quot;</span>)</span><br><span class="line">    <span class="keyword">await</span> chat_stream(<span class="string">&quot;跟 LCEL 有什么关系？&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:</span><br><span class="line">    asyncio.run(main())</span><br></pre></td></tr></table></figure>
+<p>运行效果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">=== AI 助手（流式响应演示） ===</span><br><span class="line">AI: LangChain 是一个开源框架，用于构建基于大语言模型的应用...</span><br><span class="line">AI: 它可以用来构建聊天机器人、RAG 系统、Agent 应用等...</span><br><span class="line">AI: LCEL 是 LangChain Expression Language，是 LangChain 的核心组件...</span><br></pre></td></tr></table></figure>
+<p>每个字都实时出现，用户不用等待。</p>
+<p>流式和非流式在用户体验上的差别，我用实际数据对比过：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>非流式首字延迟</th>
+<th>流式首字延迟</th>
+<th>用户等待感知</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>简单问答（50字）</td>
+<td>1.2s</td>
+<td>0.3s</td>
+<td>”有点慢” vs “还行”</td>
+</tr>
+<tr>
+<td>中等分析（200字）</td>
+<td>3.5s</td>
+<td>0.4s</td>
+<td>”卡住了？” vs “正常”</td>
+</tr>
+<tr>
+<td>复杂生成（500字）</td>
+<td>8.0s</td>
+<td>0.5s</td>
+<td>”想刷新了” vs “顺畅”</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>非流式场景下，首字延迟等于完整生成时间。用户等了 8 秒才看到任何反馈。流式场景下，首字延迟只是第一个 token 的生成时间，通常不到 1 秒。</p>
+<p>LCEL 的流式机制是怎么实现的？关键在于 Runnable 的 <code>stream</code> 方法会递归调用管道中每个组件的 <code>stream</code>。对于模型组件，它直接调用 OpenAI API 的流式接口；对于 Prompt 和 Parser，它们通常不需要流式，直接返回完整结果。整个管道的流式行为由各组件自动协调。</p>
+<p>这意味着你不用关心哪个组件支持流式、哪个不支持。LCEL 会自动处理。如果某个组件不支持流式，它会在流式管道里被当作”一次性返回”处理，不影响整体流式输出。</p>
+<h1 id="Runnable-组件详解"><a href="#Runnable-组件详解" class="headerlink" title="Runnable 组件详解"></a>Runnable 组件详解</h1><p>Pipe 运算符解决了组件串联的问题，但实际项目里还有很多复杂场景：并行执行多个分支、传递中间结果、自定义数据转换。LangChain 提供了一组 Runnable 组件来处理这些需求。</p>
+<h2 id="RunnableParallel：并行执行"><a href="#RunnableParallel：并行执行" class="headerlink" title="RunnableParallel：并行执行"></a>RunnableParallel：并行执行</h2><p>RAG 系统里常见的需求是同时检索多个数据源——向量数据库、关键词搜索、知识图谱。用 RunnableParallel 可以并行执行这些检索：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableParallel</span><br><span class="line"></span><br><span class="line"><span class="comment"># 定义三个检索器（示例用 RunnableLambda 模拟）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">vector_search</span>(<span class="params">query: <span class="built_in">str</span></span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="string">f&quot;向量检索结果：<span class="subst">&#123;query&#125;</span> 相关文档 3 篇&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">keyword_search</span>(<span class="params">query: <span class="built_in">str</span></span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="string">f&quot;关键词检索结果：<span class="subst">&#123;query&#125;</span> 匹配 5 条记录&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">graph_search</span>(<span class="params">query: <span class="built_in">str</span></span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="string">f&quot;图谱检索结果：<span class="subst">&#123;query&#125;</span> 关联实体 2 个&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 创建并行检索链</span></span><br><span class="line">retrievers = RunnableParallel(</span><br><span class="line">    vector=RunnableLambda(vector_search),</span><br><span class="line">    keyword=RunnableLambda(keyword_search),</span><br><span class="line">    graph=RunnableLambda(graph_search)</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 执行（三个检索同时进行）</span></span><br><span class="line">results = retrievers.invoke(<span class="string">&quot;LangChain LCEL&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(results)</span><br><span class="line"><span class="comment"># 输出：&#123;</span></span><br><span class="line"><span class="comment">#   &#x27;vector&#x27;: &#x27;向量检索结果：LangChain LCEL 相关文档 3 篇&#x27;,</span></span><br><span class="line"><span class="comment">#   &#x27;keyword&#x27;: &#x27;关键词检索结果：LangChain LCEL 匹配 5 条记录&#x27;,</span></span><br><span class="line"><span class="comment">#   &#x27;graph&#x27;: &#x27;图谱检索结果：LangChain LCEL 关联实体 2 个&#x27;</span></span><br><span class="line"><span class="comment"># &#125;</span></span><br></pre></td></tr></table></figure>
+<p>RunnableParallel 返回一个字典，键是定义时的名称，值是各分支的执行结果。这些结果可以传给后续组件合并处理。</p>
+<h2 id="RunnablePassthrough：传递输入"><a href="#RunnablePassthrough：传递输入" class="headerlink" title="RunnablePassthrough：传递输入"></a>RunnablePassthrough：传递输入</h2><p>有时候需要在管道中保留原始输入，传给后面的组件。比如 RAG 系统里，检索器需要原始查询，生成器需要检索结果 + 原始查询：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnablePassthrough</span><br><span class="line"></span><br><span class="line"><span class="comment"># 模拟检索器</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">retrieve</span>(<span class="params">query: <span class="built_in">dict</span></span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;检索到的文档内容...&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 构建链：保留原始 query，同时检索</span></span><br><span class="line">chain = RunnableParallel(</span><br><span class="line">    retrieved_docs=RunnableLambda(retrieve),</span><br><span class="line">    original_query=RunnablePassthrough()</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">result = chain.invoke(&#123;<span class="string">&quot;query&quot;</span>: <span class="string">&quot;什么是 LCEL？&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result)</span><br><span class="line"><span class="comment"># 输出：&#123;</span></span><br><span class="line"><span class="comment">#   &#x27;retrieved_docs&#x27;: &#x27;检索到的文档内容...&#x27;,</span></span><br><span class="line"><span class="comment">#   &#x27;original_query&#x27;: &#123;&#x27;query&#x27;: &#x27;什么是 LCEL？&#x27;&#125;</span></span><br><span class="line"><span class="comment"># &#125;</span></span><br></pre></td></tr></table></figure>
+<p>RunnablePassthrough 什么都不做，只是把输入原样传出去。看起来没啥用，但在复杂管道里很关键。</p>
+<h2 id="RunnableLambda：自定义函数转换"><a href="#RunnableLambda：自定义函数转换" class="headerlink" title="RunnableLambda：自定义函数转换"></a>RunnableLambda：自定义函数转换</h2><p>LangChain 提供了很多现成组件，但总有一些场景需要自定义逻辑。RunnableLambda 把普通 Python 函数包装成 Runnable，让它能参与管道组合：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableLambda</span><br><span class="line"></span><br><span class="line"><span class="comment"># 定义一个格式化函数</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">format_output</span>(<span class="params">result: <span class="built_in">dict</span></span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;把检索结果格式化为 Prompt 输入&quot;&quot;&quot;</span></span><br><span class="line">    docs = result[<span class="string">&quot;retrieved_docs&quot;</span>]</span><br><span class="line">    query = result[<span class="string">&quot;original_query&quot;</span>][<span class="string">&quot;query&quot;</span>]</span><br><span class="line">    <span class="keyword">return</span> <span class="string">f&quot;参考资料：<span class="subst">&#123;docs&#125;</span>\n用户问题：<span class="subst">&#123;query&#125;</span>\n请基于资料回答：&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 使用</span></span><br><span class="line">chain = RunnableParallel(</span><br><span class="line">    retrieved_docs=RunnableLambda(retrieve),</span><br><span class="line">    original_query=RunnablePassthrough()</span><br><span class="line">) | RunnableLambda(format_output)</span><br><span class="line"></span><br><span class="line">formatted = chain.invoke(&#123;<span class="string">&quot;query&quot;</span>: <span class="string">&quot;LCEL 是什么？&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(formatted)</span><br><span class="line"><span class="comment"># 输出：参考资料：检索到的文档内容...</span></span><br><span class="line"><span class="comment">#       用户问题：LCEL 是什么？</span></span><br><span class="line"><span class="comment">#       请基于资料回答：</span></span><br></pre></td></tr></table></figure>
+<p>RunnableLambda 的灵活性让它成为管道里的”万能胶”。任何 Python 函数都能被包装进管道。</p>
+<h2 id="RAG-管道的完整实现"><a href="#RAG-管道的完整实现" class="headerlink" title="RAG 管道的完整实现"></a>RAG 管道的完整实现</h2><p>把这些组件组合起来，一个完整的 RAG 管道是这样的：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"><span class="keyword">from</span> langchain_core.output_parsers <span class="keyword">import</span> StrOutputParser</span><br><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnablePassthrough, RunnableParallel, RunnableLambda</span><br><span class="line"><span class="keyword">from</span> langchain_community.vectorstores <span class="keyword">import</span> FAISS</span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> OpenAIEmbeddings</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 初始化向量数据库（示例）</span></span><br><span class="line">embeddings = OpenAIEmbeddings()</span><br><span class="line"><span class="comment"># 实际项目中，这里会加载真实的文档向量</span></span><br><span class="line">vectorstore = FAISS.from_texts(</span><br><span class="line">    [<span class="string">&quot;LCEL 是 LangChain 的表达式语言&quot;</span>,</span><br><span class="line">     <span class="string">&quot;Pipe 运算符用于组件串联&quot;</span>,</span><br><span class="line">     <span class="string">&quot;Runnable 是 LCEL 的核心抽象&quot;</span>],</span><br><span class="line">    embeddings</span><br><span class="line">)</span><br><span class="line">retriever = vectorstore.as_retriever()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 定义 Prompt</span></span><br><span class="line">rag_prompt = ChatPromptTemplate.from_template(</span><br><span class="line">    <span class="string">&quot;&quot;&quot;基于以下参考资料回答用户问题。</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">参考资料：</span></span><br><span class="line"><span class="string">&#123;context&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">用户问题：&#123;question&#125;</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">请给出准确、详细的回答：&quot;&quot;&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 定义格式化函数（把检索结果转为字符串）</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">format_docs</span>(<span class="params">docs</span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;\n&quot;</span>.join(doc.page_content <span class="keyword">for</span> doc <span class="keyword">in</span> docs)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 构建完整 RAG 链</span></span><br><span class="line">rag_chain = (</span><br><span class="line">    <span class="comment"># 并行执行：检索 + 传递原始问题</span></span><br><span class="line">    RunnableParallel(</span><br><span class="line">        context=retriever | RunnableLambda(format_docs),</span><br><span class="line">        question=RunnablePassthrough()</span><br><span class="line">    )</span><br><span class="line">    <span class="comment"># 组装 Prompt</span></span><br><span class="line">    | rag_prompt</span><br><span class="line">    <span class="comment"># 调用模型</span></span><br><span class="line">    | ChatOpenAI(model=<span class="string">&quot;gpt-4o-mini&quot;</span>)</span><br><span class="line">    <span class="comment"># 解析输出</span></span><br><span class="line">    | StrOutputParser()</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 5. 使用</span></span><br><span class="line">answer = rag_chain.invoke(<span class="string">&quot;什么是 LCEL？&quot;</span>)</span><br><span class="line"><span class="built_in">print</span>(answer)</span><br><span class="line"><span class="comment"># 输出：LCEL 是 LangChain Expression Language，是 LangChain 的表达式语言...</span></span><br></pre></td></tr></table></figure>
+<p>这个 RAG 链的结构可以画成流程图：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">&#123;&quot;question&quot;: &quot;什么是 LCEL？&quot;&#125;</span><br><span class="line">              ↓</span><br><span class="line">    ┌─────────┴─────────┐</span><br><span class="line">    ↓                   ↓</span><br><span class="line">[retriever]        [Passthrough]</span><br><span class="line">    ↓                   ↓</span><br><span class="line">format_docs        question</span><br><span class="line">    ↓                   ↓</span><br><span class="line">    └─────────┬─────────┘</span><br><span class="line">              ↓</span><br><span class="line">        &#123;&quot;context&quot;: &quot;...&quot;, &quot;question&quot;: &quot;...&quot;&#125;</span><br><span class="line">              ↓</span><br><span class="line">         [rag_prompt]</span><br><span class="line">              ↓</span><br><span class="line">           [model]</span><br><span class="line">              ↓</span><br><span class="line">          [parser]</span><br><span class="line">              ↓</span><br><span class="line">        &quot;回答内容...&quot;</span><br></pre></td></tr></table></figure>
+<p>这套 RAG 实现跟系列里的 RAG 系统优化实战 相呼应。如果你在看那篇文章，会发现很多技巧（比如检索重排序、多路召回）都能直接套用在这个 LCEL 结构上。</p>
+<h1 id="从旧链迁移实战"><a href="#从旧链迁移实战" class="headerlink" title="从旧链迁移实战"></a>从旧链迁移实战</h1><p>如果你的项目还在用 LLMChain，迁移到 LCEL 其实不难。我去年帮一个电商项目迁移过，整个客服机器人模块花了两天时间。这里记录几个常见迁移模式。</p>
+<h2 id="LLMChain-→-Pipe-语法"><a href="#LLMChain-→-Pipe-语法" class="headerlink" title="LLMChain → Pipe 语法"></a>LLMChain → Pipe 语法</h2><p>最基础的迁移。LLMChain 的核心是 Prompt + Model，迁移后直接用管道连接：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 旧代码（LLMChain）</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> LLMChain</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> PromptTemplate</span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> OpenAI</span><br><span class="line"></span><br><span class="line">llm = OpenAI(temperature=<span class="number">0.7</span>)</span><br><span class="line">prompt = PromptTemplate(</span><br><span class="line">    template=<span class="string">&quot;用户问题：&#123;question&#125;\n请回答：&quot;</span>,</span><br><span class="line">    input_variables=[<span class="string">&quot;question&quot;</span>]</span><br><span class="line">)</span><br><span class="line">chain = LLMChain(llm=llm, prompt=prompt)</span><br><span class="line">result = chain.run(question=<span class="string">&quot;...&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 新代码（LCEL）</span></span><br><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"></span><br><span class="line">model = ChatOpenAI(temperature=<span class="number">0.7</span>)</span><br><span class="line">prompt = ChatPromptTemplate.from_template(<span class="string">&quot;用户问题：&#123;question&#125;\n请回答：&quot;</span>)</span><br><span class="line">chain = prompt | model</span><br><span class="line">result = chain.invoke(&#123;<span class="string">&quot;question&quot;</span>: <span class="string">&quot;...&quot;</span>&#125;)</span><br></pre></td></tr></table></figure>
+<p>几个注意点：</p>
+<ol>
+<li><strong>模型类变了</strong>。旧代码用 <code>OpenAI</code>（Completion API），新代码建议用 <code>ChatOpenAI</code>（Chat API）。Chat API 是 OpenAI 的主流方向，Completion API 逐渐被边缘化。</li>
+<li><strong>Prompt 类变了</strong>。<code>PromptTemplate</code> 还能用，但 <code>ChatPromptTemplate</code> 支持更丰富的格式（system message、多角色对话）。</li>
+<li><strong>调用方法变了</strong>。<code>chain.run()</code> 改为 <code>chain.invoke()</code>，返回值从字符串变成了 Message 对象。需要 <code>.content</code> 取文本。</li>
+</ol>
+<h2 id="SequentialChain-→-RunnableParallel"><a href="#SequentialChain-→-RunnableParallel" class="headerlink" title="SequentialChain → RunnableParallel"></a>SequentialChain → RunnableParallel</h2><p>旧代码用 SequentialChain 串多个步骤，迁移后用管道直接连就行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 旧代码（SequentialChain）</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> SequentialChain, LLMChain</span><br><span class="line"></span><br><span class="line"><span class="comment"># 第一步：生成标题</span></span><br><span class="line">title_chain = LLMChain(</span><br><span class="line">    llm=llm, prompt=title_prompt,</span><br><span class="line">    output_key=<span class="string">&quot;title&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 第二步：生成正文</span></span><br><span class="line">content_chain = LLMChain(</span><br><span class="line">    llm=llm, prompt=content_prompt,</span><br><span class="line">    output_key=<span class="string">&quot;content&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 串联</span></span><br><span class="line">full_chain = SequentialChain(</span><br><span class="line">    chains=[title_chain, content_chain],</span><br><span class="line">    input_variables=[<span class="string">&quot;topic&quot;</span>],</span><br><span class="line">    output_variables=[<span class="string">&quot;title&quot;</span>, <span class="string">&quot;content&quot;</span>]</span><br><span class="line">)</span><br><span class="line">result = full_chain(&#123;<span class="string">&quot;topic&quot;</span>: <span class="string">&quot;AI 开发&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result[<span class="string">&quot;title&quot;</span>], result[<span class="string">&quot;content&quot;</span>])</span><br><span class="line"></span><br><span class="line"><span class="comment"># 新代码（LCEL）</span></span><br><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableParallel</span><br><span class="line"></span><br><span class="line"><span class="comment"># 定义两个分支</span></span><br><span class="line">title_chain = title_prompt | model</span><br><span class="line">content_chain = content_prompt | model</span><br><span class="line"></span><br><span class="line"><span class="comment"># 并行执行（如果想串行，直接用 | 连接）</span></span><br><span class="line">full_chain = RunnableParallel(</span><br><span class="line">    title=title_chain,</span><br><span class="line">    content=content_chain</span><br><span class="line">)</span><br><span class="line">result = full_chain.invoke(&#123;<span class="string">&quot;topic&quot;</span>: <span class="string">&quot;AI 开发&quot;</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result[<span class="string">&quot;title&quot;</span>].content, result[<span class="string">&quot;content&quot;</span>].content)</span><br></pre></td></tr></table></figure>
+<p>SequentialChain 默认是串行执行，每个链等待上一个完成。LCEL 的 RunnableParallel 是并行执行，速度更快。如果你确实需要串行（比如第二步依赖第一步的输出），用管道连接：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 串行：第一步输出传给第二步</span></span><br><span class="line">chain = (</span><br><span class="line">    title_prompt | model | StrOutputParser()</span><br><span class="line">    | (<span class="keyword">lambda</span> title: &#123;<span class="string">&quot;topic&quot;</span>: topic, <span class="string">&quot;title&quot;</span>: title&#125;)  <span class="comment"># 传递中间结果</span></span><br><span class="line">    | content_prompt | model</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<h2 id="TransformChain-→-RunnableLambda"><a href="#TransformChain-→-RunnableLambda" class="headerlink" title="TransformChain → RunnableLambda"></a>TransformChain → RunnableLambda</h2><p>TransformChain 用于在链中插入自定义处理逻辑，迁移到 RunnableLambda：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 旧代码（TransformChain）</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> TransformChain</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">transform_func</span>(<span class="params">inputs: <span class="built_in">dict</span></span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    text = inputs[<span class="string">&quot;text&quot;</span>]</span><br><span class="line">    processed = text.upper()  <span class="comment"># 某种处理</span></span><br><span class="line">    <span class="keyword">return</span> &#123;<span class="string">&quot;processed_text&quot;</span>: processed&#125;</span><br><span class="line"></span><br><span class="line">transform_chain = TransformChain(</span><br><span class="line">    input_variables=[<span class="string">&quot;text&quot;</span>],</span><br><span class="line">    output_variables=[<span class="string">&quot;processed_text&quot;</span>],</span><br><span class="line">    transform=transform_func</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 新代码（RunnableLambda）</span></span><br><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableLambda</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">transform_func</span>(<span class="params">inputs: <span class="built_in">dict</span></span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    text = inputs[<span class="string">&quot;text&quot;</span>]</span><br><span class="line">    processed = text.upper()</span><br><span class="line">    <span class="keyword">return</span> &#123;<span class="string">&quot;processed_text&quot;</span>: processed&#125;</span><br><span class="line"></span><br><span class="line">transform_chain = RunnableLambda(transform_func)</span><br></pre></td></tr></table></figure>
+<p>RunnableLambda 更灵活，不需要显式声明 input_variables 和 output_variables，直接参与管道。</p>
+<h2 id="常见迁移陷阱"><a href="#常见迁移陷阱" class="headerlink" title="常见迁移陷阱"></a>常见迁移陷阱</h2><p>迁移过程中踩过几个坑：</p>
+<p><strong>陷阱 1：返回值类型变了</strong></p>
+<p>LLMChain 的 <code>run()</code> 返回字符串，LCEL 的 <code>invoke()</code> 返回 Message 对象。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 旧：直接拿到字符串</span></span><br><span class="line">result = chain.run(...)  <span class="comment"># str</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 新：需要取 content</span></span><br><span class="line">result = chain.invoke(...)  <span class="comment"># AIMessage</span></span><br><span class="line">text = result.content  <span class="comment"># str</span></span><br></pre></td></tr></table></figure>
+<p>解决方案：管道末尾加 StrOutputParser，自动把 Message 转成字符串。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">chain = prompt | model | StrOutputParser()</span><br><span class="line">result = chain.invoke(...)  <span class="comment"># 直接返回 str</span></span><br></pre></td></tr></table></figure>
+<p><strong>陷阱 2：记忆组件的迁移</strong></p>
+<p>旧代码用 <code>ConversationChain</code> 自带记忆功能：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 旧代码</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> ConversationChain</span><br><span class="line"></span><br><span class="line">chain = ConversationChain(llm=llm, memory=memory)</span><br></pre></td></tr></table></figure>
+<p>新代码用 RunnableWithMessageHistory：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableWithMessageHistory</span><br><span class="line"></span><br><span class="line">chain = prompt | model</span><br><span class="line">chain_with_memory = RunnableWithMessageHistory(</span><br><span class="line">    chain,</span><br><span class="line">    get_session_history=get_history,</span><br><span class="line">    input_messages_key=<span class="string">&quot;input&quot;</span>,</span><br><span class="line">    history_messages_key=<span class="string">&quot;chat_history&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>参数有点多，需要显式指定输入字段名和历史字段名。详细用法可以参考系列里的 Agent 工具调用实战，那篇文章里有完整对话系统示例。</p>
+<p><strong>陷阱 3：LangChain v0.3 的导入路径变了</strong></p>
+<p>很多组件的导入路径从 <code>langchain</code> 移到了 <code>langchain_core</code> 或 <code>langchain_community</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 旧导入</span></span><br><span class="line"><span class="keyword">from</span> langchain.chains <span class="keyword">import</span> LLMChain</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> PromptTemplate</span><br><span class="line"></span><br><span class="line"><span class="comment"># 新导入</span></span><br><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnableLambda, RunnableParallel</span><br><span class="line"><span class="keyword">from</span> langchain_core.output_parsers <span class="keyword">import</span> StrOutputParser</span><br><span class="line"><span class="keyword">from</span> langchain_community.chat_message_histories <span class="keyword">import</span> ChatMessageHistory</span><br></pre></td></tr></table></figure>
+<p>IDE 会提示导入错误，跟着提示改就行。</p>
+<h2 id="生产迁移案例"><a href="#生产迁移案例" class="headerlink" title="生产迁移案例"></a>生产迁移案例</h2><p>去年迁移的电商客服机器人，原始代码大概 300 行，用了 LLMChain + SequentialChain + TransformChain。迁移后的核心逻辑：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI</span><br><span class="line"><span class="keyword">from</span> langchain.prompts <span class="keyword">import</span> ChatPromptTemplate</span><br><span class="line"><span class="keyword">from</span> langchain_core.output_parsers <span class="keyword">import</span> StrOutputParser</span><br><span class="line"><span class="keyword">from</span> langchain_core.runnables <span class="keyword">import</span> RunnablePassthrough, RunnableLambda</span><br><span class="line"></span><br><span class="line"><span class="comment"># 初始化</span></span><br><span class="line">model = ChatOpenAI(model=<span class="string">&quot;gpt-4o-mini&quot;</span>, temperature=<span class="number">0.5</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># Intent 分类 Prompt</span></span><br><span class="line">intent_prompt = ChatPromptTemplate.from_template(</span><br><span class="line">    <span class="string">&quot;&quot;&quot;分析用户意图，返回以下类别之一：</span></span><br><span class="line"><span class="string">    - product_query（商品咨询）</span></span><br><span class="line"><span class="string">    - order_status（订单查询）</span></span><br><span class="line"><span class="string">    - complaint（投诉建议）</span></span><br><span class="line"><span class="string">    - other（其他）</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    用户消息：&#123;message&#125;</span></span><br><span class="line"><span class="string">    意图类别：&quot;&quot;&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 各意图的处理 Prompt</span></span><br><span class="line">product_prompt = ChatPromptTemplate.from_template(</span><br><span class="line">    <span class="string">&quot;用户咨询商品：&#123;message&#125;\n请从商品库中检索并回答：&quot;</span></span><br><span class="line">)</span><br><span class="line">order_prompt = ChatPromptTemplate.from_template(</span><br><span class="line">    <span class="string">&quot;用户查询订单：&#123;message&#125;\n请查询订单状态并回复：&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 构建分支处理逻辑</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">route_by_intent</span>(<span class="params">result</span>):</span><br><span class="line">    intent = result.content.strip().lower()</span><br><span class="line">    <span class="keyword">if</span> <span class="string">&quot;product&quot;</span> <span class="keyword">in</span> intent:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;product&quot;</span></span><br><span class="line">    <span class="keyword">elif</span> <span class="string">&quot;order&quot;</span> <span class="keyword">in</span> intent:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;order&quot;</span></span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;default&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 完整链</span></span><br><span class="line">intent_chain = intent_prompt | model | StrOutputParser() | RunnableLambda(route_by_intent)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 分支路由（伪代码，实际需要 RunnableBranch）</span></span><br><span class="line">full_chain = (</span><br><span class="line">    &#123;<span class="string">&quot;message&quot;</span>: RunnablePassthrough()&#125;</span><br><span class="line">    | RunnableParallel(</span><br><span class="line">        intent=intent_chain,</span><br><span class="line">        original=RunnablePassthrough()</span><br><span class="line">    )</span><br><span class="line">    <span class="comment"># 根据 intent 选择不同处理分支</span></span><br><span class="line">    <span class="comment"># ... 实际代码用 RunnableBranch 实现</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 流式输出</span></span><br><span class="line"><span class="keyword">async</span> <span class="keyword">for</span> chunk <span class="keyword">in</span> full_chain.astream(&#123;<span class="string">&quot;message&quot;</span>: <span class="string">&quot;我想查一下订单 12345&quot;</span>&#125;):</span><br><span class="line">    <span class="built_in">print</span>(chunk, end=<span class="string">&quot;&quot;</span>, flush=<span class="literal">True</span>)</span><br></pre></td></tr></table></figure>
+<p>迁移后代码 150 行，缩减一半。更重要的是，流式输出、异步处理这些原本需要额外开发的功能，现在一行代码搞定。</p>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>LCEL 是 LangChain v0.3+ 的官方推荐架构。它用 Pipe 运算符简化了代码，用 Runnable 接口统一了调用方式，用内置流式支持改善了用户体验。</p>
+<p>迁移过程中遇到的最大挑战不是语法转换，而是思维转变。传统链强调”显式声明”，每个链都要写清楚输入输出字段；LCEL 强调”隐性流动”，数据在管道里自动传递，类型约定藏在组件内部。</p>
+<p>如果你有旧项目还在用 LLMChain，建议分批迁移：先迁移简单的对话链，再处理复杂的组合逻辑。迁移过程中配合 LangSmith 调试，能快速发现类型不匹配等问题。</p>
+<p>下一步可以看看系列里的 LangGraph 状态管理实战。LangGraph 是 LangChain 团队推出的新一代 Agent 框架，跟 LCEL 配合使用能构建更复杂的 Agent 应用。简单链式任务用 LCEL，复杂状态管理用 LangGraph，这是目前比较成熟的组合模式。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="LCEL-和传统-LLMChain-的最大区别是什么？"><a href="#LCEL-和传统-LLMChain-的最大区别是什么？" class="headerlink" title="LCEL 和传统 LLMChain 的最大区别是什么？"></a>LCEL 和传统 LLMChain 的最大区别是什么？</h2><p>LCEL 用管道符 | 连接组件，代码量减少约 70%。传统链需要显式声明 input_variables/output_variables，LCEL 自动处理数据流动。更重要的是，LCEL 内置支持流式响应、异步执行和批量处理，不用写额外代码。</p>
+<h2 id="Runnable-接口的-invoke-stream-batch-有什么区别？"><a href="#Runnable-接口的-invoke-stream-batch-有什么区别？" class="headerlink" title="Runnable 接口的 invoke/stream/batch 有什么区别？"></a>Runnable 接口的 invoke/stream/batch 有什么区别？</h2><p>三个方法覆盖不同场景：</p>
+<ul>
+<li>invoke — 单次调用，返回完整结果（适合简单问答）</li>
+<li>stream — 流式调用，逐个返回 token（适合实时聊天）</li>
+<li>batch — 批量调用，并行处理多个输入（适合批量任务）</li>
+</ul>
+<p>每个方法都有异步版本：ainvoke、astream、abatch。</p>
+<h2 id="为什么流式响应能改善用户体验？"><a href="#为什么流式响应能改善用户体验？" class="headerlink" title="为什么流式响应能改善用户体验？"></a>为什么流式响应能改善用户体验？</h2><p>非流式场景下，用户等待完整响应生成才能看到任何内容，复杂回答可能需要 8 秒。流式场景下，首字延迟通常不到 1 秒，用户立刻看到反馈，心理等待感大幅降低。实测数据显示，500 字复杂生成的首字延迟从 8 秒降到 0.5 秒。</p>
+<h2 id="RunnableParallel-和管道符有什么区别？"><a href="#RunnableParallel-和管道符有什么区别？" class="headerlink" title="RunnableParallel 和管道符有什么区别？"></a>RunnableParallel 和管道符有什么区别？</h2><p>管道符 | 是串行执行，前一个组件的输出传给后一个。RunnableParallel 是并行执行，多个分支同时运行，结果合并成字典返回。RAG 系统常用 RunnableParallel 同时检索多个数据源（向量库、关键词、图谱）。</p>
+<h2 id="迁移旧代码到-LCEL-需要注意什么？"><a href="#迁移旧代码到-LCEL-需要注意什么？" class="headerlink" title="迁移旧代码到 LCEL 需要注意什么？"></a>迁移旧代码到 LCEL 需要注意什么？</h2><p>三个常见陷阱：</p>
+<ul>
+<li>返回值类型变了：LLMChain.run() 返回字符串，LCEL.invoke() 返回 Message 对象，需要加 StrOutputParser</li>
+<li>记忆组件迁移：ConversationChain 换成 RunnableWithMessageHistory，需要显式指定字段名</li>
+<li>导入路径变了：很多组件从 langchain 移到 langchain_core 或 langchain_community</li>
+</ul>
+<h2 id="LCEL-适合什么场景？LangGraph-适合什么场景？"><a href="#LCEL-适合什么场景？LangGraph-适合什么场景？" class="headerlink" title="LCEL 适合什么场景？LangGraph 适合什么场景？"></a>LCEL 适合什么场景？LangGraph 适合什么场景？</h2><p>简单链式任务（单一流程、固定步骤）用 LCEL，代码简洁、易维护。复杂状态管理（多分支、循环、条件跳转）用 LangGraph，能显式定义状态和转换逻辑。实际项目中，两者常配合使用：LCEL 处理单步逻辑，LangGraph 管理整体流程。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/9731/">https://jingluo23.github.io/posts/9731/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-%E5%BC%80%E5%8F%91/">AI 开发</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/508b/" title="多模态 AI 应用开发实战：三模态融合完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">多模态 AI 应用开发实战：三模态融合完整指南</div></div><div class="info-2"><div class="info-item-1">对比 GPT-4V、Gemini、Claude 三大平台，提供文本、图像、语音融合完整代码示例，讲解系统架构设计原则和成本控制技巧，帮你快速掌握多模态开发核心技能。</div></div></div></a><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/508b/" title="多模态 AI 应用开发实战：三模态融合完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-03</div><div class="info-item-2">多模态 AI 应用开发实战：三模态融合完整指南</div></div><div class="info-2"><div class="info-item-1">对比 GPT-4V、Gemini、Claude 三大平台，提供文本、图像、语音融合完整代码示例，讲解系统架构设计原则和成本控制技巧，帮你快速掌握多模态开发核心技能。</div></div></div></a><a class="pagination-related" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-08</div><div class="info-item-2">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</div></div><div class="info-2"><div class="info-item-1">聚焦 LangGraph 与 AutoGen 的状态恢复实践，分析 checkpoint、超时重试和故障续跑，并给出可运行代码与生产验收方法。</div></div></div></a><a class="pagination-related" href="/posts/34ea/" title="AI重构10000行老代码：2周完成1个月工作量的真实复盘"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-01</div><div class="info-item-2">AI重构10000行老代码：2周完成1个月工作量的真实复盘</div></div><div class="info-2"><div class="info-item-1">记录用Claude Code重构10000行Vue遗留代码的完整过程。从接手3年无人敢动的屎山，到2周上线零事故，包含测试生成、代码诊断、重构执行的完整Prompt模板和避坑指南。</div></div></div></a><a class="pagination-related" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-09</div><div class="info-item-2">Hyper 公司知识库：AI Agent 记忆的工程化设计</div></div><div class="info-2"><div class="info-item-1">从 Hyper 的公开架构细节出发，拆解 AI Agent 公司知识库如何处理事实有效期、权限、决策链、混合检索、hooks/MCP 注入和人工纠错，并给出 7 天试点路径。</div></div></div></a><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-05</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a><a class="pagination-related" href="/posts/4109/" title="自进化AI：让模型持续学习的关键技术路径"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-06</div><div class="info-item-2">自进化AI：让模型持续学习的关键技术路径</div></div><div class="info-2"><div class="info-item-1">深入解析自进化AI的四大技术路径：模型层进化、上下文进化、元学习、架构层进化，探索AI从静态知识到动态成长的技术突破与实践应用</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#LCEL-%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E7%94%A8%E5%AE%83%EF%BC%9F"><span class="toc-number">1.</span> <span class="toc-text">LCEL 是什么？为什么要用它？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Pipe-%E8%BF%90%E7%AE%97%E7%AC%A6%E7%9A%84%E5%B7%A5%E4%BD%9C%E5%8E%9F%E7%90%86"><span class="toc-number">2.</span> <span class="toc-text">Pipe 运算符的工作原理</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%B5%81%E5%BC%8F%E5%93%8D%E5%BA%94%E5%AE%9E%E6%88%98"><span class="toc-number">3.</span> <span class="toc-text">流式响应实战</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Runnable-%E7%BB%84%E4%BB%B6%E8%AF%A6%E8%A7%A3"><span class="toc-number">4.</span> <span class="toc-text">Runnable 组件详解</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#RunnableParallel%EF%BC%9A%E5%B9%B6%E8%A1%8C%E6%89%A7%E8%A1%8C"><span class="toc-number">4.1.</span> <span class="toc-text">RunnableParallel：并行执行</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RunnablePassthrough%EF%BC%9A%E4%BC%A0%E9%80%92%E8%BE%93%E5%85%A5"><span class="toc-number">4.2.</span> <span class="toc-text">RunnablePassthrough：传递输入</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RunnableLambda%EF%BC%9A%E8%87%AA%E5%AE%9A%E4%B9%89%E5%87%BD%E6%95%B0%E8%BD%AC%E6%8D%A2"><span class="toc-number">4.3.</span> <span class="toc-text">RunnableLambda：自定义函数转换</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RAG-%E7%AE%A1%E9%81%93%E7%9A%84%E5%AE%8C%E6%95%B4%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.4.</span> <span class="toc-text">RAG 管道的完整实现</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%8E%E6%97%A7%E9%93%BE%E8%BF%81%E7%A7%BB%E5%AE%9E%E6%88%98"><span class="toc-number">5.</span> <span class="toc-text">从旧链迁移实战</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#LLMChain-%E2%86%92-Pipe-%E8%AF%AD%E6%B3%95"><span class="toc-number">5.1.</span> <span class="toc-text">LLMChain → Pipe 语法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SequentialChain-%E2%86%92-RunnableParallel"><span class="toc-number">5.2.</span> <span class="toc-text">SequentialChain → RunnableParallel</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#TransformChain-%E2%86%92-RunnableLambda"><span class="toc-number">5.3.</span> <span class="toc-text">TransformChain → RunnableLambda</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E8%BF%81%E7%A7%BB%E9%99%B7%E9%98%B1"><span class="toc-number">5.4.</span> <span class="toc-text">常见迁移陷阱</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E8%BF%81%E7%A7%BB%E6%A1%88%E4%BE%8B"><span class="toc-number">5.5.</span> <span class="toc-text">生产迁移案例</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#LCEL-%E5%92%8C%E4%BC%A0%E7%BB%9F-LLMChain-%E7%9A%84%E6%9C%80%E5%A4%A7%E5%8C%BA%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">LCEL 和传统 LLMChain 的最大区别是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Runnable-%E6%8E%A5%E5%8F%A3%E7%9A%84-invoke-stream-batch-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">Runnable 接口的 invoke&#x2F;stream&#x2F;batch 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E6%B5%81%E5%BC%8F%E5%93%8D%E5%BA%94%E8%83%BD%E6%94%B9%E5%96%84%E7%94%A8%E6%88%B7%E4%BD%93%E9%AA%8C%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">为什么流式响应能改善用户体验？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#RunnableParallel-%E5%92%8C%E7%AE%A1%E9%81%93%E7%AC%A6%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">RunnableParallel 和管道符有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB%E6%97%A7%E4%BB%A3%E7%A0%81%E5%88%B0-LCEL-%E9%9C%80%E8%A6%81%E6%B3%A8%E6%84%8F%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">迁移旧代码到 LCEL 需要注意什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#LCEL-%E9%80%82%E5%90%88%E4%BB%80%E4%B9%88%E5%9C%BA%E6%99%AF%EF%BC%9FLangGraph-%E9%80%82%E5%90%88%E4%BB%80%E4%B9%88%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">LCEL 适合什么场景？LangGraph 适合什么场景？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Hyper 公司知识库：AI Agent 记忆的工程化设计"></a><div class="content"><a class="title" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计">Hyper 公司知识库：AI Agent 记忆的工程化设计</a><time datetime="2026-11-09T02:00:00.000Z" title="发表于 2026-11-09 10:00:00">2026-11-09</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"></a><div class="content"><a class="title" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</a><time datetime="2026-11-08T02:00:00.000Z" title="发表于 2026-11-08 10:00:00">2026-11-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自进化 AI：2026 年让模型持续学习的 4 种方法"></a><div class="content"><a class="title" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法">自进化 AI：2026 年让模型持续学习的 4 种方法</a><time datetime="2026-11-07T02:00:00.000Z" title="发表于 2026-11-07 10:00:00">2026-11-07</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

@@ -1,0 +1,829 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Hyper 公司知识库：AI Agent 记忆的工程化设计 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="从 Hyper 的公开架构细节出发，拆解 AI Agent 公司知识库如何处理事实有效期、权限、决策链、混合检索、hooks&#x2F;MCP 注入和人工纠错，并给出 7 天试点路径。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hyper 公司知识库：AI Agent 记忆的工程化设计">
+<meta property="og:url" content="https://jingluo23.github.io/posts/1d79/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="从 Hyper 的公开架构细节出发，拆解 AI Agent 公司知识库如何处理事实有效期、权限、决策链、混合检索、hooks&#x2F;MCP 注入和人工纠错，并给出 7 天试点路径。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-09T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:35:29.189Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI 开发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Hyper 公司知识库：AI Agent 记忆的工程化设计",
+  "url": "https://jingluo23.github.io/posts/1d79/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-09T02:00:00.000Z",
+  "dateModified": "2026-10-17T08:35:29.189Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/1d79/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Hyper 公司知识库：AI Agent 记忆的工程化设计',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Hyper 公司知识库：AI Agent 记忆的工程化设计</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Hyper 公司知识库：AI Agent 记忆的工程化设计</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-09T02:00:00.000Z" title="发表于 2026-11-09 10:00:00">2026-11-09</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:35:29.189Z" title="更新于 2026-10-17 16:35:29">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-%E5%BC%80%E5%8F%91%E5%AE%9E%E6%88%98/">AI 开发实战</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.2k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>13分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:35:29&quot;}" hidden></div><blockquote>
+<p>“YC 页面将 Hyper 定位为 The Self-Driving Company Brain，并描述它会从 Notion docs、Claude Code questions、emails、LinkedIn DMs、Cursor sessions 等团队工具中学习。”</p>
+<p>- <a target="_blank" rel="external nofollow noopener noreferrer" href="https://www.ycombinator.com/companies/hyper-4">Y Combinator</a></p>
+<p>“Hyper 创始人在 Launch HN 中公开描述了 episodes/facts 双层记忆、subject-predicate-object facts、时间戳、typed edges、混合检索、access-control tags、hooks 与 MCP。”</p>
+<p>- <a target="_blank" rel="external nofollow noopener noreferrer" href="https://news.ycombinator.com/item?id=48387095">Hacker News</a></p>
+<p>“MCP 官方文档将 MCP 描述为连接 AI 应用与外部系统的开放标准，适合暴露数据源、工具和工作流。”</p>
+<p>- <a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.anthropic.com/en/docs/mcp">Model Context Protocol</a></p>
+<p>“OpenAI 团队连接器说明强调连接器会尊重既有内容权限，并提供企业级 RBAC、SSO、IP allowlisting 等控制。”</p>
+<p>- <a target="_blank" rel="external nofollow noopener noreferrer" href="https://openai.com/index/more-ways-to-work-with-your-team/">OpenAI</a></p>
+<p>“OpenAI memory 研究更新强调记忆需要延续上下文、遵守偏好，并随时间保持新鲜，同时面对 stale/correctness/scalability 挑战。”</p>
+<p>- <a target="_blank" rel="external nofollow noopener noreferrer" href="https://openai.com/index/chatgpt-memory-dreaming/">OpenAI</a></p>
+</blockquote>
+<p>你用 Claude Code 改代码，它不知道三个月前为什么删了那个分支。你问 ChatGPT 项目决策，它得重新读完所有文档才能回答。每次调用都要重新解释项目历史，这是 Agent 和普通 RAG 的一个关键差异：后者擅长检索静态文档，但公司知识有三个维度它原生不处理——事实有效期、权限范围、决策推理链。</p>
+<p>Hacker News 上 Hyper 说要做”公司大脑”，听起来像营销词，但创始人在发布帖里透露的架构细节有技术价值：双层记忆（episodes + facts）、typed edges、时间戳模型、hooks 与 MCP 两条注入路径。下面的分析不写产品评测，而是用这些公开信息拆解”公司记忆”的设计问题，给你五层设计清单、7 天试点路径和选型风险判断表。</p>
+<h1 id="普通-RAG-接不住的三类上下文"><a href="#普通-RAG-接不住的三类上下文" class="headerlink" title="普通 RAG 接不住的三类上下文"></a>普通 RAG 接不住的三类上下文</h1><p>RAG 检索文档、返回片段、让模型回答。这套流程对静态知识库有效，但公司知识有三个维度 RAG 原生不处理。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>RAG 默认行为</th>
+<th>实际问题</th>
+<th>Company brain 需要的机制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>事实有效期</strong></td>
+<td>返回最新匹配片段</td>
+<td>旧文档≠失效事实，三个月前的决策可能已被推翻</td>
+<td><code>introduced_at</code> / <code>invalidated_at</code> 时间戳，标记事实生命周期</td>
+</tr>
+<tr>
+<td><strong>权限范围</strong></td>
+<td>检索不区分用户身份</td>
+<td>全员可见≠项目组可见，Agent 可能读到不该读的内容</td>
+<td><code>access-control tags</code> 过滤，按团队/角色裁剪结果</td>
+</tr>
+<tr>
+<td><strong>决策原因</strong></td>
+<td>返回结论片段</td>
+<td>知道结果≠知道推理链，无法追溯”为什么这样决定”</td>
+<td>Episodes 保留原始对话，事实层注明 <code>derived from</code> 来源</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>传统 RAG 按 recency 或 relevance 排序，无法判断这条信息是否已被 newer fact supersedes（替代）。Hyper 给每个 fact 配两个时间戳：<code>introduced_at</code> 记录首次出现，<code>invalidated_at</code> 记录失效时间。检索时过滤已失效事实，不依赖文档更新日期。</p>
+<p><strong>权限范围</strong>在多人组织中更敏感。Agent 调用时可能代表某个团队成员，它不应该读到该项目组之外的内容。Hyper 使用 <code>access-control tags</code> 标记每条事实的可见范围，检索层在返回结果前会根据调用者身份过滤。这点比”企业搜索”更精细——后者通常只做文档级权限，而 company brain 需要事实级裁剪。</p>
+<p><strong>决策原因</strong>是普通 RAG 最难接住的。你问”为什么选 PostgreSQL 而不是 MongoDB”，RAG 可能返回架构文档里的结论段落，但那段文字不会包含三个月前的技术讨论、权衡过程和最终决策逻辑。Hyper 的 episodes 层保留原始对话节点，facts 层用 <code>derived from</code> typed edge 指向来源 episode，这样检索时能沿关系找到推理链，而不只是结果。</p>
+<h1 id="Hyper-双层记忆架构拆解"><a href="#Hyper-双层记忆架构拆解" class="headerlink" title="Hyper 双层记忆架构拆解"></a>Hyper 双层记忆架构拆解</h1><p>Hyper 用双层结构组织记忆：Episodes（原始存储）和 Facts（结构化层），之上用知识图谱连接。</p>
+<p><strong>Episodes 层</strong>：保留原始对话节点，不丢弃上下文，作为事实的溯源锚点。Agent 需要追溯决策过程时，能从 fact 沿 <code>derived from</code> edge 找回原始对话片段，不只读摘要后的结论。</p>
+<p><strong>Facts 层</strong>：采用 subject-predicate-object 三元组结构化。每条 fact 包含主体、关系、对象三个字段，加上时间戳和 typed edges。创始人披露的三类 typed edges：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Typed edge</th>
+<th>含义</th>
+<th>使用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>derived from</code></td>
+<td>事实来自哪条 episode</td>
+<td>追溯决策推理链</td>
+</tr>
+<tr>
+<td><code>supersedes</code></td>
+<td>新事实替代旧事实</td>
+<td>标记失效事实，过滤旧结论</td>
+</tr>
+<tr>
+<td><code>tension</code></td>
+<td>事实之间存在冲突或矛盾</td>
+<td>提醒人工纠错，避免模型采信矛盾信息</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>时间戳模型</strong>：每条 fact 有两条时间线。T 线记录事件发生时间（“决策是在3月做的”），T’ 线记录系统摄入时间（“这条 fact 在6月写入知识库”）。两者分离是因为公司知识经常有延迟输入——会议结论可能一周后才录入，系统需要区分”事实发生时间”和”我们知道这条事实的时间”。</p>
+<p><strong>架构核心要点</strong>：</p>
+<ul>
+<li>Episodes 不做摘要，保留原始对话节点（HN 创始人称 + Zep 论文支撑）</li>
+<li>Facts 结构化为三元组，每条带时间戳和 typed edges（HN 披露）</li>
+<li><code>introduced_at</code> / <code>invalidated_at</code> 标记事实生命周期，检索层过滤已失效内容</li>
+<li>知识图谱用 typed edges 解决”关系”而非只存”事实”，这是与普通向量库的关键差异</li>
+</ul>
+<p>这套架构的目标不是存储更多数据，而是让 Agent 能沿关系找到上下文。普通向量库返回相似片段，但不知道片段之间的逻辑依赖、替代关系和冲突点。typed edges + 时间戳的组合让检索结果能附带”这条事实从哪里来、是否仍有效、有没有被替代”的元信息。</p>
+<h1 id="检索与注入的两条路径"><a href="#检索与注入的两条路径" class="headerlink" title="检索与注入的两条路径"></a>检索与注入的两条路径</h1><p>知识写入后，Agent 有两条使用路径：检索（主动查询）和注入（被动接收）。</p>
+<p><strong>检索机制</strong>（HN 创始人披露）：</p>
+<ul>
+<li><strong>Postgres 全文检索</strong>：关键词匹配，适合精确查询（如”某个 API endpoint 的定义”）</li>
+<li><strong>Embedding 语义检索</strong>：向量相似度搜索，适合模糊查询（如”上次讨论性能优化是什么结论”）</li>
+<li><strong>Reciprocal Rank Fusion（RRF）</strong>：融合全文和语义两路召回结果，按综合排序返回</li>
+<li><strong>Access-control tags 过滤</strong>：根据调用者身份裁剪结果，保证权限边界</li>
+</ul>
+<p>这套组合与纯向量库不同——后者只做语义召回，可能在精确关键词查询时漏掉结果。Hyper 用 RRF 融合两种召回方式，在排序阶段综合考虑关键词命中和语义相似度。</p>
+<p><strong>注入路径对比</strong>：hooks 与 MCP 是两条不同的数据通道。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Hooks</th>
+<th>MCP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>机制</strong></td>
+<td>实时注入 Agent 上下文（推送）</td>
+<td>标准化工具调用协议（拉取）</td>
+</tr>
+<tr>
+<td><strong>透明度</strong></td>
+<td>HN 评论质疑安装提示不够明显</td>
+<td>OpenAI SDK 要求显式声明 MCP server</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>上下文自动注入（如当前项目文档）</td>
+<td>Agent 主动调用工具（如查询数据库）</td>
+</tr>
+<tr>
+<td><strong>技术依赖</strong></td>
+<td>需要客户端侧安装拦截层</td>
+<td>需 Agent 框架支持 MCP 协议（OpenAI/Anthropic）</td>
+</tr>
+<tr>
+<td><strong>治理风险</strong></td>
+<td>用户可能不知道哪些数据被注入</td>
+<td>管理员可控制 MCP server 权限范围</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>两条路径可以并存。Hyper 创始人称 hooks 用于实时注入 Agent 上下文（如你打开 Claude Code 时自动加载项目文档），MCP 用于 Agent 主动调用外部工具（如查询 Notion 或 Gmail）。但 HN 评论中有人质疑 hooks 的透明度——用户是否清楚知道哪些数据被自动注入到 Agent 对话里。</p>
+<p>选型时需要检查两点：hooks 是否有明确的安装提示，MCP server 是否由管理员控制权限范围。OpenAI 的 developer mode 文档提到，MCP apps 需要安全验证，Enterprise 计划可用 RBAC 控制访问。这意味着 MCP 的治理框架相对成熟，而 hooks 的透明度依赖产品设计。</p>
+<h1 id="Company-brain-五层设计清单"><a href="#Company-brain-五层设计清单" class="headerlink" title="Company brain 五层设计清单"></a>Company brain 五层设计清单</h1><p>自建或选型时，检查这五层是否都有方案。每层的缺失都会在实际使用中暴露问题。</p>
+<p><strong>第一层：数据源接入</strong></p>
+<ul>
+<li>工具选择：Notion、Gmail、Slack、GitHub、Linear、Jira（按团队工作流选择）</li>
+<li>接入方式：webhooks（实时）或 polling（定时轮询），webhooks 响应快但需目标系统支持</li>
+<li>数据清洗：过滤噪音（如 Slack 的闲聊频道）、标记敏感信息、统一编码格式</li>
+<li>初始导入：全量历史 vs. 仅新数据，历史数据可能有大量过时事实</li>
+</ul>
+<p><strong>第二层：事实层 Schema</strong></p>
+<ul>
+<li>Fact 结构：subject-predicate-object 三元组，每条事实用统一格式存储</li>
+<li>时间戳：<code>introduced_at</code>（首次出现）+ <code>invalidated_at</code>（失效时间），缺一会导致无法判断事实生命周期</li>
+<li>Typed edges：至少包含 <code>derived from</code>（溯源）、<code>supersedes</code>（替代）、<code>tension</code>（冲突）三类关系</li>
+<li>冲突处理策略：自动标记 <code>tension</code> 供人工审核，或按时间戳取 newer fact</li>
+</ul>
+<p><strong>第三层：检索层</strong></p>
+<ul>
+<li>召回组合：全文（关键词）+ 语义（embedding）+ RRF 融合，纯语义召回可能在精确查询时漏结果</li>
+<li>权限过滤：事实级 <code>access-control tags</code>，根据调用者身份裁剪结果</li>
+<li>排序策略：综合 recency、relevance 和 fact validity，过滤已失效事实</li>
+<li>延迟目标：检索响应 &lt; 500ms（实测），否则 Agent 调用体验会明显下降</li>
+</ul>
+<p><strong>第四层：注入层</strong></p>
+<ul>
+<li>路径选择：hooks（实时注入上下文）vs MCP（Agent 主动调用），两条路径可并存</li>
+<li>Agent 兼容性：Claude Code、Cursor、ChatGPT、Codex 是否支持所选路径</li>
+<li>治理框架：hooks 是否有透明安装提示，MCP 是否由管理员控制 server 权限</li>
+<li>数据量控制：注入上下文长度上限（避免 token 超限），优先注入高 relevance 事实</li>
+</ul>
+<p><strong>第五层：治理层</strong></p>
+<ul>
+<li>权限继承：数据源权限如何映射到事实级可见范围，Slack 私有频道的事实不应被全员读</li>
+<li>审计日志：谁在何时注入了哪条事实、Agent 在何时读取了哪些事实，出问题时可追溯</li>
+<li>人工纠错机制：标记错误事实、设计 <code>invalidated</code> 流程、支持手动添加澄清事实</li>
+<li>数据导出：是否能导出完整事实库（JSON/CSV），供应商锁定风险评估</li>
+</ul>
+<p>这套清单的核心逻辑：每层都解决一个具体问题。数据源层决定”从哪里来”，事实层决定”存什么结构”，检索层决定”怎么找”，注入层决定”怎么给”，治理层决定”谁来管、如何纠错”。缺任何一层，公司知识库在实际使用中都会卡住。</p>
+<h1 id="7-天试点路径"><a href="#7-天试点路径" class="headerlink" title="7 天试点路径"></a>7 天试点路径</h1><p>小团队第一周不要接全量 Slack、邮箱或 CRM。权限复杂、噪音大，容易在试点阶段就暴露治理问题。先从低风险数据源开始，验证召回率和纠错机制后再扩展。</p>
+<p><strong>Day 1-2：选低风险数据源</strong></p>
+<ul>
+<li>Notion 公开文档（产品路线图、技术规范）</li>
+<li>GitHub README 和 Wiki（项目架构、API 文档）</li>
+<li>排除：Slack 私有频道、邮箱历史邮件、CRM 客户数据（权限敏感，噪音大）</li>
+</ul>
+<p><strong>Day 3：设计 Fact Schema</strong></p>
+<ul>
+<li>3-5 字段：subject、predicate、object、introduced_at、source</li>
+<li>不追求完美：试点阶段重点是验证检索路径，Schema 后续可迭代</li>
+<li>约定命名：subject 用统一格式（如”ProjectX”），predicate 用动词（如”uses”）</li>
+</ul>
+<p><strong>Day 4-5：检索与注入测试</strong></p>
+<ul>
+<li>检索测试：准备 5-10 个查询，检查召回率（能否找到关键事实）</li>
+<li>注入测试：选一个 Agent（Claude Code 或 Cursor），验证能否读到注入的上下文</li>
+<li>记录延迟：检索响应是否 &lt; 500ms，注入后 Agent 是否能正确引用事实</li>
+</ul>
+<p><strong>Day 6-7：回放与人工纠错</strong></p>
+<ul>
+<li>回放历史查询：检查检索结果中是否有错误或过时事实</li>
+<li>记录错误：列出需要 invalidated 的 fact，设计标记流程</li>
+<li>设计纠错机制：人工添加澄清事实 + 标记错误事实的 <code>invalidated_at</code> 时间戳</li>
+</ul>
+<p><strong>首周禁止项</strong>：</p>
+<ul>
+<li>不接 Slack、邮箱、CRM（权限复杂，噪音大）</li>
+<li>不追求完美 Schema（先验证检索路径，Schema 可迭代）</li>
+<li>不接生产数据源（用测试数据或公开文档验证流程）</li>
+</ul>
+<p>试点结束时，你应该有：一个可工作的检索+注入流程、5-10 条验证过的事实、一套纠错标记流程。这三点是扩展数据源的前提——先验证”能找到、能读、能纠错”，再考虑接入更多工具。</p>
+<h1 id="选型风险判断表"><a href="#选型风险判断表" class="headerlink" title="选型风险判断表"></a>选型风险判断表</h1><p>决策时检查七个风险维度，每个维度标注信息来源和置信度。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>风险维度</th>
+<th>公开信息</th>
+<th>来源</th>
+<th>置信度</th>
+<th>选型时需确认</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>数据导出</strong></td>
+<td>创始人称支持导出</td>
+<td>HN 评论</td>
+<td>medium</td>
+<td>导出格式（JSON/CSV）、完整性、迁移成本</td>
+</tr>
+<tr>
+<td><strong>隐私承诺</strong></td>
+<td>FAQ 称”不训练用户数据、AES-256 加密”</td>
+<td>Hyper FAQ</td>
+<td>medium</td>
+<td>是否有 SOC 2/ISO 27001 时间表、数据存储位置</td>
+</tr>
+<tr>
+<td><strong>供应商锁定</strong></td>
+<td>无自托管选项</td>
+<td>HN 评论</td>
+<td>high</td>
+<td>导出格式是否完整、备选方案是否可替代</td>
+</tr>
+<tr>
+<td><strong>Hooks 透明度</strong></td>
+<td>评论质疑安装提示不够明显</td>
+<td>HN 评论</td>
+<td>medium</td>
+<td>用户是否清楚知道哪些数据被注入</td>
+</tr>
+<tr>
+<td><strong>权限继承</strong></td>
+<td>access-control tags</td>
+<td>HN 创始人披露</td>
+<td>high</td>
+<td>数据源权限如何映射到事实级、继承规则未公开</td>
+</tr>
+<tr>
+<td><strong>知识图谱上下文</strong></td>
+<td>typed edges 保留关系</td>
+<td>HN 创始人披露</td>
+<td>high</td>
+<td>Episode 是否会摘要导致丢意图（HN 评论担心）</td>
+</tr>
+<tr>
+<td><strong>冲突处理</strong></td>
+<td>人工纠错机制未公开</td>
+<td>HN 评论</td>
+<td>low</td>
+<td>是否有标记错误事实的流程、是否支持手动澄清</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>七个维度里，<strong>数据导出</strong>和<strong>供应商锁定</strong>是决策时最需要检查的点。HN 评论中创始人称支持导出，但没有官方承诺全文。这意味着选型时需要确认：导出格式是否是结构化的（JSON/CSV），能否导出完整事实库（包括 typed edges 和时间戳），迁移到其他系统时是否需要额外清洗。</p>
+<p><strong>Hooks 透明度</strong>是另一个容易被忽略的风险。hooks 在客户端侧注入上下文，用户可能不清楚哪些数据被自动加载到 Agent 对话里。选型时需要确认：产品是否有明确的安装提示，用户能否查看和控制注入的数据范围。</p>
+<p><strong>权限继承</strong>的技术方案（access-control tags）有披露，但继承规则未公开。实际问题是：Slack 私有频道的事实如何映射到事实级可见范围，CRM 客户数据如何按团队裁剪。选型或自建时需要设计这套映射逻辑。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>Hyper 仍是早期产品，公开架构细节（双层记忆、typed edges、时间戳模型、hooks 与 MCP 双路径）是学习”公司记忆”设计的好案例。小团队选型或自建时，重点检查数据导出、hooks 透明度、冲突处理这三个风险点。</p>
+<p>试点阶段先做窄工作流：从 Notion 公开文档或 GitHub README 开始，验证检索召回率和纠错机制，再考虑接入 Slack 或邮箱。不要一开始就追求完美 Schema——事实生命周期、权限继承、人工纠错流程都需要在实测中迭代。</p>
+<p>如果你已经在用 Claude Code 或 Cursor，可以先试试用 hooks 注入项目文档，观察 Agent 是否能正确引用事实。下一步是把记忆和执行连成闭环：Agent 监控与自恢复机制，让失败能被自动发现和重试。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="数据能否导出？"><a href="#数据能否导出？" class="headerlink" title="数据能否导出？"></a>数据能否导出？</h2><p>创始人在 HN 评论称支持导出，但无官方承诺全文。选型时需确认导出格式（JSON/CSV）和完整性（是否包含 typed edges 和时间戳）。自建时优先设计导出接口，避免后期迁移困难。</p>
+<h2 id="知识图谱会不会丢上下文？"><a href="#知识图谱会不会丢上下文？" class="headerlink" title="知识图谱会不会丢上下文？"></a>知识图谱会不会丢上下文？</h2><p>typed edges 保留关系（derived from/supersedes/tension），但 HN 评论担心 Episode 摘要会丢意图。建议试点时检查召回率，验证是否能沿关系找到原始对话片段。</p>
+<h2 id="多个来源冲突时怎么办？"><a href="#多个来源冲突时怎么办？" class="headerlink" title="多个来源冲突时怎么办？"></a>多个来源冲突时怎么办？</h2><p>人工纠错机制未公开。自建时可设计 invalidated_at 时间戳加人工标记流程，用 tension edge 标记矛盾事实供审核。</p>
+<h2 id="hooks-是否透明？"><a href="#hooks-是否透明？" class="headerlink" title="hooks 是否透明？"></a>hooks 是否透明？</h2><p>HN 评论质疑 hooks 安装提示不够明显。选型时需确认用户是否知道哪些数据被注入，自建时优先设计显式控制面板。</p>
+<h2 id="供应商锁定风险？"><a href="#供应商锁定风险？" class="headerlink" title="供应商锁定风险？"></a>供应商锁定风险？</h2><p>公开评论中提到无自托管选项。需评估导出格式是否完整、迁移成本、是否有备选方案可替代关键功能（事实存储、typed edges、权限过滤）。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/1d79/">https://jingluo23.github.io/posts/1d79/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-%E5%BC%80%E5%8F%91/">AI 开发</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</div></div><div class="info-2"><div class="info-item-1">聚焦 LangGraph 与 AutoGen 的状态恢复实践，分析 checkpoint、超时重试和故障续跑，并给出可运行代码与生产验收方法。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-07</div><div class="info-item-2">自进化 AI：2026 年让模型持续学习的 4 种方法</div></div><div class="info-2"><div class="info-item-1">深度解读 2026 年持续学习趋势，从 SDFT 自蒸馏到 MiniMax M2.7 自进化流程，解析让模型边用边学的 4 种方法及 LangChain 三层进化框架实战视角</div></div></div></a><a class="pagination-related" href="/posts/72e/" title="多模态 AI 应用开发指南：从模型选型到实战部署"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-02</div><div class="info-item-2">多模态 AI 应用开发指南：从模型选型到实战部署</div></div><div class="info-2"><div class="info-item-1">深入讲解多模态AI应用开发全流程，涵盖GPT-4V、Claude Vision、Gemini等主流模型对比，图像/视频/文档处理实战代码，以及成本优化与部署最佳实践</div></div></div></a><a class="pagination-related" href="/posts/34ea/" title="AI重构10000行老代码：2周完成1个月工作量的真实复盘"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-01</div><div class="info-item-2">AI重构10000行老代码：2周完成1个月工作量的真实复盘</div></div><div class="info-2"><div class="info-item-1">记录用Claude Code重构10000行Vue遗留代码的完整过程。从接手3年无人敢动的屎山，到2周上线零事故，包含测试生成、代码诊断、重构执行的完整Prompt模板和避坑指南。</div></div></div></a><a class="pagination-related" href="/posts/4109/" title="自进化AI：让模型持续学习的关键技术路径"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-06</div><div class="info-item-2">自进化AI：让模型持续学习的关键技术路径</div></div><div class="info-2"><div class="info-item-1">深入解析自进化AI的四大技术路径：模型层进化、上下文进化、元学习、架构层进化，探索AI从静态知识到动态成长的技术突破与实践应用</div></div></div></a><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-05</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a><a class="pagination-related" href="/posts/508b/" title="多模态 AI 应用开发实战：三模态融合完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-03</div><div class="info-item-2">多模态 AI 应用开发实战：三模态融合完整指南</div></div><div class="info-2"><div class="info-item-1">对比 GPT-4V、Gemini、Claude 三大平台，提供文本、图像、语音融合完整代码示例，讲解系统架构设计原则和成本控制技巧，帮你快速掌握多模态开发核心技能。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%99%AE%E9%80%9A-RAG-%E6%8E%A5%E4%B8%8D%E4%BD%8F%E7%9A%84%E4%B8%89%E7%B1%BB%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="toc-number">1.</span> <span class="toc-text">普通 RAG 接不住的三类上下文</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Hyper-%E5%8F%8C%E5%B1%82%E8%AE%B0%E5%BF%86%E6%9E%B6%E6%9E%84%E6%8B%86%E8%A7%A3"><span class="toc-number">2.</span> <span class="toc-text">Hyper 双层记忆架构拆解</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A3%80%E7%B4%A2%E4%B8%8E%E6%B3%A8%E5%85%A5%E7%9A%84%E4%B8%A4%E6%9D%A1%E8%B7%AF%E5%BE%84"><span class="toc-number">3.</span> <span class="toc-text">检索与注入的两条路径</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#Company-brain-%E4%BA%94%E5%B1%82%E8%AE%BE%E8%AE%A1%E6%B8%85%E5%8D%95"><span class="toc-number">4.</span> <span class="toc-text">Company brain 五层设计清单</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#7-%E5%A4%A9%E8%AF%95%E7%82%B9%E8%B7%AF%E5%BE%84"><span class="toc-number">5.</span> <span class="toc-text">7 天试点路径</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%80%89%E5%9E%8B%E9%A3%8E%E9%99%A9%E5%88%A4%E6%96%AD%E8%A1%A8"><span class="toc-number">6.</span> <span class="toc-text">选型风险判断表</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">7.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E8%83%BD%E5%90%A6%E5%AF%BC%E5%87%BA%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">数据能否导出？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9F%A5%E8%AF%86%E5%9B%BE%E8%B0%B1%E4%BC%9A%E4%B8%8D%E4%BC%9A%E4%B8%A2%E4%B8%8A%E4%B8%8B%E6%96%87%EF%BC%9F"><span class="toc-number">8.2.</span> <span class="toc-text">知识图谱会不会丢上下文？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A4%9A%E4%B8%AA%E6%9D%A5%E6%BA%90%E5%86%B2%E7%AA%81%E6%97%B6%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">多个来源冲突时怎么办？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#hooks-%E6%98%AF%E5%90%A6%E9%80%8F%E6%98%8E%EF%BC%9F"><span class="toc-number">8.4.</span> <span class="toc-text">hooks 是否透明？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BE%9B%E5%BA%94%E5%95%86%E9%94%81%E5%AE%9A%E9%A3%8E%E9%99%A9%EF%BC%9F"><span class="toc-number">8.5.</span> <span class="toc-text">供应商锁定风险？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Hyper 公司知识库：AI Agent 记忆的工程化设计"></a><div class="content"><a class="title" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计">Hyper 公司知识库：AI Agent 记忆的工程化设计</a><time datetime="2026-11-09T02:00:00.000Z" title="发表于 2026-11-09 10:00:00">2026-11-09</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"></a><div class="content"><a class="title" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</a><time datetime="2026-11-08T02:00:00.000Z" title="发表于 2026-11-08 10:00:00">2026-11-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自进化 AI：2026 年让模型持续学习的 4 种方法"></a><div class="content"><a class="title" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法">自进化 AI：2026 年让模型持续学习的 4 种方法</a><time datetime="2026-11-07T02:00:00.000Z" title="发表于 2026-11-07 10:00:00">2026-11-07</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

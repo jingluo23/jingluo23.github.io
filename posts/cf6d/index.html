@@ -1,0 +1,826 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>让AI替你看文档：OpenClaw浏览器自动化实战指南 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="用OpenClaw Browser Skills自动抓取API文档、监控竞品、提取网页内容，2分钟完成原本半小时的工作。附完整命令教程和安全防护指南。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="让AI替你看文档：OpenClaw浏览器自动化实战指南">
+<meta property="og:url" content="https://jingluo23.github.io/posts/cf6d/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="用OpenClaw Browser Skills自动抓取API文档、监控竞品、提取网页内容，2分钟完成原本半小时的工作。附完整命令教程和安全防护指南。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-05T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:09:45.327Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "让AI替你看文档：OpenClaw浏览器自动化实战指南",
+  "url": "https://jingluo23.github.io/posts/cf6d/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-05T07:12:21.000Z",
+  "dateModified": "2026-10-17T08:09:45.327Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/cf6d/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '让AI替你看文档：OpenClaw浏览器自动化实战指南',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">让AI替你看文档：OpenClaw浏览器自动化实战指南</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">让AI替你看文档：OpenClaw浏览器自动化实战指南</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-05T07:12:21.000Z" title="发表于 2026-07-05 15:12:21">2026-07-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:09:45.327Z" title="更新于 2026-10-17 16:09:45">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>20分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:09:45&quot;}" hidden></div><p>研究 Stripe API 文档，在浏览器标签页之间跳转近一个小时，反复复制粘贴技术细节，这是开发者在做技术选型时的典型场景。文档分散在 GitHub、官网、Medium 上，每次都要像考古一样翻资料。传统爬虫要写一堆代码，维护成本高；ChatGPT 这类 AI 助手需要手动复制内容，治标不治本。</p>
+<p>OpenClaw 的 Browser Skills 能让 AI 直接控制浏览器，完成这些重复性的工作。用命令行控制 Chrome，自动打开网页、提取 DOM 内容、总结信息，研究 API 文档的时间从半小时缩短到2分钟。核心命令只有8个：start、open、wait、type、click、snapshot、screenshot，组合使用就能实现复杂自动化流程。</p>
+<p>但安全风险不容忽视。2026年2月曝出 ClawHub 恶意技能事件，341个恶意脚本可窃取 SSH 密钥和加密钱包。这篇文章既讲怎么用 OpenClaw Browser Skills，也讲如何安全地使用——在隔离环境运行、使用独立浏览器配置、避免安装来历不明的技能。</p>
+<h1 id="OpenClaw是什么？为什么它在2026年爆火"><a href="#OpenClaw是什么？为什么它在2026年爆火" class="headerlink" title="OpenClaw是什么？为什么它在2026年爆火"></a>OpenClaw是什么？为什么它在2026年爆火</h1><p>如果你还没听说过OpenClaw，那你可能错过了2026年开源界最疯狂的一场增长秀。</p>
+<p>这家伙在GitHub上拥有12.5万颗星（截至2026年1月），短短几个月从默默无闻蹿升到开发者工具榜单前列。它的前身叫Clawdbot（也叫Moltbot），现在改名OpenClaw，定位是”自托管的AI助手”——听起来挺普通，但本质上它干的事跟ChatGPT完全不是一码事。</p>
+<p>ChatGPT、Claude这些AI，能跟你聊天、写代码、分析问题，但它们活在一个虚拟世界里。你让ChatGPT帮你查最新的API文档？它只能告诉你”我的知识截止到某某时间”。你想让它帮你自动填表单？抱歉，它碰不到你的浏览器。</p>
+<p>OpenClaw不一样。它能执行真实的shell命令、管理你电脑上的文件、控制浏览器做自动化操作。说白了，它不光会”说”，还会”做”。这就是为什么开发者们疯了一样涌向它——谁不想要一个能真正帮你干活的AI助手呢？</p>
+<p>Browser Skills是OpenClaw最亮眼的功能之一。它基于Chrome DevTools Protocol（CDP），这是Chrome浏览器官方提供的调试协议，用来远程控制浏览器的每个细节——点击按钮、输入文字、截图、提取DOM结构，全都不在话下。你甚至不需要写Selenium或Puppeteer那种复杂的自动化脚本，几行命令就搞定。</p>
+<p>老实讲，我第一次用的时候也挺怀疑：这玩意真能稳定工作吗？会不会跟那些半成品开源项目一样，用两天就崩了？结果发现，只要你理解它的工作原理，配合正确的使用姿势，它确实能省下大把时间。</p>
+<h1 id="浏览器自动化核心命令速成"><a href="#浏览器自动化核心命令速成" class="headerlink" title="浏览器自动化核心命令速成"></a>浏览器自动化核心命令速成</h1><p>装好OpenClaw之后（这部分网上教程一大堆，我就不赘述了），你需要知道8个核心命令。这些命令看起来简单得可怕，但组合起来能干的事多到你想象不到。</p>
+<p>先说最基础的三个：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 启动浏览器（会弹出一个受控的Chrome窗口）</span><br><span class="line">openclaw browser start</span><br><span class="line"></span><br><span class="line"># 打开指定网页</span><br><span class="line">openclaw browser open https://stripe.com/docs</span><br><span class="line"></span><br><span class="line"># 等待页面加载完成（等待特定元素出现）</span><br><span class="line">openclaw browser wait &quot;.documentation-header&quot;</span><br></pre></td></tr></table></figure>
+<p>这三行命令已经能让你实现”自动打开网页并等待加载”这个最常见的场景了。注意 <code>wait</code> 命令用的是CSS选择器，跟你写前端代码时用的 <code>document.querySelector</code> 一模一样。如果你不确定用哪个选择器，打开Chrome开发者工具，右键点击元素，选”Copy selector”就行。</p>
+<p>接下来是交互操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 在指定元素里输入文本（比如搜索框）</span><br><span class="line">openclaw browser type &quot;#search-input&quot; &quot;Stripe Agent Toolkit&quot;</span><br><span class="line"></span><br><span class="line"># 点击元素（比如搜索按钮）</span><br><span class="line">openclaw browser click &quot;#search-button&quot;</span><br></pre></td></tr></table></figure>
+<p>这两个命令让AI能像人一样操作网页。<code>type</code> 命令会模拟真实的键盘输入，速度、间隔都跟人类差不多，能绕过一些简单的反爬虫检测。<code>click</code> 命令也是真实的鼠标点击事件，不是直接触发JavaScript，所以兼容性特别好。</p>
+<p>最后是最强大的两个命令——快照和截图：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 获取当前页面的DOM结构（JSON格式）</span><br><span class="line">openclaw browser snapshot --json</span><br><span class="line"></span><br><span class="line"># 对当前页面截图（保存为PNG）</span><br><span class="line">openclaw browser screenshot --output stripe-docs.png</span><br></pre></td></tr></table></figure>
+<p><code>snapshot</code> 命令能把整个网页的DOM树导出成JSON格式，包括每个元素的ID、class、文本内容、位置信息。这就像给网页拍了一张”结构照片”，后续你可以用AI分析这个JSON，提取你需要的信息。</p>
+<p>说到这，你可能会问：这跟直接用Puppeteer写脚本有什么区别？</p>
+<p>区别大了去了。Puppeteer你得写一堆异步代码、处理各种边界情况、debug半天；OpenClaw的命令是声明式的，你只需要告诉它”做什么”，具体”怎么做”它自己搞定。而且，最关键的是——OpenClaw背后有AI理解能力，它知道你想干嘛。</p>
+<p>举个例子，你用 <code>snapshot</code> 提取了DOM之后，可以直接问AI：“这个页面上所有的API端点是什么？” AI会分析JSON结构，自动找出所有看起来像API路径的文字。这种智能提取，传统爬虫根本做不到。</p>
+<h1 id="实战案例-自动研究Stripe-API文档"><a href="#实战案例-自动研究Stripe-API文档" class="headerlink" title="实战案例 - 自动研究Stripe API文档"></a>实战案例 - 自动研究Stripe API文档</h1><p>好了，光说不练假把式。咱们来个真实场景：研究Stripe最近推出的Agent Toolkit功能。</p>
+<p>背景是这样的：我在做一个支付相关的项目，听说Stripe出了个Agent Toolkit，能让AI直接调用他们的API。我需要搞清楚：支持哪些编程语言？能实现哪些功能？有没有什么坑？</p>
+<p>传统做法，我得打开GitHub仓库页面，翻README文档，记笔记，复制粘贴到笔记软件里，再手动整理。半小时起步，而且容易漏信息。</p>
+<p>用OpenClaw，整个流程3步搞定：</p>
+<p><strong>第1步：导航到目标页面</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">openclaw browser start</span><br><span class="line">openclaw browser open https://github.com/stripe/agent-toolkit</span><br><span class="line">openclaw browser wait &quot;article.markdown-body&quot;</span><br></pre></td></tr></table></figure>
+<p>这三行命令启动浏览器，打开Stripe的GitHub仓库页面，等待文档主体加载完成。<code>article.markdown-body</code> 是GitHub文档的标准CSS类名，基本上所有仓库都一样。</p>
+<p><strong>第2步：提取DOM内容</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw browser snapshot --json &gt; stripe-toolkit.json</span><br></pre></td></tr></table></figure>
+<p>这一步把整个页面的结构和文本内容导出成JSON文件。打开这个JSON你会发现，它包含了页面上的所有信息：标题、段落、代码块、链接，全都结构化好了。</p>
+<p><strong>第3步：让AI总结关键信息</strong></p>
+<p>这是最爽的部分。你不需要自己分析JSON，直接把文件丢给OpenClaw的AI模式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw chat &quot;分析 stripe-toolkit.json，告诉我：1) 支持哪些编程语言和框架？2) 核心功能有哪些？3) 使用限制是什么？&quot;</span><br></pre></td></tr></table></figure>
+<p>AI会自动解析JSON，几秒钟后给你一个清晰的总结：</p>
+<ul>
+<li><p><strong>支持的框架</strong>：</p>
+<ul>
+<li>Python 3.11+：OpenAI SDK、LangChain、CrewAI</li>
+<li>TypeScript Node 18+：LangChain、Vercel AI SDK</li>
+</ul>
+</li>
+<li><p><strong>核心功能</strong>：</p>
+<ul>
+<li>创建支付链接（Payment Links）</li>
+<li>账户管理和身份验证</li>
+<li>计费集成（订阅、发票）</li>
+</ul>
+</li>
+<li><p><strong>使用限制</strong>：</p>
+<ul>
+<li>需要Stripe API密钥</li>
+<li>部分功能仅支持测试模式</li>
+<li>依赖特定版本的SDK</li>
+</ul>
+</li>
+</ul>
+<p>整个过程，从打开浏览器到拿到总结，用时不到2分钟。关键是，你啥都不用记，AI帮你提炼好了最重要的信息。</p>
+<p>我第一次用这个流程的时候，真的有种”卧槽这才是未来”的感觉。以前那种机械的复制粘贴工作，彻底被AI接管了。你只需要专注在更高层次的决策上——比如，这个工具适不适合我的项目？</p>
+<h1 id="DOM提取和内容总结技巧"><a href="#DOM提取和内容总结技巧" class="headerlink" title="DOM提取和内容总结技巧"></a>DOM提取和内容总结技巧</h1><p>拿到DOM快照的JSON之后，很多人第一反应是：“这一大堆嵌套结构，我怎么用？”</p>
+<p>其实，你根本不需要手动解析。OpenClaw的AI模式天生就擅长理解结构化数据。但如果你想更精准地提取信息，了解一些技巧会让效率翻倍。</p>
+<p><strong>技巧1：优先查找API端点和关键路径</strong></p>
+<p>当你研究技术文档时，最有价值的往往是API端点、示例代码、配置参数这些。提问时，直接告诉AI你的目标：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw chat &quot;从DOM快照中提取所有看起来像API端点的文字，比如以/api/开头的路径&quot;</span><br></pre></td></tr></table></figure>
+<p>AI会自动过滤掉导航栏、页脚、广告这些无关内容，只给你关键信息。这比你自己翻JSON文件效率高太多了。</p>
+<p><strong>技巧2：处理JavaScript动态内容</strong></p>
+<p>有些网页的内容是JavaScript动态加载的，你直接访问HTML源代码看不到。这时候 <code>snapshot</code> 命令的优势就体现出来了——它获取的是渲染后的DOM，包括所有动态生成的内容。</p>
+<p>但有个坑：有些网站用懒加载，你得滚动到页面底部，内容才会加载出来。这时候可以先模拟滚动：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">openclaw browser scroll --to bottom</span><br><span class="line">openclaw browser wait 2000  # 等待2秒让内容加载</span><br><span class="line">openclaw browser snapshot --json</span><br></pre></td></tr></table></figure>
+<p><strong>技巧3：避开蜜罐陷阱</strong></p>
+<p>一些网站为了防止爬虫，会在页面里埋一些”蜜罐”元素——对人类不可见，但在HTML里存在。如果你的爬虫访问了这些元素，网站就知道你是机器人，可能会封禁你的IP。</p>
+<p>OpenClaw的 <code>snapshot</code> 命令获取的是完整DOM，包括隐藏元素。所以在提取内容时，最好告诉AI：“只提取可见元素的内容”。大部分情况下，AI会自动判断，但明确说明总没错。</p>
+<p><strong>技巧4：与AI配合的最佳实践</strong></p>
+<p>我发现，跟AI交流时，提供上下文能让结果更准确。别只说”提取关键信息”，而是说：</p>
+<p>“我在研究Stripe的Agent Toolkit文档，帮我找出：1) 支持的编程语言；2) 安装步骤；3) 使用限制。”</p>
+<p>这样AI知道你的意图，提取的信息会更有针对性。</p>
+<p>还有一招，如果页面内容特别长，可以先让AI生成一个大纲：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">openclaw chat &quot;总结这个页面的章节结构，列出所有二级标题&quot;</span><br></pre></td></tr></table></figure>
+<p>然后你再根据大纲，针对性地提取某个章节的详细内容。这种”先整体后局部”的策略，在处理长文档时特别好用。</p>
+<h1 id="安全风险与防护措施（重要）"><a href="#安全风险与防护措施（重要）" class="headerlink" title="安全风险与防护措施（重要）"></a>安全风险与防护措施（重要）</h1><p>好了，到了该泼冷水的时候了。</p>
+<p>OpenClaw确实强大，但强大意味着危险。2026年2月，安全研究人员在ClawHub（OpenClaw的技能市场）上发现了341个恶意技能，其中335个属于同一个攻击活动，代号”ClawHavoc”。</p>
+<p>这些恶意技能干了什么？窃取macOS Keychain里的密码、加密钱包私钥、SSH密钥，甚至浏览器的登录会话。更可怕的是，很多用户根本不知道自己中招了——技能在后台偷偷运行，表面上看起来功能正常。</p>
+<p>你可能会想：“我又不从ClawHub安装技能，应该没事吧？”</p>
+<p>错了。OpenClaw的风险不止来自第三方技能，它的核心设计就带有固有风险：</p>
+<p><strong>风险1：完全的Shell权限</strong></p>
+<p>OpenClaw能执行任何shell命令。这意味着，如果你在配置文件里写了恶意命令，或者不小心运行了来历不明的脚本，它可以删除你的文件、上传敏感数据到外部服务器、安装后门程序。</p>
+<p><strong>风险2：浏览器会话访问</strong></p>
+<p>OpenClaw控制的浏览器，能访问你登录状态下的所有网站。想象一下，如果它自动打开你的银行账户页面，提取余额信息，然后发送到某个服务器——你根本不会察觉。</p>
+<p><strong>风险3：Skills Marketplace缺乏审核</strong></p>
+<p>ClawHub上的技能，任何人都能上传，没有严格的审核机制。这就像一个没有安检的应用商店，恶意软件可以自由传播。</p>
+<p>那怎么办？彻底不用了？倒也不至于。只要你遵守这些安全规则，风险可控：</p>
+<p><strong>✅ 在隔离环境运行</strong></p>
+<p>最安全的做法：在虚拟机或Docker容器里运行OpenClaw。这样即使出了问题，影响也限制在隔离环境内，不会波及你的主系统。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># Docker运行示例</span><br><span class="line">docker run -it --rm openclaw/openclaw:latest</span><br></pre></td></tr></table></figure>
+<p><strong>✅ 最小化权限</strong></p>
+<p>不要给OpenClaw访问整个文件系统的权限。创建一个专门的工作目录，只让它操作这个目录里的文件。</p>
+<p><strong>✅ 启用人工确认模式</strong></p>
+<p>OpenClaw有个”human-in-the-loop”模式，执行敏感操作前会询问你。这样每次它要执行shell命令或访问浏览器时，都会先问你”确定要执行吗？“虽然麻烦点，但安全多了。</p>
+<p><strong>✅ 使用独立的浏览器配置</strong></p>
+<p>不要让OpenClaw使用你日常浏览器的配置文件。创建一个全新的Chrome profile，专门给它用。这个profile里不要登录任何重要账户，把它当成”一次性”的环境。</p>
+<p><strong>❌ 避免在生产环境使用</strong></p>
+<p>千万别在生产服务器上运行OpenClaw。它更适合本地开发、研究、自动化测试这种场景。如果你真的需要在服务器上用，务必配置严格的防火墙规则和访问控制。</p>
+<p><strong>❌ 不要安装来历不明的技能</strong></p>
+<p>ClawHub上的技能，除非是官方认证或者你信任的开发者发布的，否则别碰。宁可自己写几行命令，也别图省事装个恶意软件。</p>
+<p><strong>❌ 定期审计日志</strong></p>
+<p>OpenClaw会记录所有操作日志，定期检查一下有没有可疑的命令执行或网页访问记录。</p>
+<p>说实话，我第一次看到ClawHavoc事件的新闻时，吓得赶紧检查了自己的虚拟机。后来发现自己一直在隔离环境用，才松了口气。能力越大，责任越大——这句话用在OpenClaw身上再合适不过。</p>
+<h1 id="扩展应用场景和生态系统"><a href="#扩展应用场景和生态系统" class="headerlink" title="扩展应用场景和生态系统"></a>扩展应用场景和生态系统</h1><p>研究API文档只是OpenClaw Browser Skills的冰山一角。一旦你掌握了这套工具，会发现它能解决很多重复性的网页操作问题。</p>
+<p><strong>场景1：文档监控和变更追踪</strong></p>
+<p>假设你在用某个开源框架，需要时刻关注它的文档更新。传统做法是订阅邮件列表或RSS，但很多项目根本没提供这些。用OpenClaw可以这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 每天定时运行这个脚本</span><br><span class="line">openclaw browser open https://docs.example.com/api</span><br><span class="line">openclaw browser snapshot --json &gt; latest-snapshot.json</span><br><span class="line">diff latest-snapshot.json previous-snapshot.json</span><br></pre></td></tr></table></figure>
+<p>如果有变化，diff会告诉你哪里改了。你甚至可以让AI总结变更内容：“对比两个快照，告诉我API有哪些破坏性变更。”</p>
+<p><strong>场景2：竞品分析</strong></p>
+<p>做产品的人都懂，盯着竞品的动向是常态。比如你想知道某个SaaS产品的定价策略变化，可以定期抓取他们的pricing页面，提取价格信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">openclaw browser open https://competitor.com/pricing</span><br><span class="line">openclaw browser snapshot --json</span><br><span class="line">openclaw chat &quot;提取所有套餐的价格和功能对比&quot;</span><br></pre></td></tr></table></figure>
+<p>这比手动截图、做表格效率高太多了。</p>
+<p><strong>场景3：表单自动化</strong></p>
+<p>虽然OpenClaw不是专门的RPA工具，但应付简单的表单填写绰绰有余。比如你需要在多个测试环境注册账号：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">openclaw browser open https://staging.example.com/signup</span><br><span class="line">openclaw browser type &quot;#email&quot; &quot;[email protected]&quot;</span><br><span class="line">openclaw browser type &quot;#password&quot; &quot;TestPass123&quot;</span><br><span class="line">openclaw browser click &quot;button[type=&#x27;submit&#x27;]&quot;</span><br></pre></td></tr></table></figure>
+<p>当然，这种场景要注意遵守服务条款，别用来刷数据或薅羊毛。</p>
+<p><strong>场景4：社交媒体内容发布</strong></p>
+<p>有些自媒体从业者用OpenClaw自动发布内容到多个平台。虽然每个平台都有API，但配置起来麻烦，而且限制多。直接控制浏览器反而更灵活——前提是你不要滥用，否则容易被平台检测到机器人行为。</p>
+<p><strong>工具对比：OpenClaw vs 其他方案</strong></p>
+<p>2026年，AI驱动的网页自动化工具遍地开花。这里简单对比几个主流选择：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">工具</th>
+<th style="text-align:center">优势</th>
+<th style="text-align:center">劣势</th>
+<th style="text-align:center">适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">OpenClaw</td>
+<td style="text-align:center">开源免费、本地运行、AI理解能力强</td>
+<td style="text-align:center">需要自己搭建、安全风险需注意</td>
+<td style="text-align:center">开发者、技术研究</td>
+</tr>
+<tr>
+<td style="text-align:center">Gumloop</td>
+<td style="text-align:center">云端服务、可视化配置、无需代码</td>
+<td style="text-align:center">收费、数据上传到云端</td>
+<td style="text-align:center">非技术人员、商业用途</td>
+</tr>
+<tr>
+<td style="text-align:center">Firecrawl</td>
+<td style="text-align:center">专注爬取、速度快、API友好</td>
+<td style="text-align:center">纯爬虫工具、没有AI分析</td>
+<td style="text-align:center">大规模数据采集</td>
+</tr>
+<tr>
+<td style="text-align:center">Browser Use</td>
+<td style="text-align:center">轻量级、集成度高</td>
+<td style="text-align:center">功能相对简单</td>
+<td style="text-align:center">简单自动化任务</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>如果你是开发者，追求灵活性和隐私，OpenClaw是首选。如果你是产品经理或运营，不想折腾技术细节，Gumloop这类云服务更合适。</p>
+<p><strong>2026年的趋势：AI原生的网页交互</strong></p>
+<p>有意思的是，越来越多的网站开始提供”AI友好”的数据接口。比如一些技术文档网站，专门提供结构化的JSON API，方便AI工具抓取。这种趋势下，未来OpenClaw可能不再需要解析DOM，直接调用API就能拿到数据。</p>
+<p>还有一个趋势是多步骤工作流的自动化。比如：“监控竞品价格 → 发现变化 → 自动生成分析报告 → 发送到Slack”。OpenClaw配合其他工具（如n8n、Zapier），能搭建出非常强大的自动化链路。</p>
+<p>不过，这一切的前提还是：安全第一。别为了省事，把自己暴露在风险之下。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>写到这，我想起最开始提到的那个凌晨两点翻API文档的场景。现在回头看，那种机械重复的工作，真的没必要人类来做。OpenClaw Browser Skills证明了一件事：AI不光能思考，还能动手干活。</p>
+<p>但我必须再强调一遍——这玩意不是万能药。它强大，也危险；它省时间，也带来风险。关键在于你怎么用。</p>
+<p>如果你想尝试OpenClaw，我建议按这个三步走：</p>
+<p><strong>第一步：起步要稳</strong></p>
+<p>别直接在你的工作电脑上装。弄个虚拟机或者Docker容器，先在隔离环境里玩。试试本文提到的基础命令，打开几个简单的网页，感受一下它的工作方式。这个阶段，重点是熟悉工具，别急着上手复杂场景。</p>
+<p><strong>第二步：实践要真</strong></p>
+<p>选一个你真实工作中的场景来自动化。可能是定期检查某个文档更新，可能是收集竞品信息，也可能是测试环境的表单填写。别搞那种”为了自动化而自动化”的事情——只有真正痛过，你才知道工具的价值在哪。</p>
+<p><strong>第三步：安全要硬</strong></p>
+<p>用了一段时间后，记得定期审计日志、检查权限配置、更新安全规则。别因为用顺手了就放松警惕。ClawHavoc事件提醒我们，开源工具的生态系统永远存在风险，你得时刻保持清醒。</p>
+<p>OpenClaw给AI装上了眼睛和手，让它能看懂网页、操作浏览器、提取信息。这种能力在2026年看起来像魔法，但说不定过几年就成了标配。技术的进步从来不会停下，我们能做的，就是在拥抱新工具的同时，守住安全底线。</p>
+<p>最后说句实在话：如果你现在还在手动复制粘贴API文档，真的可以试试OpenClaw了。省下来的时间，拿去喝杯咖啡，不香吗？</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="OpenClaw-Browser-Skills和Puppeteer-Selenium有什么本质区别？"><a href="#OpenClaw-Browser-Skills和Puppeteer-Selenium有什么本质区别？" class="headerlink" title="OpenClaw Browser Skills和Puppeteer/Selenium有什么本质区别？"></a>OpenClaw Browser Skills和Puppeteer/Selenium有什么本质区别？</h2><p>OpenClaw的核心优势在于AI理解能力和声明式命令：</p>
+<ul>
+<li>Puppeteer/Selenium：需要编写复杂的异步代码，手动处理等待、异常、元素定位等边界情况，维护成本高  </li>
+<li>OpenClaw：声明式命令（start/open/wait/snapshot），只需告诉它”做什么”，具体实现由工具处理  </li>
+<li>AI加持：snapshot提取DOM后，可直接问AI”提取所有API端点”，自动识别和过滤，传统爬虫做不到智能提取</li>
+</ul>
+<p>适用场景：如果你需要快速原型、临时调研、一次性任务，OpenClaw效率更高；如果是长期维护的自动化项目，Puppeteer的可控性更强。</p>
+<h2 id="ClawHavoc事件具体发生了什么？如何避免成为受害者？"><a href="#ClawHavoc事件具体发生了什么？如何避免成为受害者？" class="headerlink" title="ClawHavoc事件具体发生了什么？如何避免成为受害者？"></a>ClawHavoc事件具体发生了什么？如何避免成为受害者？</h2><p>2026年2月，安全研究人员在ClawHub技能市场发现341个恶意技能，其中335个属于同一攻击活动”ClawHavoc”：</p>
+<p>攻击手法：  </p>
+<ul>
+<li>窃取macOS Keychain中的密码和API密钥  </li>
+<li>提取加密钱包私钥和SSH密钥  </li>
+<li>后台静默运行，表面功能正常，用户难以察觉</li>
+</ul>
+<p>防护措施：  </p>
+<ul>
+<li>在虚拟机或Docker容器中运行OpenClaw，隔离主系统  </li>
+<li>使用独立浏览器profile，不登录任何重要账户  </li>
+<li>不安装来历不明的技能，只用官方认证或信任来源  </li>
+<li>启用human-in-the-loop模式，敏感操作需人工确认  </li>
+<li>定期审计日志，检查异常的命令执行和网页访问记录</li>
+</ul>
+<p>风险评估：OpenClaw的Shell权限和浏览器访问能力是双刃剑，务必在受控环境使用。</p>
+<h2 id="snapshot命令提取的DOM包含隐藏元素，如何避免蜜罐陷阱？"><a href="#snapshot命令提取的DOM包含隐藏元素，如何避免蜜罐陷阱？" class="headerlink" title="snapshot命令提取的DOM包含隐藏元素，如何避免蜜罐陷阱？"></a>snapshot命令提取的DOM包含隐藏元素，如何避免蜜罐陷阱？</h2><p>蜜罐（Honeypot）是网站用来识别爬虫的隐藏元素，对人类不可见但在HTML中存在，访问这些元素会暴露机器人身份：</p>
+<p>OpenClaw应对策略：  </p>
+<ul>
+<li>snapshot确实会提取完整DOM（包括隐藏元素），但AI分析时可指定”只提取可见元素内容”  </li>
+<li>大部分AI会自动判断元素可见性，但明确说明更保险  </li>
+<li>结合CSS选择器过滤：”提取class不含’hidden’的元素”</li>
+</ul>
+<p>技术细节：  </p>
+<ul>
+<li>snapshot获取的是渲染后的DOM，包括JavaScript动态生成的内容  </li>
+<li>对于懒加载页面，先执行scroll到底部，等待内容加载后再snapshot  </li>
+<li>如需精准控制，可用wait命令等待特定可见元素出现</li>
+</ul>
+<p>最佳实践：提问时加上上下文，如”我在研究技术文档，提取正文内容，忽略导航栏、页脚和广告”，AI会智能过滤无关内容。</p>
+<h2 id="如何用OpenClaw实现文档监控和变更追踪？"><a href="#如何用OpenClaw实现文档监控和变更追踪？" class="headerlink" title="如何用OpenClaw实现文档监控和变更追踪？"></a>如何用OpenClaw实现文档监控和变更追踪？</h2><p>文档监控是OpenClaw的典型应用场景，适合追踪开源项目、API文档、竞品功能的更新：</p>
+<p>实现方案：  </p>
+<ul>
+<li>定时任务：每天运行脚本，打开目标网页，执行snapshot导出JSON  </li>
+<li>差异对比：使用diff命令比较新旧JSON文件，识别变更内容  </li>
+<li>AI总结：将diff结果交给AI分析，总结”有哪些破坏性变更”或”新增了哪些功能”</li>
+</ul>
+<p>示例代码：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">openclaw browser open https://docs.example.com/api</span><br><span class="line">openclaw browser snapshot --json &gt; latest-snapshot.json</span><br><span class="line">diff latest-snapshot.json previous-snapshot.json</span><br><span class="line">openclaw chat &quot;对比两个快照，总结API的主要变更&quot;</span><br></pre></td></tr></table></figure></p>
+<p>进阶玩法：  </p>
+<ul>
+<li>结合GitHub Actions或cron定时执行  </li>
+<li>发现变更后自动发送通知到Slack/邮件  </li>
+<li>配合n8n/Zapier搭建完整的监控工作流</li>
+</ul>
+<p>注意事项：遵守网站的robots.txt和服务条款，避免频繁请求被封禁IP。</p>
+<h2 id="OpenClaw在生产环境使用有哪些风险？如何安全地集成到工作流？"><a href="#OpenClaw在生产环境使用有哪些风险？如何安全地集成到工作流？" class="headerlink" title="OpenClaw在生产环境使用有哪些风险？如何安全地集成到工作流？"></a>OpenClaw在生产环境使用有哪些风险？如何安全地集成到工作流？</h2><p>生产环境风险：</p>
+<p>技术风险：  </p>
+<ul>
+<li>稳定性：OpenClaw仍在快速迭代，API可能变更，不适合关键业务  </li>
+<li>性能：浏览器自动化比API调用慢，高并发场景不适用  </li>
+<li>依赖：依赖Chrome和CDP协议，版本兼容性需持续维护</li>
+</ul>
+<p>安全风险：  </p>
+<ul>
+<li>Shell权限：可执行任意命令，一旦被攻击可能危及整个系统  </li>
+<li>数据泄露：访问登录状态下的网站，可能泄露敏感信息  </li>
+<li>审计困难：操作日志需人工检查，自动化监控机制不完善</li>
+</ul>
+<p>安全集成方案：  </p>
+<ul>
+<li>仅用于非关键场景：监控、调研、测试环境，不处理生产数据  </li>
+<li>严格隔离：Docker容器 + 独立网络 + 最小权限文件系统访问  </li>
+<li>人工确认：启用human-in-the-loop，敏感操作需审批  </li>
+<li>备选方案：对于关键业务，优先使用官方API或成熟的RPA工具（如UiPath）</li>
+</ul>
+<p>推荐做法：将OpenClaw用于本地开发、技术调研、快速原型，成熟后再用专业工具重构到生产环境。</p>
+<h2 id="2026年AI驱动的网页自动化工具如何选择？OpenClaw、Gumloop、Firecrawl哪个更适合我？"><a href="#2026年AI驱动的网页自动化工具如何选择？OpenClaw、Gumloop、Firecrawl哪个更适合我？" class="headerlink" title="2026年AI驱动的网页自动化工具如何选择？OpenClaw、Gumloop、Firecrawl哪个更适合我？"></a>2026年AI驱动的网页自动化工具如何选择？OpenClaw、Gumloop、Firecrawl哪个更适合我？</h2><p>根据使用场景和技术背景选择：</p>
+<p>OpenClaw（开源、本地、AI驱动）：  </p>
+<ul>
+<li>适合人群：开发者、技术研究人员、隐私敏感用户  </li>
+<li>优势：完全免费、本地运行、AI理解能力强、灵活定制  </li>
+<li>劣势：需自己搭建、学习成本中等、安全风险需自行防护  </li>
+<li>典型场景：技术文档研究、API调研、竞品分析、本地自动化</li>
+</ul>
+<p>Gumloop（云端、可视化、无代码）：  </p>
+<ul>
+<li>适合人群：产品经理、运营人员、非技术团队  </li>
+<li>优势：可视化配置、无需代码、稳定性高、客服支持  </li>
+<li>劣势：收费、数据上传到云端、定制化受限  </li>
+<li>典型场景：商业数据采集、内容发布、日常办公自动化</li>
+</ul>
+<p>Firecrawl（专业爬虫、API优先）：  </p>
+<ul>
+<li>适合人群：数据团队、爬虫工程师  </li>
+<li>优势：速度快、大规模采集、API友好、反爬对抗强  </li>
+<li>劣势：纯爬虫工具、缺少AI分析、需编写代码  </li>
+<li>典型场景：电商数据、价格监控、内容聚合、SEO分析</li>
+</ul>
+<p>Browser Use（轻量级、快速集成）：  </p>
+<ul>
+<li>适合人群：需要快速集成自动化功能的开发者  </li>
+<li>优势：轻量、上手快、集成简单  </li>
+<li>劣势：功能相对基础、复杂场景支持不足  </li>
+<li>典型场景：简单表单填写、页面截图、基础交互</li>
+</ul>
+<p>选择建议：开发者优先OpenClaw（灵活+免费），非技术人员选Gumloop（省心+稳定），大规模爬取选Firecrawl（性能+专业）。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/cf6d/">https://jingluo23.github.io/posts/cf6d/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/d334/" title="OpenClaw自定义技能开发实战：从零创建图片处理Skill完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">OpenClaw自定义技能开发实战：从零创建图片处理Skill完整指南</div></div><div class="info-2"><div class="info-item-1">通过图片处理实战案例，手把手教你创建OpenClaw自定义技能。完整覆盖SKILL.md配置、脚本开发、测试调试全流程，30分钟上手。</div></div></div></a><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/787d/" title="OpenClaw多平台配置实战：13个Channel统一管理AI助手"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-02</div><div class="info-item-2">OpenClaw多平台配置实战：13个Channel统一管理AI助手</div></div><div class="info-2"><div class="info-item-1">详解OpenClaw的Channel层架构，实战配置Telegram、WhatsApp、Discord三大平台，实现跨平台会话同步和安全管理。从安装到部署，15分钟搞定多渠道AI助手。</div></div></div></a><a class="pagination-related" href="/posts/f35d/" title="OpenClaw Gmail集成实战：使用secure-gmail技能实现邮件自动分类与智能回复"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-11</div><div class="info-item-2">OpenClaw Gmail集成实战：使用secure-gmail技能实现邮件自动分类与智能回复</div></div><div class="info-2"><div class="info-item-1">通过OpenClaw的secure-gmail技能实现Gmail邮件自动化管理，包含OAuth 2.0配置、邮件分类、草稿生成、优先级排序等完整方案，数据本地化存储更安全。</div></div></div></a><a class="pagination-related" href="/posts/1e37/" title="OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-25</div><div class="info-item-2">OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略</div></div><div class="info-2"><div class="info-item-1">详解 openclaw-ha 技能配置，教你通过 WhatsApp 语音用自然语言控制 Philips Hue 灯光及空调系统，打造真正的 AI 智能家居体验。</div></div></div></a><a class="pagination-related" href="/posts/7fd4/" title="OpenClaw企业部署实战：多用户管理、权限隔离与安全加固完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-13</div><div class="info-item-2">OpenClaw企业部署实战：多用户管理、权限隔离与安全加固完整指南</div></div><div class="info-2"><div class="info-item-1">从混乱到规范，详解OpenClaw企业级部署的架构选型、RBAC权限控制、CVE漏洞修复、审计日志系统与运维自动化方案，附生产环境验证的配置文件和脚本。</div></div></div></a><a class="pagination-related" href="/posts/a8/" title="OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-26</div><div class="info-item-2">OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践</div></div><div class="info-2"><div class="info-item-1">详解 OpenClaw 2026.3 版本核心更新，包括 ContextEngine 引擎、插件三层架构、可插拔沙盒后端和 Firecrawl 集成，附完整配置示例和升级迁移指南。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#OpenClaw%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F%E4%B8%BA%E4%BB%80%E4%B9%88%E5%AE%83%E5%9C%A82026%E5%B9%B4%E7%88%86%E7%81%AB"><span class="toc-number">1.</span> <span class="toc-text">OpenClaw是什么？为什么它在2026年爆火</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%B5%8F%E8%A7%88%E5%99%A8%E8%87%AA%E5%8A%A8%E5%8C%96%E6%A0%B8%E5%BF%83%E5%91%BD%E4%BB%A4%E9%80%9F%E6%88%90"><span class="toc-number">2.</span> <span class="toc-text">浏览器自动化核心命令速成</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B-%E8%87%AA%E5%8A%A8%E7%A0%94%E7%A9%B6Stripe-API%E6%96%87%E6%A1%A3"><span class="toc-number">3.</span> <span class="toc-text">实战案例 - 自动研究Stripe API文档</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#DOM%E6%8F%90%E5%8F%96%E5%92%8C%E5%86%85%E5%AE%B9%E6%80%BB%E7%BB%93%E6%8A%80%E5%B7%A7"><span class="toc-number">4.</span> <span class="toc-text">DOM提取和内容总结技巧</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E9%A3%8E%E9%99%A9%E4%B8%8E%E9%98%B2%E6%8A%A4%E6%8E%AA%E6%96%BD%EF%BC%88%E9%87%8D%E8%A6%81%EF%BC%89"><span class="toc-number">5.</span> <span class="toc-text">安全风险与防护措施（重要）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%89%A9%E5%B1%95%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF%E5%92%8C%E7%94%9F%E6%80%81%E7%B3%BB%E7%BB%9F"><span class="toc-number">6.</span> <span class="toc-text">扩展应用场景和生态系统</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">7.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw-Browser-Skills%E5%92%8CPuppeteer-Selenium%E6%9C%89%E4%BB%80%E4%B9%88%E6%9C%AC%E8%B4%A8%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">8.1.</span> <span class="toc-text">OpenClaw Browser Skills和Puppeteer&#x2F;Selenium有什么本质区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ClawHavoc%E4%BA%8B%E4%BB%B6%E5%85%B7%E4%BD%93%E5%8F%91%E7%94%9F%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9F%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E6%88%90%E4%B8%BA%E5%8F%97%E5%AE%B3%E8%80%85%EF%BC%9F"><span class="toc-number">8.2.</span> <span class="toc-text">ClawHavoc事件具体发生了什么？如何避免成为受害者？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#snapshot%E5%91%BD%E4%BB%A4%E6%8F%90%E5%8F%96%E7%9A%84DOM%E5%8C%85%E5%90%AB%E9%9A%90%E8%97%8F%E5%85%83%E7%B4%A0%EF%BC%8C%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E8%9C%9C%E7%BD%90%E9%99%B7%E9%98%B1%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">snapshot命令提取的DOM包含隐藏元素，如何避免蜜罐陷阱？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E7%94%A8OpenClaw%E5%AE%9E%E7%8E%B0%E6%96%87%E6%A1%A3%E7%9B%91%E6%8E%A7%E5%92%8C%E5%8F%98%E6%9B%B4%E8%BF%BD%E8%B8%AA%EF%BC%9F"><span class="toc-number">8.4.</span> <span class="toc-text">如何用OpenClaw实现文档监控和变更追踪？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenClaw%E5%9C%A8%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E4%BD%BF%E7%94%A8%E6%9C%89%E5%93%AA%E4%BA%9B%E9%A3%8E%E9%99%A9%EF%BC%9F%E5%A6%82%E4%BD%95%E5%AE%89%E5%85%A8%E5%9C%B0%E9%9B%86%E6%88%90%E5%88%B0%E5%B7%A5%E4%BD%9C%E6%B5%81%EF%BC%9F"><span class="toc-number">8.5.</span> <span class="toc-text">OpenClaw在生产环境使用有哪些风险？如何安全地集成到工作流？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2026%E5%B9%B4AI%E9%A9%B1%E5%8A%A8%E7%9A%84%E7%BD%91%E9%A1%B5%E8%87%AA%E5%8A%A8%E5%8C%96%E5%B7%A5%E5%85%B7%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%EF%BC%9FOpenClaw%E3%80%81Gumloop%E3%80%81Firecrawl%E5%93%AA%E4%B8%AA%E6%9B%B4%E9%80%82%E5%90%88%E6%88%91%EF%BC%9F"><span class="toc-number">8.6.</span> <span class="toc-text">2026年AI驱动的网页自动化工具如何选择？OpenClaw、Gumloop、Firecrawl哪个更适合我？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Hyper 公司知识库：AI Agent 记忆的工程化设计"></a><div class="content"><a class="title" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计">Hyper 公司知识库：AI Agent 记忆的工程化设计</a><time datetime="2026-11-09T02:00:00.000Z" title="发表于 2026-11-09 10:00:00">2026-11-09</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"></a><div class="content"><a class="title" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</a><time datetime="2026-11-08T02:00:00.000Z" title="发表于 2026-11-08 10:00:00">2026-11-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自进化 AI：2026 年让模型持续学习的 4 种方法"></a><div class="content"><a class="title" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法">自进化 AI：2026 年让模型持续学习的 4 种方法</a><time datetime="2026-11-07T02:00:00.000Z" title="发表于 2026-11-07 10:00:00">2026-11-07</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

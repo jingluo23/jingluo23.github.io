@@ -1,0 +1,718 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="详解 OpenClaw 2026.3 版本核心更新，包括 ContextEngine 引擎、插件三层架构、可插拔沙盒后端和 Firecrawl 集成，附完整配置示例和升级迁移指南。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践">
+<meta property="og:url" content="https://jingluo23.github.io/posts/a8/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="详解 OpenClaw 2026.3 版本核心更新，包括 ContextEngine 引擎、插件三层架构、可插拔沙盒后端和 Firecrawl 集成，附完整配置示例和升级迁移指南。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-07-26T07:12:21.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:09:45.332Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="OpenClaw">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践",
+  "url": "https://jingluo23.github.io/posts/a8/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-07-26T07:12:21.000Z",
+  "dateModified": "2026-10-17T08:09:45.332Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/a8/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">OpenClaw 2026.3 实战进阶：新版本核心功能与最佳实践</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-26T07:12:21.000Z" title="发表于 2026-07-26 15:12:21">2026-07-26</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:09:45.332Z" title="更新于 2026-10-17 16:09:45">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/OpenClaw-%E4%B8%93%E9%A2%98%EF%BC%9A%E5%AE%89%E8%A3%85%E3%80%81%E9%85%8D%E7%BD%AE%E3%80%81%E5%AE%89%E5%85%A8%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%8C%87%E5%8D%97/">OpenClaw 专题：安装、配置、安全与部署指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.3k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>14分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:09:45&quot;}" hidden></div><p>OpenClaw 2026.3 版本（v2026.3.7-beta.1）修复了超过 200 个 Bug，官方 CHANGELOG 写了近一万五千字。以前多模型路由任务在沙盒权限配置上屡屡报错，新版本跑第一遍就顺利通过。核心更新包括 ContextEngine 引擎（上下文占用降低约 30%）、插件系统重构为 Bundle + Provider + Plugin 三层架构、新增 OpenShell 和 SSH 三种沙盒后端。</p>
+<p>这篇文章是 OpenClaw 系列的第 34 篇，集中梳理 2026.3 版本的实战要点：ContextEngine 引擎怎么用、插件三层架构如何配置、沙盒后端怎么选。如果你是从旧版本升级过来的，这篇能帮你快速定位到迁移要点。</p>
+<h1 id="版本概览-—-2026-3-带来了什么"><a href="#版本概览-—-2026-3-带来了什么" class="headerlink" title="版本概览 — 2026.3 带来了什么"></a>版本概览 — 2026.3 带来了什么</h1><p>先看数据。v2026.3.7-beta.1 这一个版本就修了 200 多个 bug，这还不算后面几个 patch 的累积。官方 CHANGELOG 写了快一万五千字，我翻完之后大概归纳出几个方向：</p>
+<p><strong>ContextEngine 引擎升级</strong>。以前 OpenClaw 的上下文管理比较”笨”，就是你给多少它吃多少，撑不撑得住看模型心情。新版本加了一个类似”智能剪裁”的机制，会自动识别哪些信息是当前任务真正需要的，然后把剩下的暂时搁置。我测试下来，同样一个 50 轮对话的复杂任务，上下文占用大概降了 30%。</p>
+<p><strong>插件体系重构</strong>。这块变化最大，从原来的 Skills 单层结构变成了 Bundle + Provider + Plugin 三层。说白了就是让插件更”模块化”。以前你想把一个技能从 Codex 迁移到 Claude，可能要改一大堆配置；现在只需要换 Provider，核心逻辑不动。后面第三章会专门讲这块怎么配。</p>
+<p><strong>沙盒后端多样化</strong>。以前基本绑死在 Docker 上，现在多了 OpenShell（支持 mirror 和 remote 模式）、SSH sandbox。如果你是 Mac 用户或者不想装 Docker 的，OpenShell mirror 模式是个不错的选择——直接用本地 shell，启动速度快很多。</p>
+<p><strong>人机协作工作流增强</strong>。这个有点意思，新版本不再是”完全自动化”的思路，而是强调 human-in-the-loop。简单说就是 AI 干到一半会停下来问你”这样对不对”，你确认了再继续。我一开始觉得这功能鸡肋，但用了几次之后发现——确实能少踩坑。</p>
+<p>对了，还有一个容易被忽略的点：SELinux 自动检测。如果你用的是 CentOS 或 RHEL，之前配置沙盒可能会遇到权限问题，现在会自动帮你检测并给出配置建议。</p>
+<h1 id="核心新功能详解"><a href="#核心新功能详解" class="headerlink" title="核心新功能详解"></a>核心新功能详解</h1><h2 id="btw-侧边问答"><a href="#btw-侧边问答" class="headerlink" title="/btw 侧边问答"></a><code>/btw</code> 侧边问答</h2><p>这个功能我一开始没太在意，觉得就是个”对话分叉”。但实际用了之后发现——真香。</p>
+<p>场景是这样的：你正在让 OpenClaw 帮你重构一个复杂的 React 组件，任务跑了十几轮，上下文已经堆了很多内容。突然你想问它一个不相关的问题，比如”这个正则表达式怎么写”。以前你得开一个新的会话，或者硬着头皮塞进当前对话里（然后上下文就炸了）。</p>
+<p>现在直接输入 <code>/btw 你的问题</code>，OpenClaw 会在一个”侧边通道”里回答你，不影响主任务的上下文。回答完之后，它还会自动切回主任务继续干活。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 侧边问答示例</span><br><span class="line">/btw 帮我写一个匹配邮箱的正则表达式</span><br><span class="line"></span><br><span class="line"># 输出示例</span><br><span class="line"># [侧边问答] 邮箱正则：^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]&#123;2,&#125;$</span><br><span class="line"># [主任务继续] 正在重构组件...</span><br></pre></td></tr></table></figure>
+<p>说实话，这个功能解决了一个我一直头疼的问题：如何在长任务中间”插嘴”而不破坏上下文。</p>
+<h2 id="可插拔沙盒后端"><a href="#可插拔沙盒后端" class="headerlink" title="可插拔沙盒后端"></a>可插拔沙盒后端</h2><p>沙盒这块的变化比较硬核。以前你只有 Docker 一个选择，现在有三个：</p>
+<p><strong>OpenShell mirror 模式</strong>：直接用你本地的 shell，但是命令执行会被”镜像”记录下来。好处是启动快、资源占用低；坏处是隔离性不如 Docker。适合本地开发测试。</p>
+<p><strong>OpenShell remote 模式</strong>：连接到远程服务器的 shell。如果你有一台专门用来跑任务的机器，这个模式可以让 OpenClaw 在那边执行命令，本地只做控制。适合团队协作或者需要统一环境的场景。</p>
+<p><strong>SSH sandbox backend</strong>：跟 remote 模式类似，但更”原生”一些，不需要 OpenClaw 自己的协议。适合已有的 SSH 基础设施。</p>
+<p>配置示例（OpenShell mirror）。<strong>说明</strong>：OpenClaw 运行时主配置为 <strong><code>~/.openclaw/openclaw.json</code>（JSON）</strong>；下列 YAML 仅帮助理解层级，<strong>键名与真实结构请以 <a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.openclaw.ai/gateway/configuration">Gateway 配置</a> 与当前版本为准</strong>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># 以下为示意，勿当作可粘贴的权威配置</span><br><span class="line">sandbox:</span><br><span class="line">  type: openshell</span><br><span class="line">  mode: mirror</span><br><span class="line">  options:</span><br><span class="line">    shell: /bin/bash  # 或 /bin/zsh</span><br><span class="line">    timeout: 300      # 单条命令超时（秒）</span><br></pre></td></tr></table></figure>
+<p>如果你不想装 Docker，这个 mirror 模式是个很轻量的选择。我试过在 MacBook Air 上跑，内存占用比 Docker 少了一半。</p>
+<h2 id="Firecrawl-集成"><a href="#Firecrawl-集成" class="headerlink" title="Firecrawl 集成"></a>Firecrawl 集成</h2><p>网页抓取一直是 OpenClaw 的一个短板——以前的方案有点”暴力”，就是直接 curl 然后解析 HTML，遇到反爬或者动态渲染的页面就歇菜。</p>
+<p>这次集成 Firecrawl 之后，情况好了很多。Firecrawl 本身就是一个专门做网页抓取的服务，支持 JavaScript 渲染、自动处理分页、还能输出结构化的 Markdown。OpenClaw 把它封装成了一个内置工具。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 启用 Firecrawl</span><br><span class="line">tools:</span><br><span class="line">  web_scraping:</span><br><span class="line">    engine: firecrawl</span><br><span class="line">    api_key: $&#123;FIRECRAWL_API_KEY&#125;  # 建议用环境变量</span><br></pre></td></tr></table></figure>
+<p>实际测试下来，抓取一个复杂的 SPA 页面（比如某个 React 文档站），以前可能要手动写好几轮 prompt 才能拿到干净的内容，现在基本一步到位。</p>
+<h2 id="Secrets-工作流"><a href="#Secrets-工作流" class="headerlink" title="Secrets 工作流"></a>Secrets 工作流</h2><p>这个功能主要解决 API 密钥的安全管理问题。以前你可能把密钥硬编码在配置文件里，或者用环境变量但不小心提交到 Git。</p>
+<p>新版本的 Secrets 工作流支持完整的”增删改查”循环：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 添加密钥</span><br><span class="line">/secrets set OPENAI_API_KEY &quot;sk-xxx&quot;</span><br><span class="line"></span><br><span class="line"># 列出所有密钥（只显示名称，不显示值）</span><br><span class="line">/secrets list</span><br><span class="line"></span><br><span class="line"># 删除密钥</span><br><span class="line">/secrets delete OPENAI_API_KEY</span><br></pre></td></tr></table></figure>
+<p>密钥会加密存储在本地的 <code>~/.openclaw/secrets/</code> 目录下，Git 操作会自动忽略这个目录。如果你用的是团队共享的配置，也可以把密钥导出成环境变量的格式，然后在 CI/CD 里注入。</p>
+<h1 id="插件系统重构实战"><a href="#插件系统重构实战" class="headerlink" title="插件系统重构实战"></a>插件系统重构实战</h1><p>这块是 2026.3 版本变化最大的部分，也是很多老用户升级后最容易懵的地方。我花了一整个周末才弄明白这套新架构。</p>
+<h2 id="从-Skills-到三层架构"><a href="#从-Skills-到三层架构" class="headerlink" title="从 Skills 到三层架构"></a>从 Skills 到三层架构</h2><p>以前 OpenClaw 的插件叫 Skills，就是一个个独立的功能模块。你想用某个功能，就装一个 Skill，配置好就能用。简单粗暴，但问题也不少：</p>
+<ul>
+<li>不同 Skill 之间可能有依赖冲突</li>
+<li>迁移到不同的 AI 模型时，需要逐个检查 Skill 是否兼容</li>
+<li>想要定制一个现有 Skill，基本等于重写</li>
+</ul>
+<p>新版本的三层架构是这样划分的：</p>
+<p><strong>Bundle（能力包）</strong>：最上层的”功能集合”，比如 <code>codex-bundle</code>、<code>claude-bundle</code>。一个 Bundle 包含一组相关的 Plugin 和默认的 Provider 配置。你可以理解为”开箱即用的功能套件”。</p>
+<p><strong>Provider（模型提供者）</strong>：中间层，负责对接具体的 AI 模型。比如 <code>openrouter-provider</code> 可以让你通过 OpenRouter 访问几十种模型，<code>copilot-provider</code> 则是接入 GitHub Copilot。</p>
+<p><strong>Plugin（插件）</strong>：最底层，实现具体的功能逻辑。比如 <code>web-search-plugin</code> 负责网页搜索，<code>code-review-plugin</code> 负责代码审查。</p>
+<p>这样的好处是什么？举个例子，你想把代码审查功能从 OpenAI 模型迁移到 Claude，只需要改 Provider 配置，Plugin 本身不用动。</p>
+<h2 id="Bundle-配置示例"><a href="#Bundle-配置示例" class="headerlink" title="Bundle 配置示例"></a>Bundle 配置示例</h2><p>以 <code>claude-bundle</code> 为例，配置文件大概是这个样子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"># bundles/claude-bundle.yaml</span><br><span class="line">name: claude-bundle</span><br><span class="line">version: 1.2.0</span><br><span class="line">description: &quot;Claude AI 能力套件&quot;</span><br><span class="line"></span><br><span class="line">provider:</span><br><span class="line">  name: anthropic</span><br><span class="line">  model: claude-3-5-sonnet-20241022</span><br><span class="line">  api_key: $&#123;ANTHROPIC_API_KEY&#125;</span><br><span class="line"></span><br><span class="line">plugins:</span><br><span class="line">  - name: code-generation</span><br><span class="line">    enabled: true</span><br><span class="line">  - name: code-review</span><br><span class="line">    enabled: true</span><br><span class="line">  - name: web-search</span><br><span class="line">    enabled: false  # Claude 自带的联网功能，不需要这个</span><br><span class="line"></span><br><span class="line">settings:</span><br><span class="line">  max_tokens: 4096</span><br><span class="line">  temperature: 0.7</span><br></pre></td></tr></table></figure>
+<p>启用 Bundle 只需要在主配置里引用：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># 结构示意（真实配置见 openclaw.json + 官方文档）</span><br><span class="line">bundles:</span><br><span class="line">  - claude-bundle</span><br><span class="line">  - dev-tools-bundle  # 可以同时启用多个</span><br></pre></td></tr></table></figure>
+<h2 id="Provider-插件化"><a href="#Provider-插件化" class="headerlink" title="Provider 插件化"></a>Provider 插件化</h2><p>如果你不想用 Bundle 默认的 Provider，可以单独配置。比如用 OpenRouter 来访问 Claude（可能价格更便宜）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># providers/openrouter.yaml</span><br><span class="line">name: openrouter</span><br><span class="line">type: http</span><br><span class="line">base_url: https://openrouter.ai/api/v1</span><br><span class="line">api_key: $&#123;OPENROUTER_API_KEY&#125;</span><br><span class="line"></span><br><span class="line">models:</span><br><span class="line">  - id: anthropic/claude-3.5-sonnet</span><br><span class="line">    alias: claude-sonnet</span><br><span class="line">  - id: openai/gpt-4o</span><br><span class="line">    alias: gpt4</span><br></pre></td></tr></table></figure>
+<p>然后在 Bundle 里引用这个 Provider：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"># bundles/custom-claude.yaml</span><br><span class="line">provider:</span><br><span class="line">  ref: openrouter</span><br><span class="line">  model: claude-sonnet  # 使用上面定义的 alias</span><br></pre></td></tr></table></figure>
+<p>这套机制对于成本优化特别有用。你可以根据任务类型选择不同的模型路由策略——简单的用便宜模型，复杂的用高端模型。这块在系列的第 26 篇《OpenClaw 成本优化：模型路由策略》里讲得很细，感兴趣可以翻翻。</p>
+<h2 id="ClawHub-技能市场"><a href="#ClawHub-技能市场" class="headerlink" title="ClawHub 技能市场"></a>ClawHub 技能市场</h2><p>官方搞了一个技能市场叫 ClawHub，有点像 VS Code 的插件商店。你可以直接在 OpenClaw 里搜索和安装：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"># 搜索技能</span><br><span class="line">/hub search code-review</span><br><span class="line"></span><br><span class="line"># 安装技能</span><br><span class="line">/hub install voltagent/code-review-enhanced</span><br><span class="line"></span><br><span class="line"># 查看已安装</span><br><span class="line">/hub list</span><br></pre></td></tr></table></figure>
+<p>ClawHub 上的技能都经过社区审核，版本管理也比较规范。如果你想自己开发技能并分享出去，也可以用 <code>hub publish</code> 命令上传。</p>
+<h1 id="升级与迁移指南"><a href="#升级与迁移指南" class="headerlink" title="升级与迁移指南"></a>升级与迁移指南</h1><h2 id="从旧版本平滑升级"><a href="#从旧版本平滑升级" class="headerlink" title="从旧版本平滑升级"></a>从旧版本平滑升级</h2><p>升级本身很简单，运行 <code>/update</code> 或者让 OpenClaw 自动检测更新：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 方式一：手动触发更新</span><br><span class="line">/update</span><br><span class="line"></span><br><span class="line"># 方式二：在对话中让 AI 检查</span><br><span class="line">&quot;帮我检查一下有没有新版本&quot;</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p><strong>注意</strong>：升级前务必完成以下准备工作：</p>
+<ol>
+<li><strong>备份现有配置</strong>：把 <code>~/.openclaw/</code> 目录整体复制一份</li>
+<li><strong>记录已安装的 Skills</strong>：新版本的插件系统跟旧版不兼容，需要重新安装</li>
+<li><strong>检查 API 密钥</strong>：如果你用的是环境变量，确认一下是否正确设置</li>
+</ol>
+<p>升级完成后，OpenClaw 会自动尝试迁移旧的配置，但迁移不会 100% 成功。Bundle 和 Provider 的配置很可能需要手动调整。</p>
+</blockquote>
+<h2 id="配置兼容性检查清单"><a href="#配置兼容性检查清单" class="headerlink" title="配置兼容性检查清单"></a>配置兼容性检查清单</h2><p>升级后跑一遍这个检查，能帮你快速定位问题：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">检查项</th>
+<th style="text-align:center">命令</th>
+<th style="text-align:center">预期结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">版本号</td>
+<td style="text-align:center"><code>--version</code></td>
+<td style="text-align:center">v2026.3.x</td>
+</tr>
+<tr>
+<td style="text-align:center">插件列表</td>
+<td style="text-align:center"><code>/plugins list</code></td>
+<td style="text-align:center">显示已安装的 Plugin</td>
+</tr>
+<tr>
+<td style="text-align:center">Provider 状态</td>
+<td style="text-align:center"><code>/providers status</code></td>
+<td style="text-align:center">显示已配置的 Provider</td>
+</tr>
+<tr>
+<td style="text-align:center">沙盒状态</td>
+<td style="text-align:center"><code>/sandbox status</code></td>
+<td style="text-align:center">显示当前沙盒类型和状态</td>
+</tr>
+<tr>
+<td style="text-align:center">密钥存储</td>
+<td style="text-align:center"><code>/secrets list</code></td>
+<td style="text-align:center">显示已存储的密钥名称</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>如果某一项报错，先检查对应的配置文件。常见的坑：</p>
+<ul>
+<li><strong>Skills 不见了</strong>：正常的，需要重新安装对应的 Bundle</li>
+<li><strong>Provider 连接失败</strong>：检查 API 密钥是否正确迁移</li>
+<li><strong>沙盒权限错误</strong>：重新运行沙盒初始化命令</li>
+</ul>
+<h2 id="常见问题与解决"><a href="#常见问题与解决" class="headerlink" title="常见问题与解决"></a>常见问题与解决</h2><p><strong>问题 1：旧版 Skills 配置无法识别</strong></p>
+<p>新版本不再支持旧的 Skills 格式。解决方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># 查看旧版 Skills 列表（仅显示名称）</span><br><span class="line">/legacy-skills list</span><br><span class="line"></span><br><span class="line"># 将旧 Skills 转换为新的 Plugin 格式</span><br><span class="line">/migrate-skills</span><br></pre></td></tr></table></figure>
+<p>转换后的配置会保存在 <code>~/.openclaw/plugins/migrated/</code> 目录下，可能需要手动调整。</p>
+<p><strong>问题 2：Docker 沙盒启动失败</strong></p>
+<p>可能是 SELinux 权限问题。运行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 检测并修复 SELinux 配置</span><br><span class="line">/sandbox fix-selinux</span><br><span class="line"></span><br><span class="line"># 或者切换到 OpenShell mirror 模式</span><br><span class="line">/config set sandbox.type openshell</span><br><span class="line">/config set sandbox.mode mirror</span><br></pre></td></tr></table></figure>
+<p><strong>问题 3：多模型路由配置丢失</strong></p>
+<p>这个问题我在升级时也遇到了。原因是新的 Provider 架构改变了路由配置的写法。解决方法：参照第三章的示例，重新编写 Provider 配置文件。</p>
+<h1 id="实战场景与最佳实践"><a href="#实战场景与最佳实践" class="headerlink" title="实战场景与最佳实践"></a>实战场景与最佳实践</h1><h2 id="场景一：多模型路由成本优化"><a href="#场景一：多模型路由成本优化" class="headerlink" title="场景一：多模型路由成本优化"></a>场景一：多模型路由成本优化</h2><p>这是很多个人开发者和小团队最关心的问题。OpenClaw 新版本的多模型路由机制，可以帮你把”简单任务用便宜模型，复杂任务用高端模型”这句话落地。</p>
+<p>基本思路是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"># router.yaml</span><br><span class="line">rules:</span><br><span class="line">  - name: simple-tasks</span><br><span class="line">    condition: &quot;tokens &lt; 1000 and complexity &lt; 0.3&quot;</span><br><span class="line">    provider: openrouter</span><br><span class="line">    model: openai/gpt-3.5-turbo</span><br><span class="line"></span><br><span class="line">  - name: complex-tasks</span><br><span class="line">    condition: &quot;tokens &gt;= 1000 or complexity &gt;= 0.3&quot;</span><br><span class="line">    provider: openrouter</span><br><span class="line">    model: anthropic/claude-3.5-sonnet</span><br><span class="line"></span><br><span class="line">  - name: code-review</span><br><span class="line">    condition: &quot;task_type == &#x27;code_review&#x27;&quot;</span><br><span class="line">    provider: anthropic</span><br><span class="line">    model: claude-3-5-sonnet-20241022</span><br></pre></td></tr></table></figure>
+<p>实际测试下来，同样的工作负载，成本能降 40%-60%。当然这取决于你的任务分布。</p>
+<h2 id="场景二：浏览器自动化增强"><a href="#场景二：浏览器自动化增强" class="headerlink" title="场景二：浏览器自动化增强"></a>场景二：浏览器自动化增强</h2><p>新版本支持”Live Chrome session attachment”，翻译成人话就是：你可以让 OpenClaw 接管一个你已经打开的 Chrome 浏览器窗口。</p>
+<p>这在某些场景下特别有用：</p>
+<ul>
+<li>你已经登录了某个需要验证码的网站</li>
+<li>需要在多个页面之间来回切换</li>
+<li>想保留浏览器的 Cookie 和会话状态</li>
+</ul>
+<p>配置方式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"># 结构示意（浏览器自动化键名以官方文档为准）</span><br><span class="line">browser:</span><br><span class="line">  mode: attach</span><br><span class="line">  chrome_path: /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome</span><br><span class="line">  user_data_dir: ~/.chrome-debug-profile</span><br><span class="line">  debug_port: 9222</span><br></pre></td></tr></table></figure>
+<p>启动 Chrome 时加上调试参数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"># macOS</span><br><span class="line">/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=~/.chrome-debug-profile</span><br><span class="line"></span><br><span class="line"># 然后在 OpenClaw 里告诉它：</span><br><span class="line">&quot;接管我当前的浏览器窗口&quot;</span><br></pre></td></tr></table></figure>
+<h2 id="场景三：企业级安全部署"><a href="#场景三：企业级安全部署" class="headerlink" title="场景三：企业级安全部署"></a>场景三：企业级安全部署</h2><p>如果你在公司环境里用 OpenClaw，安全是个绕不开的话题。新版本的几个特性可以帮助你满足合规要求：</p>
+<p><strong>1. Secrets 加密存储</strong></p>
+<p>所有密钥都使用 AES-256 加密后存储，密钥本身不落盘（存在内存里）。</p>
+<p><strong>2. 审计日志</strong></p>
+<p>开启审计模式后，所有 AI 请求和响应都会记录下来：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">audit:</span><br><span class="line">  enabled: true</span><br><span class="line">  log_path: /var/log/openclaw/audit.log</span><br><span class="line">  redact_secrets: true  # 自动脱敏密钥</span><br></pre></td></tr></table></figure>
+<p><strong>3. 出站流量控制</strong></p>
+<p>限制 OpenClaw 只能访问特定的域名：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">network:</span><br><span class="line">  allowlist:</span><br><span class="line">    - api.anthropic.com</span><br><span class="line">    - api.openai.com</span><br><span class="line">    - openrouter.ai</span><br><span class="line">  deny_all_others: true</span><br></pre></td></tr></table></figure>
+<p><strong>4. SELinux 自动检测</strong></p>
+<p>在 CentOS/RHEL 上，OpenClaw 会自动检测 SELinux 状态并给出配置建议：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"># OpenClaw 自动生成的建议</span><br><span class="line"># 请运行以下命令以配置 Docker SELinux 策略：</span><br><span class="line"># semanage port -a -t docker_port_t -p tcp 2375-2376</span><br></pre></td></tr></table></figure>
+<h1 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h1><p>说了这么多，如果你刚升级到 2026.3 版本，建议先试这 5 个功能：</p>
+<ol>
+<li><strong><code>/btw</code> 侧边问答</strong>：在长任务中间插入问题，体验一下”不打断上下文”的感觉</li>
+<li><strong>OpenShell mirror 模式</strong>：如果你之前被 Docker 的资源占用困扰过，这个绝对值得试</li>
+<li><strong>Firecrawl 网页抓取</strong>：找个复杂的 SPA 页面测试一下，效果肉眼可见</li>
+<li><strong>ClawHub 技能市场</strong>：逛一圈，看看社区都贡献了什么好东西</li>
+<li><strong>Secrets 工作流</strong>：把硬编码在配置里的密钥迁移过来，安全方面会好很多</li>
+</ol>
+<p>OpenClaw 这个项目迭代速度挺快的，有时候一两周就一个新版本。如果你在使用过程中遇到什么问题，可以去 GitHub Issues 搜一下，大概率有人踩过同样的坑。</p>
+<p>对了，这个系列之前写过配置详解、成本优化、架构分析等内容，如果你是第一次接触 OpenClaw，建议从《OpenClaw 架构指南：从入门到精通》开始看，会有一个更系统的认识。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="升级到-2026-3-后，旧的-Skills-配置还能用吗？"><a href="#升级到-2026-3-后，旧的-Skills-配置还能用吗？" class="headerlink" title="升级到 2026.3 后，旧的 Skills 配置还能用吗？"></a>升级到 2026.3 后，旧的 Skills 配置还能用吗？</h2><p>不能直接用。新版本使用 Bundle + Provider + Plugin 三层架构，不再兼容旧的 Skills 格式。可以使用 `/migrate-skills` 命令自动迁移，迁移后检查 `~/.openclaw/plugins/migrated/` 目录。</p>
+<h2 id="OpenShell-mirror-模式和-Docker-沙盒有什么区别？"><a href="#OpenShell-mirror-模式和-Docker-沙盒有什么区别？" class="headerlink" title="OpenShell mirror 模式和 Docker 沙盒有什么区别？"></a>OpenShell mirror 模式和 Docker 沙盒有什么区别？</h2><p>OpenShell mirror 模式直接使用本地 shell，启动更快、资源占用更低，适合本地开发测试。Docker 沙盒提供更好的隔离性，适合生产环境或需要强隔离的场景。</p>
+<p>MacBook Air 实测：OpenShell mirror 内存占用约为 Docker 的一半。</p>
+<h2 id="btw-侧边问答功能会影响主任务的上下文吗？"><a href="#btw-侧边问答功能会影响主任务的上下文吗？" class="headerlink" title="/btw 侧边问答功能会影响主任务的上下文吗？"></a>/btw 侧边问答功能会影响主任务的上下文吗？</h2><p>不会。/btw 创建的是独立的「侧边通道」，回答问题后会自动切回主任务继续执行。这解决了在长任务中间插嘴提问但不想污染上下文的痛点。</p>
+<h2 id="如何配置多模型路由来降低成本？"><a href="#如何配置多模型路由来降低成本？" class="headerlink" title="如何配置多模型路由来降低成本？"></a>如何配置多模型路由来降低成本？</h2><p>在 router.yaml 中定义规则：</p>
+<ul>
+<li>简单任务（tokens <1000）-> 使用便宜的 GPT-3.5  </1000）-></li>
+<li>复杂任务（tokens &gt;=1000）-&gt; 使用 Claude 3.5 Sonnet  </li>
+<li>特定任务（如 code_review）-&gt; 指定特定模型</li>
+</ul>
+<p>实测成本可降低 40%-60%。详见系列第 26 篇《OpenClaw 成本优化》。</p>
+<h2 id="Firecrawl-集成需要额外付费吗？"><a href="#Firecrawl-集成需要额外付费吗？" class="headerlink" title="Firecrawl 集成需要额外付费吗？"></a>Firecrawl 集成需要额外付费吗？</h2><p>Firecrawl 是独立服务，有自己的定价体系。OpenClaw 只是封装了它的 API。你可以使用 Firecrawl 的免费额度（每月有一定限额），或者根据使用量付费。配置时需要设置环境变量 `FIRECRAWL_API_KEY`。</p>
+<h2 id="企业环境部署有哪些安全建议？"><a href="#企业环境部署有哪些安全建议？" class="headerlink" title="企业环境部署有哪些安全建议？"></a>企业环境部署有哪些安全建议？</h2><p>建议开启以下安全特性：</p>
+<ul>
+<li>Secrets 加密存储（AES-256）  </li>
+<li>审计日志（记录所有 AI 请求和响应）  </li>
+<li>出站流量白名单（限制访问域名）  </li>
+<li>SELinux 自动检测（CentOS/RHEL）</li>
+</ul>
+<p>这些能力对应的主配置在 <strong>~.openclaw/openclaw.json</strong>（JSON）及官方 Gateway / 安全文档中维护；勿假设存在单一的 config.yaml 文件名。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/a8/">https://jingluo23.github.io/posts/a8/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/OpenClaw/">OpenClaw</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/1e37/" title="OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">OpenClaw 智能家居实战：用 WhatsApp 语音自然语言控房全攻略</div></div><div class="info-2"><div class="info-item-1">详解 openclaw-ha 技能配置，教你通过 WhatsApp 语音用自然语言控制 Philips Hue 灯光及空调系统，打造真正的 AI 智能家居体验。</div></div></div></a><a class="pagination-related" href="/posts/d5f3/" title="OpenClaw 实战完全手册：从入门到精通"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">OpenClaw 实战完全手册：从入门到精通</div></div><div class="info-2"><div class="info-item-1">OpenClaw 实战完全手册：从入门到精通。涵盖核心概念、快速开始、工具技能系统、工作流自动化、安全部署，提供清晰学习路径和实战案例。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/52c5/" title="OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">OpenClaw多代理路由完全指南：工作、生活、实验场景优雅隔离</div></div><div class="info-2"><div class="info-item-1">深入解析OpenClaw如何用Markdown文件实现AI持久化记忆，包括双层架构设计、混合检索方案和本地隐私保护机制。</div></div></div></a><a class="pagination-related" href="/posts/a21a/" title="vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-28</div><div class="info-item-2">vibecode-pro-max-kit：给 AI 编程项目补上规格、记忆和多 Agent 协作</div></div><div class="info-2"><div class="info-item-1">vibecode-pro-max-kit 怎么用？本文解释安装审计、RIPER-5 规格驱动流程、项目记忆、多 agent 协作、安全门禁，以及它适合和不适合的 AI 编程场景。</div></div></div></a><a class="pagination-related" href="/posts/28d/" title="OpenClaw 安全配置完全指南：Docker 沙盒到权限控制的五层防御"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-30</div><div class="info-item-2">OpenClaw 安全配置完全指南：Docker 沙盒到权限控制的五层防御</div></div><div class="info-2"><div class="info-item-1">OpenClaw 默认配置可能泄露 SSH 密钥和 AWS 凭证。本文提供 Docker 沙盒隔离、非特权用户、Token 认证、工具白名单、网络隔离五层防御方案，附完整配置代码和安全检查清单。</div></div></div></a><a class="pagination-related" href="/posts/d334/" title="OpenClaw自定义技能开发实战：从零创建图片处理Skill完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-04</div><div class="info-item-2">OpenClaw自定义技能开发实战：从零创建图片处理Skill完整指南</div></div><div class="info-2"><div class="info-item-1">通过图片处理实战案例，手把手教你创建OpenClaw自定义技能。完整覆盖SKILL.md配置、脚本开发、测试调试全流程，30分钟上手。</div></div></div></a><a class="pagination-related" href="/posts/7d63/" title="OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-19</div><div class="info-item-2">OpenClaw 远程控制完全指南：手机变身为你的个人 AI 操作系统遥控器</div></div><div class="info-2"><div class="info-item-1">通过 OpenClaw 网关协议将 iOS/安卓设备变成 AI 遥控器，实现截图、相机、定位等硬件能力的远程控制，打造真正的跨设备个人 AI 操作系统。</div></div></div></a><a class="pagination-related" href="/posts/3db4/" title="OpenClaw安全警示：你必须知道的5大风险"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-29</div><div class="info-item-2">OpenClaw安全警示：你必须知道的5大风险</div></div><div class="info-2"><div class="info-item-1">OpenClaw存在远程代码执行漏洞(CVE-2026-25253)、API密钥泄露、Prompt注入攻击等严重安全问题，ClawHub上12%的Skills为恶意软件。本文详解5大风险及实用防护建议。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%89%88%E6%9C%AC%E6%A6%82%E8%A7%88-%E2%80%94-2026-3-%E5%B8%A6%E6%9D%A5%E4%BA%86%E4%BB%80%E4%B9%88"><span class="toc-number">1.</span> <span class="toc-text">版本概览 — 2026.3 带来了什么</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E6%96%B0%E5%8A%9F%E8%83%BD%E8%AF%A6%E8%A7%A3"><span class="toc-number">2.</span> <span class="toc-text">核心新功能详解</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#btw-%E4%BE%A7%E8%BE%B9%E9%97%AE%E7%AD%94"><span class="toc-number">2.1.</span> <span class="toc-text">&#x2F;btw 侧边问答</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%AF%E6%8F%92%E6%8B%94%E6%B2%99%E7%9B%92%E5%90%8E%E7%AB%AF"><span class="toc-number">2.2.</span> <span class="toc-text">可插拔沙盒后端</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Firecrawl-%E9%9B%86%E6%88%90"><span class="toc-number">2.3.</span> <span class="toc-text">Firecrawl 集成</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Secrets-%E5%B7%A5%E4%BD%9C%E6%B5%81"><span class="toc-number">2.4.</span> <span class="toc-text">Secrets 工作流</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8F%92%E4%BB%B6%E7%B3%BB%E7%BB%9F%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98"><span class="toc-number">3.</span> <span class="toc-text">插件系统重构实战</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E-Skills-%E5%88%B0%E4%B8%89%E5%B1%82%E6%9E%B6%E6%9E%84"><span class="toc-number">3.1.</span> <span class="toc-text">从 Skills 到三层架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Bundle-%E9%85%8D%E7%BD%AE%E7%A4%BA%E4%BE%8B"><span class="toc-number">3.2.</span> <span class="toc-text">Bundle 配置示例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Provider-%E6%8F%92%E4%BB%B6%E5%8C%96"><span class="toc-number">3.3.</span> <span class="toc-text">Provider 插件化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ClawHub-%E6%8A%80%E8%83%BD%E5%B8%82%E5%9C%BA"><span class="toc-number">3.4.</span> <span class="toc-text">ClawHub 技能市场</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8D%87%E7%BA%A7%E4%B8%8E%E8%BF%81%E7%A7%BB%E6%8C%87%E5%8D%97"><span class="toc-number">4.</span> <span class="toc-text">升级与迁移指南</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E%E6%97%A7%E7%89%88%E6%9C%AC%E5%B9%B3%E6%BB%91%E5%8D%87%E7%BA%A7"><span class="toc-number">4.1.</span> <span class="toc-text">从旧版本平滑升级</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E5%85%BC%E5%AE%B9%E6%80%A7%E6%A3%80%E6%9F%A5%E6%B8%85%E5%8D%95"><span class="toc-number">4.2.</span> <span class="toc-text">配置兼容性检查清单</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98%E4%B8%8E%E8%A7%A3%E5%86%B3"><span class="toc-number">4.3.</span> <span class="toc-text">常见问题与解决</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E5%9C%BA%E6%99%AF%E4%B8%8E%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">5.</span> <span class="toc-text">实战场景与最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF%E4%B8%80%EF%BC%9A%E5%A4%9A%E6%A8%A1%E5%9E%8B%E8%B7%AF%E7%94%B1%E6%88%90%E6%9C%AC%E4%BC%98%E5%8C%96"><span class="toc-number">5.1.</span> <span class="toc-text">场景一：多模型路由成本优化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF%E4%BA%8C%EF%BC%9A%E6%B5%8F%E8%A7%88%E5%99%A8%E8%87%AA%E5%8A%A8%E5%8C%96%E5%A2%9E%E5%BC%BA"><span class="toc-number">5.2.</span> <span class="toc-text">场景二：浏览器自动化增强</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF%E4%B8%89%EF%BC%9A%E4%BC%81%E4%B8%9A%E7%BA%A7%E5%AE%89%E5%85%A8%E9%83%A8%E7%BD%B2"><span class="toc-number">5.3.</span> <span class="toc-text">场景三：企业级安全部署</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%87%E7%BA%A7%E5%88%B0-2026-3-%E5%90%8E%EF%BC%8C%E6%97%A7%E7%9A%84-Skills-%E9%85%8D%E7%BD%AE%E8%BF%98%E8%83%BD%E7%94%A8%E5%90%97%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">升级到 2026.3 后，旧的 Skills 配置还能用吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#OpenShell-mirror-%E6%A8%A1%E5%BC%8F%E5%92%8C-Docker-%E6%B2%99%E7%9B%92%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">OpenShell mirror 模式和 Docker 沙盒有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#btw-%E4%BE%A7%E8%BE%B9%E9%97%AE%E7%AD%94%E5%8A%9F%E8%83%BD%E4%BC%9A%E5%BD%B1%E5%93%8D%E4%B8%BB%E4%BB%BB%E5%8A%A1%E7%9A%84%E4%B8%8A%E4%B8%8B%E6%96%87%E5%90%97%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">&#x2F;btw 侧边问答功能会影响主任务的上下文吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E9%85%8D%E7%BD%AE%E5%A4%9A%E6%A8%A1%E5%9E%8B%E8%B7%AF%E7%94%B1%E6%9D%A5%E9%99%8D%E4%BD%8E%E6%88%90%E6%9C%AC%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">如何配置多模型路由来降低成本？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Firecrawl-%E9%9B%86%E6%88%90%E9%9C%80%E8%A6%81%E9%A2%9D%E5%A4%96%E4%BB%98%E8%B4%B9%E5%90%97%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">Firecrawl 集成需要额外付费吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BC%81%E4%B8%9A%E7%8E%AF%E5%A2%83%E9%83%A8%E7%BD%B2%E6%9C%89%E5%93%AA%E4%BA%9B%E5%AE%89%E5%85%A8%E5%BB%BA%E8%AE%AE%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">企业环境部署有哪些安全建议？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Hyper 公司知识库：AI Agent 记忆的工程化设计"></a><div class="content"><a class="title" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计">Hyper 公司知识库：AI Agent 记忆的工程化设计</a><time datetime="2026-11-09T02:00:00.000Z" title="发表于 2026-11-09 10:00:00">2026-11-09</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"></a><div class="content"><a class="title" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</a><time datetime="2026-11-08T02:00:00.000Z" title="发表于 2026-11-08 10:00:00">2026-11-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自进化 AI：2026 年让模型持续学习的 4 种方法"></a><div class="content"><a class="title" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法">自进化 AI：2026 年让模型持续学习的 4 种方法</a><time datetime="2026-11-07T02:00:00.000Z" title="发表于 2026-11-07 10:00:00">2026-11-07</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

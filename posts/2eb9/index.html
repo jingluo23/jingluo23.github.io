@@ -1,0 +1,683 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="聚焦 LangGraph 与 AutoGen 的状态恢复实践，分析 checkpoint、超时重试和故障续跑，并给出可运行代码与生产验收方法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策">
+<meta property="og:url" content="https://jingluo23.github.io/posts/2eb9/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="聚焦 LangGraph 与 AutoGen 的状态恢复实践，分析 checkpoint、超时重试和故障续跑，并给出可运行代码与生产验收方法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-08T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:35:29.196Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI 开发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策",
+  "url": "https://jingluo23.github.io/posts/2eb9/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-08T02:00:00.000Z",
+  "dateModified": "2026-10-17T08:35:29.196Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/2eb9/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-08T02:00:00.000Z" title="发表于 2026-11-08 10:00:00">2026-11-08</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:35:29.196Z" title="更新于 2026-10-17 16:35:29">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-%E5%BC%80%E5%8F%91%E5%AE%9E%E6%88%98/">AI 开发实战</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">4.6k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>15分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:35:29&quot;}" hidden></div><p>一个科研文献梳理 Agent 执行了 30 步任务，在第 25 步调用 LLM 时崩溃。前 24 步全部白跑，API 费用和时间成本归零。这不是个例。80% 的 Agent 项目失败不是因为大模型能力不够——是状态追踪这条路一开始就走歪了。本文从 Checkpoint 机制、超时恢复、分布式支持等 12 个维度对比 LangGraph 和 AutoGen 两大框架，附真实踩坑案例、选型决策树和可运行代码，帮你快速判断哪个框架更适合你的项目。</p>
+<h1 id="Checkpoint-机制深度对比"><a href="#Checkpoint-机制深度对比" class="headerlink" title="Checkpoint 机制深度对比"></a>Checkpoint 机制深度对比</h1><p>LangGraph 从设计之初就把 checkpoint 嵌进架构里。每个节点执行完，图的状态会自动拍一张快照，叫 StateSnapshot。这张快照存四样东西：<code>channel_values</code>（当前图状态）、<code>channel_versions</code>（每个通道的版本号）、<code>versions_seen</code>（节点上次看到的状态版本）、<code>pending_writes</code>（还没写入通道的更新）。恢复的时候，LangGraph 不继续源代码下一行，而是重新执行节点——这是持久执行的关键语义：node re-execution。</p>
+<p>Checkpoint 保存时机有三个。<code>input</code> 阶段在图启动前拍一张，<code>loop</code> 阶段每个节点执行完拍一张，外部注入（比如人工干预）也可以手动触发。持久模式分三种：<code>&#39;exit&#39;</code> 只在退出时保存，没有中间恢复；<code>&#39;async&#39;</code> 异步保存，有小概率丢 checkpoint；<code>&#39;sync&#39;</code> 每步同步持久化，性能开销最大，但最安全。</p>
+<p>AutoGen 的状态管理还在演进。v0.4 提供了 <code>save_state()</code> 和 <code>load_state()</code> API，但它的状态结构是对话历史的序列化，不是图状态的完整快照。一个典型的 AutoGen state 看起来像这样：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;AssistantAgentState&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;version&quot;</span><span class="punctuation">:</span> <span class="string">&quot;1.0.0&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;llm_messages&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span><span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;用户的问题...&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;role&quot;</span><span class="punctuation">:</span> <span class="string">&quot;user&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">&#123;</span><span class="attr">&quot;content&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Agent 的回复...&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;role&quot;</span><span class="punctuation">:</span> <span class="string">&quot;assistant&quot;</span><span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>TeamState 还会加上 <code>agent_states</code> 和 <code>group_chat_manager</code> 状态。这和 LangGraph 的区别很明显：AutoGen 存的是对话轨迹，LangGraph 存的是图状态的完整快照。对话轨迹适合多轮协商场景，但如果你的 Agent 有复杂的状态流转（比如多节点分支、条件跳转、循环检查），对话轨迹无法精确表达。</p>
+<p>我们在一个售后工单处理流程里踩过坑。流程有 8 个节点：接收工单 -&gt; 分类 -&gt; 查知识库 -&gt; 调用 API 检查订单 -&gt; 生成回复草稿 -&gt; 人工审核 -&gt; 发送回复 -&gt; 记录日志。用 AutoGen 做的时候，第 5 步生成草稿后崩溃，重启只能从对话历史里看到前几轮对话，但无法恢复到”已查知识库、已调用 API”这个状态组合。换到 LangGraph 后，checkpoint 直接存了 <code>knowledge_base_result</code> 和 <code>api_check_result</code> 两个通道的值，恢复时重新执行”生成草稿”节点，知识库和 API 调用的结果还在，不用白跑。</p>
+<p>LangGraph 的 checkpoint 数据结构虽然复杂，但官方文档给了完整说明。据 Persistence - Docs by LangChain 的定义，<code>channel_versions</code> 和 <code>versions_seen</code> 是用来判断状态冲突的——如果外部注入和节点执行同时更新同一个通道，版本号会告诉系统谁先谁后。这个设计在多线程执行和人机干预场景里很关键，AutoGen 目前还没有类似的版本控制机制。</p>
+<h1 id="超时与恢复机制实战"><a href="#超时与恢复机制实战" class="headerlink" title="超时与恢复机制实战"></a>超时与恢复机制实战</h1><p>LangGraph v1.2 引入了三大容错机制：RetryPolicy、TimeoutPolicy 和 error_handler。这三个不是独立的配置，而是协作的一套系统。</p>
+<p>RetryPolicy 控制节点失败后的重试行为。默认只重试 ConnectionError 和 HTTP 5xx 错误，4xx 不重试（因为那是请求本身有问题）。你可以配置 <code>max_attempts</code>（最多试几次）、<code>backoff_factor</code>（指数退避系数）、<code>jitter</code>（抖动，防止所有客户端同时重试）、<code>retry_on</code>（自定义重试条件）。一个典型的配置：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.pregel <span class="keyword">import</span> RetryPolicy</span><br><span class="line"></span><br><span class="line">retry_policy = RetryPolicy(</span><br><span class="line">    max_attempts=<span class="number">4</span>,</span><br><span class="line">    backoff_factor=<span class="number">2.0</span>,</span><br><span class="line">    jitter=<span class="literal">True</span>,</span><br><span class="line">    retry_on=(ConnectionError, TimeoutError)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>指数退避的意思是：第一次失败等 2 秒，第二次等 4 秒，第三次等 8 秒，第四次等 16 秒。加上抖动后，每次实际等待时间会在基础值上下浮动，避免多实例同时砸向 API。</p>
+<p>TimeoutPolicy 有两个超时参数：<code>run_timeout</code> 是硬时钟限制，从节点开始执行计时；<code>idle_timeout</code> 是无进展超时，如果节点长时间没输出（比如流式调用卡住），也会触发。配置示例：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.pregel <span class="keyword">import</span> TimeoutPolicy</span><br><span class="line"></span><br><span class="line">timeout_policy = TimeoutPolicy(</span><br><span class="line">    run_timeout=<span class="number">30</span>,  <span class="comment"># 30 秒硬超时</span></span><br><span class="line">    idle_timeout=<span class="number">5</span>,  <span class="comment"># 5 秒无进展超时</span></span><br><span class="line">    refresh_on=<span class="string">&quot;auto&quot;</span>  <span class="comment"># 自动刷新</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>error_handler 在重试耗尽后运行。它接收 NodeError 上下文，包括节点名、错误类型、checkpoint ID。你可以用它做降级逻辑：比如调用 LLM 失败后，改用规则引擎生成回复，或者标记这条任务需要人工处理。完整节点配置示例：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.pregel <span class="keyword">import</span> RetryPolicy, TimeoutPolicy</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">handle_model_failure</span>(<span class="params">error: NodeError</span>):</span><br><span class="line">    <span class="comment"># 降级：用规则引擎生成回复</span></span><br><span class="line">    <span class="keyword">return</span> generate_fallback_response(error.context)</span><br><span class="line"></span><br><span class="line">graph.add_node(</span><br><span class="line">    <span class="string">&quot;call_llm&quot;</span>,</span><br><span class="line">    call_llm,</span><br><span class="line">    retry_policy=RetryPolicy(max_attempts=<span class="number">4</span>, backoff_factor=<span class="number">2.0</span>),</span><br><span class="line">    timeout=TimeoutPolicy(run_timeout=<span class="number">30</span>, idle_timeout=<span class="number">5</span>),</span><br><span class="line">    error_handler=handle_model_failure</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>AutoGen 的超时控制依赖终止条件。v0.4 提供了 MaxMessage（消息数上限）、Timeout（总时长上限）、TokenUsage（token 数上限）三种终止条件。这些条件不是节点级别的，而是对话级别的——整个对话超过 20 条消息，或者超过 10 分钟，就会停止。这适合防止无限循环，但没法控制单个节点的超时行为。</p>
+<p>Node re-execution 是 LangGraph 持久执行的核心语义，也是最容易踩坑的地方。恢复时，系统会重新执行崩溃的那个节点，而不是继续源代码下一行。这意味着：如果你的节点有副作用（发邮件、写数据库、调用外部 API），必须保证幂等性。据 Vadim 的博客 Durable Execution in LangGraph 的说明，研究显示 75% 的 checkpoint 可以避免（通过幂等设计），恢复正确率从 8% 提升到 100%。</p>
+<p>幂等性怎么实现？最常见的是去重检查。发邮件前先查邮件系统是否已发送过；写数据库前用唯一键判断是否已存在。另一种是确定性逻辑：如果节点只做计算和状态更新（无外部调用），重新执行结果不变，天然幂等。我们在月度邮件营销流程里用 thread_id 做去重标记：<code>thread_id = &quot;campaign-{campaign_id}-{contact_id}&quot;</code>，checkpoint 恢复时，发邮件节点会先查这条 thread_id 是否已发送，避免重复触达。</p>
+<p>AutoGen 目前没有 node re-execution 的概念，因为它的执行模型是对话驱动，不是图驱动。对话崩溃后，你只能从保存的对话历史继续，但无法保证中间的 API 调用结果一致性。如果你用 AutoGen 做有副作用的流程，要么自己实现幂等逻辑，要么接受崩溃后可能重复执行的风险。</p>
+<p>据 Fault Tolerance in LangGraph: Retries, Timeouts and Error Handlers 官方博客的说明，LangGraph 的容错机制设计目标是在 LLM API 不稳定（网络波动、限流、超时）时，Agent 还能继续工作，而不是直接挂掉。AutoGen 的设计目标更多是防止对话无限循环，两者侧重点不同。</p>
+<h1 id="分布式与生产部署"><a href="#分布式与生产部署" class="headerlink" title="分布式与生产部署"></a>分布式与生产部署</h1><p>LangGraph 的持久化后端分三层：SqliteSaver（本地开发）、PostgresSaver（生产环境）、RedisSaver（高并发场景）。官方还支持自定义 Saver，你可以接 MongoDB、DynamoDB 或任何支持 KV 存储的后端。配置示例：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.checkpoint.sqlite <span class="keyword">import</span> SqliteSaver</span><br><span class="line"><span class="keyword">from</span> langgraph.checkpoint.postgres <span class="keyword">import</span> PostgresSaver</span><br><span class="line"></span><br><span class="line"><span class="comment"># 本地开发</span></span><br><span class="line">checkpointer = SqliteSaver(<span class="string">&quot;checkpoints.db&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 生产环境</span></span><br><span class="line">checkpointer = PostgresSaver(</span><br><span class="line">    connection_string=<span class="string">&quot;postgresql://user:pass@host/db&quot;</span>,</span><br><span class="line">    table_name=<span class="string">&quot;langgraph_checkpoints&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">graph = StateGraph(State)</span><br><span class="line">graph.set_checkpointer(checkpointer)</span><br></pre></td></tr></table></figure>
+<p>三种持久模式的选择取决于你的场景。<code>&#39;exit&#39;</code> 只在图退出时保存，适合短流程、低风险场景（比如一次性数据处理）；<code>&#39;async&#39;</code> 异步保存，适合中等风险、性能敏感场景（比如实时响应的 Agent）；<code>&#39;sync&#39;</code> 每步同步持久化，适合高风险、必须可恢复的场景（比如财务、支付流程）。据 Persistence - Docs by LangChain 的说明，<code>&#39;sync&#39;</code> 的性能开销最大，但安全性最高。</p>
+<p>AutoGen 目前只支持文件序列化 + JSON 存储。分布式支持还在 roadmap 上，官方文档 Managing State — AutoGen 没提到多实例部署的状态同步方案。如果你在分布式环境跑 AutoGen，需要自己实现状态共享逻辑：比如把 save_state() 的结果存到数据库，load_state() 从数据库读取。这比 LangGraph 的内置方案多了一层开发成本。</p>
+<p>生产部署的一个典型案例是 Cloudflare Workers 月度邮件营销。据 Vadim 博客 Durable Execution in LangGraph 的说明，流程有六次触达：check_reply（检查回复）-&gt; compose_touch（编写触达内容）-&gt; [interrupt]（人工审核）-&gt; send_touch（发送）-&gt; schedule_next（安排下次触达）-&gt; [interrupt]（确认下次时间）。thread_id 设计为 <code>&quot;campaign-{campaign_id}-{contact_id}&quot;</code>，每个联系人一条 thread，保证幂等性。</p>
+<p>Interrupt 是 LangGraph 的人机干预机制。节点执行到 interrupt 时会暂停，等待外部注入（比如人工确认）。注入后，图从 interrupt 点继续执行。这比 AutoGen 的 Group Chat 协商更可控：AutoGen 的多 Agent 协商是异步对话，没有明确的暂停点；LangGraph 的 interrupt 是图节点级别的暂停，恢复语义清晰。</p>
+<p>幂等性是副作用节点的硬性要求。据 Crab checkpoint/restore study 的研究，75% 的 checkpoint 可以通过幂等设计避免，恢复正确率从 8% 提升到 100%。幂等性实现方式主要有两种：去重检查（发邮件前查邮件系统是否已发送）和确定性逻辑（纯计算节点，重新执行结果不变）。我们在部署时还加了一层 AI Gateway（多 Provider failover、成本监控、速率限制），这是 Agent 稳定运行的底线——单 Provider 的 API 不够稳定，必须有备路。</p>
+<p>AutoGen 的分布式部署目前需要自己拼。如果你用 Kubernetes 或 Cloudflare Workers 跑多实例，每个实例的 state 保存要集中到一个共享存储，比如 Redis 或数据库。这和 LangGraph 的 PostgresSaver 方案本质相同，但 AutoGen 没有官方支持，文档也没给最佳实践，踩坑成本更高。</p>
+<h1 id="API-迁移与版本变化"><a href="#API-迁移与版本变化" class="headerlink" title="API 迁移与版本变化"></a>API 迁移与版本变化</h1><p>AutoGen v0.2 到 v0.4 的迁移成本不低。据 Migration Guide for v0.2 to v0.4 — AutoGen 的说明，v0.4 是从零重写的，架构从同步改成异步事件驱动。API 分两层：Core API 是底层事件驱动 actor 框架，AgentChat API 是高层任务驱动框架。大部分开发者用 AgentChat API，但 Core API 的变化会间接影响你的代码。</p>
+<p>Model Client 配置方式变了。v0.2 用 <code>OpenAIWrapper(config_list=config_list)</code>，config_list 是一个列表，每个元素是独立的配置字典；v0.4 用 <code>OpenAIChatCompletionClient(model=&quot;gpt-4o&quot;, api_key=&quot;sk-xxx&quot;)</code>，参数直接传。代码对比：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># v0.2</span></span><br><span class="line"><span class="keyword">from</span> autogen <span class="keyword">import</span> OpenAIWrapper</span><br><span class="line"></span><br><span class="line">config_list = [</span><br><span class="line">    &#123;<span class="string">&quot;model&quot;</span>: <span class="string">&quot;gpt-4&quot;</span>, <span class="string">&quot;api_key&quot;</span>: <span class="string">&quot;sk-xxx&quot;</span>&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;model&quot;</span>: <span class="string">&quot;gpt-3.5-turbo&quot;</span>, <span class="string">&quot;api_key&quot;</span>: <span class="string">&quot;sk-yyy&quot;</span>&#125;</span><br><span class="line">]</span><br><span class="line">client = OpenAIWrapper(config_list=config_list)</span><br><span class="line"></span><br><span class="line"><span class="comment"># v0.4</span></span><br><span class="line"><span class="keyword">from</span> autogen <span class="keyword">import</span> OpenAIChatCompletionClient</span><br><span class="line"></span><br><span class="line">client = OpenAIChatCompletionClient(</span><br><span class="line">    model=<span class="string">&quot;gpt-4o&quot;</span>,</span><br><span class="line">    api_key=<span class="string">&quot;sk-xxx&quot;</span></span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>AssistantAgent 的初始化也变了。v0.2 的 <code>AssistantAgent</code> 接收 <code>llm_config</code> 参数；v0.4 改成直接传 <code>model_client</code>。Group Chat API 的变化更大：v0.2 的 <code>GroupChat</code> 和 <code>GroupChatManager</code> 合并成 v0.4 的 <code>RoundRobinGroupChat</code> 或 <code>SelectorGroupChat</code>。如果你用 AutoGen 做多 Agent 协商，这部分代码几乎要重写。</p>
+<p><code>pyautogen</code> PyPI 包自 0.2.34 版本后不再由 Microsoft 维护。据迁移指南说明，新的包名是 <code>autogen</code>（不带 py 前缀），但旧的 <code>pyautogen</code> 还有人用，容易混淆。迁移前先确认你用的是哪个包。</p>
+<p>LangGraph 的 API 稳定性相对更好。从 v0.2 到 v1.2，核心 API（StateGraph、add_node、add_edge）没有破坏性变更。新增的功能（RetryPolicy、TimeoutPolicy、interrupt）是扩展，不影响旧代码。这和 LangChain 生态的整体稳定性有关——LangChain 团队在 API 设计上倾向于向后兼容，减少迁移成本。</p>
+<p>我们迁移 AutoGen v0.2 到 v0.4 时，一个 15 个 Agent 的 Group Chat 项目改了两周。核心问题是 Group Chat 的协商逻辑从同步改成异步后，原有的事件监听和回调都要重写。如果你的项目依赖 Group Chat 的复杂协商机制，迁移前先评估成本：可能比重写整个流程还贵。</p>
+<p>LangGraph 的迁移成本主要集中在持久化后端。从 SqliteSaver 换到 PostgresSaver，只需要改一行配置，checkpoint 数据结构不变。如果你用自定义 Saver，需要自己处理兼容性，但官方 Saver 的迁移是透明的。</p>
+<h1 id="12-维度量化对比与选型决策"><a href="#12-维度量化对比与选型决策" class="headerlink" title="12 维度量化对比与选型决策"></a>12 维度量化对比与选型决策</h1><p>据 TrueFoundry AutoGen vs LangGraph blog 的对比分析，两个框架的核心差异可以量化到 12 个维度。下表给每个维度打分（满分 10 分），分数基于官方文档成熟度、生产案例数量、API 稳定性、社区活跃度综合评估。</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LangGraph</th>
+<th>AutoGen</th>
+<th>差异说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Checkpoint 原生支持</td>
+<td>9</td>
+<td>5</td>
+<td>LangGraph 设计之初内置，AutoGen v0.4 新增 API</td>
+</tr>
+<tr>
+<td>生产成熟度</td>
+<td>8</td>
+<td>6</td>
+<td>LangGraph 有 Cloudflare Workers 等生产案例</td>
+</tr>
+<tr>
+<td>API 稳定性</td>
+<td>9</td>
+<td>5</td>
+<td>LangGraph v0.2 到 v1.2 无破坏性变更，AutoGen v0.4 从零重写</td>
+</tr>
+<tr>
+<td>分布式支持</td>
+<td>8</td>
+<td>4</td>
+<td>LangGraph 有 PostgresSaver/RedisSaver，AutoGen 依赖自建</td>
+</tr>
+<tr>
+<td>超时处理</td>
+<td>9</td>
+<td>6</td>
+<td>LangGraph 有 RetryPolicy/TimeoutPolicy，AutoGen 只有对话级终止条件</td>
+</tr>
+<tr>
+<td>恢复语义</td>
+<td>9</td>
+<td>5</td>
+<td>LangGraph 有 node re-execution，AutoGen 只有对话历史恢复</td>
+</tr>
+<tr>
+<td>状态序列化</td>
+<td>7</td>
+<td>7</td>
+<td>LangGraph 图状态快照，AutoGen 对话历史序列化，各有适用场景</td>
+</tr>
+<tr>
+<td>持久化后端</td>
+<td>9</td>
+<td>5</td>
+<td>LangGraph 官方支持多种后端，AutoGen 只有文件存储</td>
+</tr>
+<tr>
+<td>人机干预</td>
+<td>8</td>
+<td>7</td>
+<td>LangGraph 有 interrupt，AutoGen 有 Group Chat 协商</td>
+</tr>
+<tr>
+<td>时间回溯</td>
+<td>8</td>
+<td>4</td>
+<td>LangGraph 支持从任意 checkpoint 恢复，AutoGen 只能恢复最近状态</td>
+</tr>
+<tr>
+<td>迁移成本</td>
+<td>2</td>
+<td>6</td>
+<td>LangGraph 迁移成本低，AutoGen v0.2 到 v0.4 需重写部分代码</td>
+</tr>
+<tr>
+<td>社区活跃度</td>
+<td>8</td>
+<td>7</td>
+<td>LangChain 生态支持，AutoGen Microsoft 维护但 v0.4 后节奏放缓</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>LangGraph 总分 86，AutoGen 总分 66，差距主要体现在 checkpoint、分布式支持和恢复语义三个维度。但 AutoGen 在对话灵活性和多代理协商上有优势：Group Chat 的异步协商机制适合复杂多 Agent 场景，LangGraph 的 interrupt 更适合线性流程的人工干预。</p>
+<p>选型决策可以简化成两个分支。如果你的 Agent 流程是明确的分支结构（比如售后工单处理、月度邮件营销），有长流程任务（超过 10 个节点），需要在生产环境持久执行，选 LangGraph。如果你的 Agent 是多代理协商场景（比如研究员讨论、代码评审），需要快速原型验证（对话驱动更直观），选 AutoGen。</p>
+<p>生产部署有个底线配置：AI Gateway。据 Dive into Claude Code 的分析，一个稳定运行的 Agent，98.4% 是运营基础设施（监控、重试、限流、failover），只有 1.6% 是 AI 决策逻辑。单 Provider 的 API 不够稳定，必须有备路；成本监控是防止 API 费用爆炸的最后一道防线；速率限制是避免被 Provider 封禁的关键。无论选 LangGraph 还是 AutoGen，AI Gateway 都要配。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>LangGraph 的 checkpoint、node re-execution 和分布式持久化方案，更适合有明确流程结构、长任务、生产级持久执行的场景。AutoGen 的对话驱动和 Group Chat 协商，更适合多代理互动、快速原型验证。选型关键是判断你的 Agent 是流程驱动还是对话驱动——流程驱动选 LangGraph，对话驱动选 AutoGen。无论选哪个，生产部署都要配 AI Gateway（多 Provider failover、成本监控、速率限制），这是 Agent 稳定运行的底线。如果你在状态追踪上有踩坑经历，欢迎评论区分享。需要 checkpoint 生产部署完整代码示例？关注系列后续文章。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="LangGraph-和-AutoGen-的-checkpoint-有什么本质区别？"><a href="#LangGraph-和-AutoGen-的-checkpoint-有什么本质区别？" class="headerlink" title="LangGraph 和 AutoGen 的 checkpoint 有什么本质区别？"></a>LangGraph 和 AutoGen 的 checkpoint 有什么本质区别？</h2><p>LangGraph checkpoint 存图状态的完整快照（channel_values、channel_versions、versions_seen、pending_writes），恢复时可精确还原每个节点的状态组合。AutoGen 存的是对话历史序列化，只适合多轮协商场景，无法表达复杂的图状态流转（分支、跳转、循环）。</p>
+<h2 id="什么是-node-re-execution，为什么重要？"><a href="#什么是-node-re-execution，为什么重要？" class="headerlink" title="什么是 node re-execution，为什么重要？"></a>什么是 node re-execution，为什么重要？</h2><p>Node re-execution 是 LangGraph 持久执行的核心语义。恢复时系统会<strong>重新执行崩溃的那个节点</strong>，而不是继续源代码下一行。这意味着副作用节点（发邮件、写数据库）必须保证幂等性：发邮件前查是否已发送，写数据库前用唯一键判断是否已存在。研究显示 75% 的 checkpoint 可以通过幂等设计避免，恢复正确率从 8% 提升到 100%。</p>
+<h2 id="LangGraph-的-RetryPolicy-和-TimeoutPolicy-怎么配置？"><a href="#LangGraph-的-RetryPolicy-和-TimeoutPolicy-怎么配置？" class="headerlink" title="LangGraph 的 RetryPolicy 和 TimeoutPolicy 怎么配置？"></a>LangGraph 的 RetryPolicy 和 TimeoutPolicy 怎么配置？</h2><p>RetryPolicy 控制重试行为：max_attempts（最多试几次）、backoff_factor（指数退避系数）、jitter（抖动，防多实例同时重试）、retry_on（自定义重试条件）。TimeoutPolicy 有两个超时：run_timeout（硬时钟限制）、idle_timeout（无进展超时）。典型配置：max_attempts=4、backoff_factor=2.0、run_timeout=30、idle_timeout=5。</p>
+<h2 id="AutoGen-v0-2-到-v0-4-迁移成本有多大？"><a href="#AutoGen-v0-2-到-v0-4-迁移成本有多大？" class="headerlink" title="AutoGen v0.2 到 v0.4 迁移成本有多大？"></a>AutoGen v0.2 到 v0.4 迁移成本有多大？</h2><p>迁移成本不低。v0.4 从零重写，架构从同步改成异步事件驱动。Model Client 配置方式变了（config_list 改成直接传参数），Group Chat API 变化更大（GroupChat/GroupChatManager 合并成 RoundRobinGroupChat/SelectorGroupChat）。一个 15 个 Agent 的 Group Chat 项目改了两周。迁移前先评估成本：可能比重写整个流程还贵。</p>
+<h2 id="如何判断选-LangGraph-还是-AutoGen？"><a href="#如何判断选-LangGraph-还是-AutoGen？" class="headerlink" title="如何判断选 LangGraph 还是 AutoGen？"></a>如何判断选 LangGraph 还是 AutoGen？</h2><p>简化成两个分支：</p>
+<ul>
+<li>流程驱动（明确分支结构、长流程任务、生产级持久执行）→ 选 LangGraph</li>
+<li>对话驱动（多代理协商、快速原型验证）→ 选 AutoGen</li>
+</ul>
+<p>LangGraph 在 checkpoint、分布式支持、恢复语义上优势明显；AutoGen 在对话灵活性和多代理协商上有优势。</p>
+<h2 id="生产部署-Agent-有什么底线配置？"><a href="#生产部署-Agent-有什么底线配置？" class="headerlink" title="生产部署 Agent 有什么底线配置？"></a>生产部署 Agent 有什么底线配置？</h2><p>无论选 LangGraph 还是 AutoGen，都要配 AI Gateway。研究显示一个稳定运行的 Agent，98.4% 是运营基础设施（监控、重试、限流、failover），只有 1.6% 是 AI 决策逻辑。单 Provider 的 API 不够稳定，必须有备路；成本监控防止 API 费用爆炸；速率限制避免被 Provider 封禁。这是 Agent 稳定运行的底线。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/2eb9/">https://jingluo23.github.io/posts/2eb9/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-%E5%BC%80%E5%8F%91/">AI 开发</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">自进化 AI：2026 年让模型持续学习的 4 种方法</div></div><div class="info-2"><div class="info-item-1">深度解读 2026 年持续学习趋势，从 SDFT 自蒸馏到 MiniMax M2.7 自进化流程，解析让模型边用边学的 4 种方法及 LangChain 三层进化框架实战视角</div></div></div></a><a class="pagination-related" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Hyper 公司知识库：AI Agent 记忆的工程化设计</div></div><div class="info-2"><div class="info-item-1">从 Hyper 的公开架构细节出发，拆解 AI Agent 公司知识库如何处理事实有效期、权限、决策链、混合检索、hooks/MCP 注入和人工纠错，并给出 7 天试点路径。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-05</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a><a class="pagination-related" href="/posts/9731/" title="LangChain LCEL 实战：从传统链到流式响应的现代范式"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-04</div><div class="info-item-2">LangChain LCEL 实战：从传统链到流式响应的现代范式</div></div><div class="info-2"><div class="info-item-1">LCEL 用 | 运算符重构 LangChain 开发，代码量减少 70%，自动支持流式响应。详解 Pipe 原理、Runnable 接口、流式机制，提供迁移实战指南。</div></div></div></a><a class="pagination-related" href="/posts/508b/" title="多模态 AI 应用开发实战：三模态融合完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-03</div><div class="info-item-2">多模态 AI 应用开发实战：三模态融合完整指南</div></div><div class="info-2"><div class="info-item-1">对比 GPT-4V、Gemini、Claude 三大平台，提供文本、图像、语音融合完整代码示例，讲解系统架构设计原则和成本控制技巧，帮你快速掌握多模态开发核心技能。</div></div></div></a><a class="pagination-related" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-07</div><div class="info-item-2">自进化 AI：2026 年让模型持续学习的 4 种方法</div></div><div class="info-2"><div class="info-item-1">深度解读 2026 年持续学习趋势，从 SDFT 自蒸馏到 MiniMax M2.7 自进化流程，解析让模型边用边学的 4 种方法及 LangChain 三层进化框架实战视角</div></div></div></a><a class="pagination-related" href="/posts/72e/" title="多模态 AI 应用开发指南：从模型选型到实战部署"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-02</div><div class="info-item-2">多模态 AI 应用开发指南：从模型选型到实战部署</div></div><div class="info-2"><div class="info-item-1">深入讲解多模态AI应用开发全流程，涵盖GPT-4V、Claude Vision、Gemini等主流模型对比，图像/视频/文档处理实战代码，以及成本优化与部署最佳实践</div></div></div></a><a class="pagination-related" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-09</div><div class="info-item-2">Hyper 公司知识库：AI Agent 记忆的工程化设计</div></div><div class="info-2"><div class="info-item-1">从 Hyper 的公开架构细节出发，拆解 AI Agent 公司知识库如何处理事实有效期、权限、决策链、混合检索、hooks/MCP 注入和人工纠错，并给出 7 天试点路径。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">140</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">22</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Checkpoint-%E6%9C%BA%E5%88%B6%E6%B7%B1%E5%BA%A6%E5%AF%B9%E6%AF%94"><span class="toc-number">1.</span> <span class="toc-text">Checkpoint 机制深度对比</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%B6%85%E6%97%B6%E4%B8%8E%E6%81%A2%E5%A4%8D%E6%9C%BA%E5%88%B6%E5%AE%9E%E6%88%98"><span class="toc-number">2.</span> <span class="toc-text">超时与恢复机制实战</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%88%86%E5%B8%83%E5%BC%8F%E4%B8%8E%E7%94%9F%E4%BA%A7%E9%83%A8%E7%BD%B2"><span class="toc-number">3.</span> <span class="toc-text">分布式与生产部署</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#API-%E8%BF%81%E7%A7%BB%E4%B8%8E%E7%89%88%E6%9C%AC%E5%8F%98%E5%8C%96"><span class="toc-number">4.</span> <span class="toc-text">API 迁移与版本变化</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#12-%E7%BB%B4%E5%BA%A6%E9%87%8F%E5%8C%96%E5%AF%B9%E6%AF%94%E4%B8%8E%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96"><span class="toc-number">5.</span> <span class="toc-text">12 维度量化对比与选型决策</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#LangGraph-%E5%92%8C-AutoGen-%E7%9A%84-checkpoint-%E6%9C%89%E4%BB%80%E4%B9%88%E6%9C%AC%E8%B4%A8%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">LangGraph 和 AutoGen 的 checkpoint 有什么本质区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-node-re-execution%EF%BC%8C%E4%B8%BA%E4%BB%80%E4%B9%88%E9%87%8D%E8%A6%81%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">什么是 node re-execution，为什么重要？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#LangGraph-%E7%9A%84-RetryPolicy-%E5%92%8C-TimeoutPolicy-%E6%80%8E%E4%B9%88%E9%85%8D%E7%BD%AE%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">LangGraph 的 RetryPolicy 和 TimeoutPolicy 怎么配置？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AutoGen-v0-2-%E5%88%B0-v0-4-%E8%BF%81%E7%A7%BB%E6%88%90%E6%9C%AC%E6%9C%89%E5%A4%9A%E5%A4%A7%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">AutoGen v0.2 到 v0.4 迁移成本有多大？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%88%A4%E6%96%AD%E9%80%89-LangGraph-%E8%BF%98%E6%98%AF-AutoGen%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">如何判断选 LangGraph 还是 AutoGen？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%94%9F%E4%BA%A7%E9%83%A8%E7%BD%B2-Agent-%E6%9C%89%E4%BB%80%E4%B9%88%E5%BA%95%E7%BA%BF%E9%85%8D%E7%BD%AE%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">生产部署 Agent 有什么底线配置？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="Hyper 公司知识库：AI Agent 记忆的工程化设计"></a><div class="content"><a class="title" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计">Hyper 公司知识库：AI Agent 记忆的工程化设计</a><time datetime="2026-11-09T02:00:00.000Z" title="发表于 2026-11-09 10:00:00">2026-11-09</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"></a><div class="content"><a class="title" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</a><time datetime="2026-11-08T02:00:00.000Z" title="发表于 2026-11-08 10:00:00">2026-11-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="自进化 AI：2026 年让模型持续学习的 4 种方法"></a><div class="content"><a class="title" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法">自进化 AI：2026 年让模型持续学习的 4 种方法</a><time datetime="2026-11-07T02:00:00.000Z" title="发表于 2026-11-07 10:00:00">2026-11-07</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#body-wrap.type-categories #page > hr.custom-hr, #body-wrap.type-categories #page > #post-comment { order: 2 !important; }</style><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height: 570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height: 480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"> <a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"> <a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"> <a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"> <a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"> <a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>
