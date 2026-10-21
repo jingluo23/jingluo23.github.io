@@ -213,7 +213,7 @@ class CrystalCursor {
             }
 
             // 设置粒子颜色和发光效果
-            const hue = 270 + Math.random() * 30 - 15;
+            const hue = 205 + Math.random() * 30 - 15;
             particle.el.style.background = `linear-gradient(to bottom, 
                 hsla(${hue}, 100%, 70%, 0.9), 
                 hsla(${hue + 20}, 100%, 50%, 0.5))`;
@@ -223,7 +223,7 @@ class CrystalCursor {
 
     // 创建水晶爆炸效果
     createCrystalBurst(x, y) {
-        const colors = ['#8a2be2', '#9932cc', '#ba55d3', '#da70d6', '#d8bfd8'];
+        const colors = ['#3b8fd4', '#2e86d1', '#17a2d6', '#4aa3e8', '#8fc1e9'];
         const count = 50; // 爆炸粒子数量
 
         for (let i = 0; i < count; i++) {
