@@ -1,0 +1,866 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="解释 AI 编程 Agent 的 Prompt Cache 为什么会因易变前缀、cache key、默认开关或 TTL 失效，并用 prompt-cache-skills 修复后通过冷、热请求验证真实命中率。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存">
+<meta property="og:url" content="https://jingluo23.github.io/posts/b8c/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="解释 AI 编程 Agent 的 Prompt Cache 为什么会因易变前缀、cache key、默认开关或 TTL 失效，并用 prompt-cache-skills 修复后通过冷、热请求验证真实命中率。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-14T00:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-19T00:34:31.197Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Prompt">
+<meta property="article:tag" content="Prompt Cache">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存",
+  "url": "https://jingluo23.github.io/posts/b8c/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-14T00:00:00.000Z",
+  "dateModified": "2026-10-19T00:34:31.197Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/b8c/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-14T00:00:00.000Z" title="发表于 2026-11-14 08:00:00">2026-11-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-19T00:34:31.197Z" title="更新于 2026-10-19 08:34:31">2026-10-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Prompt-%E5%B7%A5%E7%A8%8B%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/">Prompt 工程实战指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>11分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-19 08:34:31&quot;}" hidden></div><blockquote>
+<p>“prompt-cache-skills 仓库提供按 Agent harness 分类的缓存修复技能，并要求在应用 diff 后通过真实缓存用量字段验证。”</p>
+</blockquote>
+<p>你的 Claude Code 或 Cline 每月账单可能比实际应费高出 30-50%。不是因为用量大，而是 Prompt Cache 没生效。</p>
+<p>很多 AI 编程 Agent 默认会开启 prompt caching，但配置里一个小改动就能让整个缓存前缀失效：系统提示塞了时间戳、cache key 计算错误、缓存开关没打开，或者 TTL 设得太短。这些变化不会报错，账单也不会提示，你只会看到每月的 API 成本居高不下。</p>
+<p>prompt-cache-skills 是一个 drop-in 技能库，专门修复这些”悄悄失效”的缓存配置。合适场景下，缓存命中率可以从接近零提高到 80% 甚至更高。下面会解释缓存计费原理、列举四大失效原因、展示技能库的典型修复案例，并提供验证方法。</p>
+<h1 id="Prompt-Cache-怎么帮你省钱"><a href="#Prompt-Cache-怎么帮你省钱" class="headerlink" title="Prompt Cache 怎么帮你省钱"></a>Prompt Cache 怎么帮你省钱</h1><p>Prompt Cache 的省钱逻辑很简单：稳定的前缀内容可以被缓存，重复使用时计费远低于普通输入 token。</p>
+<p>各家 API 的计费字段名不同，但原理一致：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">计费类型</th>
+<th style="text-align:center">计费特点</th>
+<th style="text-align:center">适用场景</th>
+<th style="text-align:center">代表厂商</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">cache_creation_input_tokens</td>
+<td style="text-align:center">首次创建缓存，费用通常高于普通 token</td>
+<td style="text-align:center">长前缀首次请求</td>
+<td style="text-align:center">Anthropic</td>
+</tr>
+<tr>
+<td style="text-align:center">cache_read_input_tokens</td>
+<td style="text-align:center">缓存命中，费用远低于普通 token（约 10%）</td>
+<td style="text-align:center">稳定前缀多次复用</td>
+<td style="text-align:center">Anthropic</td>
+</tr>
+<tr>
+<td style="text-align:center">普通输入 token</td>
+<td style="text-align:center">按正常费率计费</td>
+<td style="text-align:center">短请求或前缀频繁变化</td>
+<td style="text-align:center">所有厂商</td>
+</tr>
+<tr>
+<td style="text-align:center">cached_tokens（OpenAI）</td>
+<td style="text-align:center">缓存命中，费用降低约 50%</td>
+<td style="text-align:center">稳定前缀复用</td>
+<td style="text-align:center">OpenAI</td>
+</tr>
+<tr>
+<td style="text-align:center">cached content（Gemini）</td>
+<td style="text-align:center">按缓存时长计费</td>
+<td style="text-align:center">长上下文场景</td>
+<td style="text-align:center">Google Gemini</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>以 Anthropic 为例，如果你的系统提示有 2000 token，每天通过同一个 Agent 复用 100 次，缓存命中时这 2000 token 会走 cache_read 计费，约为普通输入 token 的 10%。单这一项就能节省约 90% 的输入成本。</p>
+<p>缓存真正有效的前提是：前缀内容稳定且会被多次复用。如果你的系统提示每次请求都变（比如包含时间戳或随机 ID），缓存前缀每次都会重新计算，cache_creation 的成本反而可能比普通请求更高。</p>
+<h1 id="为什么你的-Agent-缓存总是失效"><a href="#为什么你的-Agent-缓存总是失效" class="headerlink" title="为什么你的 Agent 缓存总是失效"></a>为什么你的 Agent 缓存总是失效</h1><p>这些失效原因不会报错，你只会看到账单数字，却找不到具体的浪费点：</p>
+<ol>
+<li><p>易变消息破坏前缀。系统提示前缀里塞了时间戳、随机 ID 或其他每次请求都会变的内容，导致整个缓存前缀作废。这是最常见的失效原因。</p>
+</li>
+<li><p>Cache key 错误或缺失。某些 Agent 工具没有正确设置缓存标记，或者使用自定义 cache key 但计算逻辑有误。缓存前缀虽然内容稳定，但 API 无法识别为可缓存内容。</p>
+</li>
+<li><p>默认没开缓存。部分 Agent 工具默认关闭 prompt caching，需要手动在配置文件里开启。你以为 Agent 会自动处理，结果一直走普通 token 计费。</p>
+</li>
+<li><p>TTL 太短。缓存有效期设置过短（比如 1 小时），而你的实际请求间隔超过了 TTL，每次请求时缓存都已过期。</p>
+</li>
+</ol>
+<p>具体症状因 Agent 而异，prompt-cache-skills 仓库的 README 里有按工具分类的症状描述。如果你怀疑某个失效原因，可以先对照仓库里的 SKILL.md 看是否匹配你的工具。</p>
+<h1 id="prompt-cache-skills-是什么"><a href="#prompt-cache-skills-是什么" class="headerlink" title="prompt-cache-skills 是什么"></a>prompt-cache-skills 是什么</h1><p>prompt-cache-skills 是一组 drop-in 技能，任何 AI 编程 Agent 都能自己读取并应用：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">维度</th>
+<th style="text-align:center">说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">定位</td>
+<td style="text-align:center">一组 drop-in 技能，AI 编程 Agent 可自行读取并应用的修复补丁</td>
+</tr>
+<tr>
+<td style="text-align:center">目标</td>
+<td style="text-align:center">在合适场景下将缓存命中率从坏的或部分的提高到 80-99%</td>
+</tr>
+<tr>
+<td style="text-align:center">适用 Agent</td>
+<td style="text-align:center">Claude Code、Codex、Cline、Cursor、Devin、Gemini CLI、OpenCode、Aider、Continue、Roo Code 等</td>
+</tr>
+<tr>
+<td style="text-align:center">仓库地址</td>
+<td style="text-align:center"><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/OnlyTerp/prompt-cache-skills">https://github.com/OnlyTerp/prompt-cache-skills</a></td>
+</tr>
+<tr>
+<td style="text-align:center">使用方式</td>
+<td style="text-align:center">指向仓库 → Agent 自动应用 → 验证命中；或手动按 skills/ 目录 patch</td>
+</tr>
+<tr>
+<td style="text-align:center">省时优势</td>
+<td style="text-align:center">省去自己研究各家 API 缓存细节的时间</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>项目当前约 99 stars，skills 列表和命名可能会调整，具体以仓库 README 为准。</p>
+<p>与手动排查相比，这套技能库的优势在于：你不需要自己去翻各家 API 的 prompt caching 文档、对比不同 Agent 的配置差异、猜测哪个字段破坏了缓存前缀。仓库里的每个 skill 都已经识别了具体的失效原因，提供了对应的修复 diff 和验证方法。</p>
+<h1 id="怎么用-prompt-cache-skills-修复你的-Agent"><a href="#怎么用-prompt-cache-skills-修复你的-Agent" class="headerlink" title="怎么用 prompt-cache-skills 修复你的 Agent"></a>怎么用 prompt-cache-skills 修复你的 Agent</h1><p>有两种方式：让 Agent 自动修复，或者手动按 skills/ 目录修改。</p>
+<h2 id="方式一：让-Agent-自动修复（推荐）"><a href="#方式一：让-Agent-自动修复（推荐）" class="headerlink" title="方式一：让 Agent 自动修复（推荐）"></a>方式一：让 Agent 自动修复（推荐）</h2><p>第一步，指向仓库。复制这句话发给你的 AI 编程 Agent：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">读 https://github.com/OnlyTerp/prompt-cache-skills，把 skills/ 里匹配我当前使用的 harness 的每个技能都应用：确认目标 → 落 diff → 按 SKILL.md 验证</span><br></pre></td></tr></table></figure>
+<p>第二步，Agent 会识别你当前使用的工具（比如 Cline、Continue、Aider 等），然后列出匹配的技能清单。你会看到每个技能针对的失效原因。</p>
+<p>第三步，审查 diff。每个技能目录下有 SKILL.md 文件，说明修改目标和具体改动。仔细阅读后确认这些修改是否安全。</p>
+<p>第四步，应用修改。确认后让 Agent 落 diff，修改你本机或项目的配置文件。建议修改前先备份原配置。</p>
+<p>第五步，验证命中。使用 tools/check_cache.py 工具验证缓存是否生效。具体方法见下文”怎么验证缓存真的命中了”。</p>
+<h2 id="方式二：手动修复"><a href="#方式二：手动修复" class="headerlink" title="方式二：手动修复"></a>方式二：手动修复</h2><p>如果你不想让 Agent 自动修改配置，可以手动应用。</p>
+<p>第一步，访问仓库：<a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/OnlyTerp/prompt-cache-skills">https://github.com/OnlyTerp/prompt-cache-skills</a></p>
+<p>第二步，浏览 skills/ 目录，找到你使用的工具对应的技能。比如 cline-fix-volatile-msg 或 continue-enable-defaults。</p>
+<p>第三步，阅读 SKILL.md。每个技能目录下都有说明：目标、症状、修复点、验证方法。</p>
+<p>第四步，按说明手动修改你的配置文件。</p>
+<p>第五步，使用 tools/check_cache.py 验证缓存命中。</p>
+<h2 id="安全提示"><a href="#安全提示" class="headerlink" title="安全提示"></a>安全提示</h2><p>让 Agent 自动落 diff 意味着直接改你本机或项目的配置。建议先看 SKILL.md，理解每个修改点。确认后再让 Agent 自动改。修改前先备份原配置文件。</p>
+<h1 id="技能库详解（典型修复案例）"><a href="#技能库详解（典型修复案例）" class="headerlink" title="技能库详解（典型修复案例）"></a>技能库详解（典型修复案例）</h1><p>仓库里的每个技能都是一个完整的修复：有明确的目标 Agent、症状描述、修复 diff 和验证方法。以下是部分典型案例：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">技能名</th>
+<th style="text-align:center">目标 Agent</th>
+<th style="text-align:center">症状</th>
+<th style="text-align:center">修复点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">cline-fix-volatile-msg</td>
+<td style="text-align:center">Cline</td>
+<td style="text-align:center">系统提示前缀包含时间戳，每次请求前缀都变</td>
+<td style="text-align:center">移除或固定易变消息</td>
+</tr>
+<tr>
+<td style="text-align:center">cline-openai-cache-key</td>
+<td style="text-align:center">Cline + OpenAI</td>
+<td style="text-align:center">OpenAI 缓存 key 计算错误</td>
+<td style="text-align:center">修正 cache key 生成逻辑</td>
+</tr>
+<tr>
+<td style="text-align:center">cline-pin-timestamp</td>
+<td style="text-align:center">Cline</td>
+<td style="text-align:center">时间戳导致缓存失效</td>
+<td style="text-align:center">固定时间戳或移除</td>
+</tr>
+<tr>
+<td style="text-align:center">continue-fix-volatile-msg</td>
+<td style="text-align:center">Continue</td>
+<td style="text-align:center">系统提示包含易变字段</td>
+<td style="text-align:center">清理易变消息</td>
+</tr>
+<tr>
+<td style="text-align:center">continue-enable-defaults</td>
+<td style="text-align:center">Continue</td>
+<td style="text-align:center">默认未开启 prompt caching</td>
+<td style="text-align:center">启用缓存配置</td>
+</tr>
+<tr>
+<td style="text-align:center">continue-gemini-explicit</td>
+<td style="text-align:center">Continue + Gemini</td>
+<td style="text-align:center">Gemini 缓存配置缺失</td>
+<td style="text-align:center">显式设置缓存参数</td>
+</tr>
+<tr>
+<td style="text-align:center">aider-1h-ttl</td>
+<td style="text-align:center">Aider</td>
+<td style="text-align:center">缓存 TTL 仅 1 小时，频繁过期</td>
+<td style="text-align:center">延长 TTL 或调整请求频率</td>
+</tr>
+<tr>
+<td style="text-align:center">aider-cache-default-on</td>
+<td style="text-align:center">Aider</td>
+<td style="text-align:center">默认关闭缓存</td>
+<td style="text-align:center">启用默认缓存开关</td>
+</tr>
+<tr>
+<td style="text-align:center">opencode-detect-openai-compat</td>
+<td style="text-align:center">OpenCode</td>
+<td style="text-align:center">OpenAI 兼容模式缓存失效</td>
+<td style="text-align:center">检测并正确处理 OpenAI 兼容 API</td>
+</tr>
+<tr>
+<td style="text-align:center">opencode-bedrock-doc-blocks</td>
+<td style="text-align:center">OpenCode + Bedrock</td>
+<td style="text-align:center">Bedrock 文档块缓存问题</td>
+<td style="text-align:center">修正文档块缓存策略</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>技能列表持续增加，命名可能调整，以仓库 README 和 skills/ 目录为准。如果你使用的 Agent 不在当前列表里，可以参考现有技能的 SKILL.md 和 patch 文件，手动排查类似的缓存问题。</p>
+<h1 id="怎么验证缓存真的命中了"><a href="#怎么验证缓存真的命中了" class="headerlink" title="怎么验证缓存真的命中了"></a>怎么验证缓存真的命中了</h1><p>prompt-cache-skills 提供了一个验证工具：tools/check_cache.py。它会对比冷/热两次请求，计算缓存命中率。</p>
+<h2 id="使用步骤"><a href="#使用步骤" class="headerlink" title="使用步骤"></a>使用步骤</h2><p>第一步，获取 check_cache.py。从仓库下载：<br><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/OnlyTerp/prompt-cache-skills/blob/main/tools/check_cache.py">https://github.com/OnlyTerp/prompt-cache-skills/blob/main/tools/check_cache.py</a></p>
+<p>第二步，配置 API 凭证。设置环境变量：</p>
+<ul>
+<li>Anthropic: ANTHROPIC_API_KEY</li>
+<li>OpenAI: OPENAI_API_KEY</li>
+<li>Google Gemini: GOOGLE_API_KEY</li>
+</ul>
+<p>第三步，运行冷请求（首次请求）。执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">python check_cache.py --provider anthropic --prompt &quot;你的系统提示&quot; --message &quot;你的用户消息&quot;</span><br></pre></td></tr></table></figure>
+<p>观察 cache_creation_input_tokens 字段：</p>
+<ul>
+<li>如果有值，说明创建了缓存</li>
+<li>记录 input_tokens 数量</li>
+</ul>
+<p>第四步，等待 1 秒后运行热请求（重复请求）。再次执行相同命令，使用完全相同的 prompt 和 message。</p>
+<p>观察以下字段：</p>
+<ul>
+<li>cache_read_input_tokens：如果有值且大于 0，说明缓存命中</li>
+<li>cache_creation_input_tokens：应该为 0 或不存在</li>
+<li>input_tokens：应该明显减少（被缓存的部分不再计费）</li>
+</ul>
+<p>第五步，计算命中率：</p>
+<p>命中率 = cache_read_input_tokens / (cache_read_input_tokens + input_tokens)</p>
+<p>示例：</p>
+<ul>
+<li>首次请求：input_tokens=2000，cache_creation_input_tokens=1800</li>
+<li>第二次请求：cache_read_input_tokens=1800，input_tokens=200</li>
+<li>命中率 = 1800 / (1800 + 200) = 90%</li>
+</ul>
+<p>第六步，判断是否生效：</p>
+<ul>
+<li>缓存生效：热请求 cache_read_input_tokens &gt; 0</li>
+<li>缓存未生效：热请求 cache_read_input_tokens = 0 或不存在</li>
+</ul>
+<h2 id="指标说明"><a href="#指标说明" class="headerlink" title="指标说明"></a>指标说明</h2><ul>
+<li>cache_creation_input_tokens：Anthropic 字段，首次创建缓存的 token 数</li>
+<li>cache_read_input_tokens：Anthropic 字段，缓存命中读取的 token 数</li>
+<li>cached_tokens：OpenAI 字段，缓存命中的 token 数</li>
+<li>input_tokens：普通输入 token（未缓存部分）</li>
+</ul>
+<p>热请求 cache_read_input_tokens = 0 就说明缓存没生效。你需要回到上文的四大失效原因，检查配置是否有易变消息、cache key 错误、默认未开启或 TTL 太短的问题。</p>
+<h1 id="什么时候推荐-不推荐用这套技能"><a href="#什么时候推荐-不推荐用这套技能" class="headerlink" title="什么时候推荐/不推荐用这套技能"></a>什么时候推荐/不推荐用这套技能</h1><p>这套技能库能修复已知的缓存失效问题，但并不是所有场景都适用：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">场景</th>
+<th style="text-align:center">推荐/不推荐</th>
+<th style="text-align:center">原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">长系统提示 + 多次相似请求</td>
+<td style="text-align:center">推荐</td>
+<td style="text-align:center">稳定前缀可复用，缓存收益大</td>
+</tr>
+<tr>
+<td style="text-align:center">Agent 编程工具（Claude Code、Cline 等）</td>
+<td style="text-align:center">推荐</td>
+<td style="text-align:center">项目专为这些工具设计</td>
+</tr>
+<tr>
+<td style="text-align:center">月账单 &gt; $50</td>
+<td style="text-align:center">推荐</td>
+<td style="text-align:center">可节省金额大，值得投入</td>
+</tr>
+<tr>
+<td style="text-align:center">已有 prompt caching 配置但不确信是否生效</td>
+<td style="text-align:center">推荐</td>
+<td style="text-align:center">验证工具帮你确认</td>
+</tr>
+<tr>
+<td style="text-align:center">短提示 + 单次请求</td>
+<td style="text-align:center">不推荐</td>
+<td style="text-align:center">缓存开销可能大于收益</td>
+</tr>
+<tr>
+<td style="text-align:center">系统提示频繁变化（如包含实时数据）</td>
+<td style="text-align:center">不推荐</td>
+<td style="text-align:center">前缀不稳定，缓存无法复用</td>
+</tr>
+<tr>
+<td style="text-align:center">请求间隔超过 TTL（如每天只调几次）</td>
+<td style="text-align:center">需评估</td>
+<td style="text-align:center">缓存可能过期，收益有限</td>
+</tr>
+<tr>
+<td style="text-align:center">使用不在支持列表的 Agent</td>
+<td style="text-align:center">需评估</td>
+<td style="text-align:center">需手动适配或等待社区贡献技能</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>如果你的月账单已经超过 50 美元，且使用的是支持列表里的 Agent，投入这套技能库的回报会比较明显。如果你的请求频率较低或前缀频繁变化，缓存收益可能有限，需要先评估是否值得改动配置。</p>
+<h1 id="风险与注意事项"><a href="#风险与注意事项" class="headerlink" title="风险与注意事项"></a>风险与注意事项</h1><p>在使用这套技能库之前，你需要了解以下风险：</p>
+<ol>
+<li><p>项目较新。当前约 99 stars，skills 列表和命名可能会调整，具体以仓库 README 为准。技能库会持续更新，命名和结构可能变化。</p>
+</li>
+<li><p>自动修改配置需谨慎。让 Agent 自动落 diff 意味着直接改你本机或项目的配置文件。建议先看 SKILL.md 理解每个修改点，再决定是否让 Agent 自动改。</p>
+</li>
+<li><p>各家计费字段不同。Anthropic 使用 cache_creation/cache_read，OpenAI 使用 cached_tokens，Gemini 使用 cached content。具体字段名以各家官方文档为准。</p>
+</li>
+<li><p>缓存不是万能。一次性短调用、前缀频繁变化的场景，缓存基本没用甚至更贵。不要在所有场景都强求缓存。</p>
+</li>
+<li><p>验证工具局限。check_cache.py 目前主要针对 Anthropic API 设计。OpenAI 和 Gemini 的缓存验证需查阅各自官方文档。</p>
+</li>
+<li><p>命中率非保证。“80-99% 命中率”只是项目自述目标。实际命中率取决于前缀长度、请求频率、TTL 设置等多种因素。</p>
+</li>
+</ol>
+<p>官方资源：</p>
+<ul>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/OnlyTerp/prompt-cache-skills">prompt-cache-skills GitHub 仓库</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://docs.anthropic.com/claude/docs/prompt-caching">Anthropic Prompt Caching 文档</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI Prompt Caching 文档</a></li>
+<li><a target="_blank" rel="external nofollow noopener noreferrer" href="https://ai.google.dev/gemini-api/docs/caching">Google Gemini Context Caching 文档</a></li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="prompt-cache-skills-支持哪些-AI-编程工具？"><a href="#prompt-cache-skills-支持哪些-AI-编程工具？" class="headerlink" title="prompt-cache-skills 支持哪些 AI 编程工具？"></a>prompt-cache-skills 支持哪些 AI 编程工具？</h2><p>仓库面向 Claude Code、Codex、Cline、Cursor、Devin、Gemini CLI、OpenCode、Aider、Continue、Roo Code 等 Agent，但具体可应用的修复取决于当前 skills 目录和你的 harness；应以仓库最新 README 为准。</p>
+<h2 id="修复后缓存命中率一定能达到-80-以上吗？"><a href="#修复后缓存命中率一定能达到-80-以上吗？" class="headerlink" title="修复后缓存命中率一定能达到 80% 以上吗？"></a>修复后缓存命中率一定能达到 80% 以上吗？</h2><p>不能保证。80% 到 99% 是项目在合适场景下描述的目标区间，实际结果取决于前缀长度与稳定性、请求频率、模型服务商和 TTL，必须用真实用量字段验证。</p>
+<h2 id="缓存命中能省多少钱？"><a href="#缓存命中能省多少钱？" class="headerlink" title="缓存命中能省多少钱？"></a>缓存命中能省多少钱？</h2><p>节省幅度取决于服务商、模型、缓存创建或存储费用以及实际复用次数。长而稳定的前缀被多次复用通常收益更明显，短请求或低频请求可能不划算。</p>
+<h2 id="让-Agent-自动修改配置安全吗？"><a href="#让-Agent-自动修改配置安全吗？" class="headerlink" title="让 Agent 自动修改配置安全吗？"></a>让 Agent 自动修改配置安全吗？</h2><p>自动落 diff 会改动本机或项目配置。先阅读 SKILL.md、确认目标文件和修改范围、备份原配置，再应用并执行验证；验证失败时应回滚。</p>
+<h2 id="如果使用的-Agent-没有对应技能怎么办？"><a href="#如果使用的-Agent-没有对应技能怎么办？" class="headerlink" title="如果使用的 Agent 没有对应技能怎么办？"></a>如果使用的 Agent 没有对应技能怎么办？</h2><p>可以参考已有技能的症状、diff 和验证方法，手动排查稳定前缀、cache key、默认开关和 TTL，但不要直接套用不匹配的补丁。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/b8c/">https://jingluo23.github.io/posts/b8c/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Prompt/">Prompt</a><a class="post-meta__tags" href="/article/tags/Prompt-Cache/">Prompt Cache</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/faa8/" title="Prompt Engineering 模板库：12 种可复用的提示词设计模式"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Prompt Engineering 模板库：12 种可复用的提示词设计模式</div></div><div class="info-2"><div class="info-item-1">一套经过验证的 Prompt 模板库建设方法，包含四字段结构、12 种 Prompt Patterns、多模型适配表和 5 个生产级模板，可直接复制使用。</div></div></div></a><a class="pagination-related" href="/posts/9111/" title="RAG + Agent：下一代 AI 应用架构"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">RAG + Agent：下一代 AI 应用架构</div></div><div class="info-2"><div class="info-item-1">从传统 RAG 到 Agentic RAG 的架构演进，详解 10 种 RAG 模式、框架选型对比、企业级实施路线图和智能客服实战案例</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/f155/" title="Prompt工程实战：让AI输出质量提升10倍的技巧"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-10</div><div class="info-item-2">Prompt工程实战：让AI输出质量提升10倍的技巧</div></div><div class="info-2"><div class="info-item-1">掌握7个实战技巧优化AI提示词,从模糊指令到结构化任务,涵盖写作、编程、数据分析场景。学会角色定位、思维链、示例学习等方法,让ChatGPT、Claude输出质量翻倍。附完整模板库。</div></div></div></a><a class="pagination-related" href="/posts/11d2/" title="Prompt Engineering 进阶实战：从套路到方法论"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-11</div><div class="info-item-2">Prompt Engineering 进阶实战：从套路到方法论</div></div><div class="info-2"><div class="info-item-1">从零散技巧到系统方法论，深度解析 Chain-of-Thought、ReAct、DSPy 等进阶技术，掌握 Claude 和 ChatGPT 的差异化最佳实践，建立可评估、可迭代的 Prompt 工程体系</div></div></div></a><a class="pagination-related" href="/posts/6649/" title="Prompt Engineering 商业实战：客服、销售、运营三大场景指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-12</div><div class="info-item-2">Prompt Engineering 商业实战：客服、销售、运营三大场景指南</div></div><div class="info-2"><div class="info-item-1">详解 Prompt Engineering 在客服、销售、运营三大商业场景的实战应用，包含真实数据、可复用 Prompt 模板和七步企业落地流程，帮你解决 AI 项目水土不服问题</div></div></div></a><a class="pagination-related" href="/posts/faa8/" title="Prompt Engineering 模板库：12 种可复用的提示词设计模式"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-13</div><div class="info-item-2">Prompt Engineering 模板库：12 种可复用的提示词设计模式</div></div><div class="info-2"><div class="info-item-1">一套经过验证的 Prompt 模板库建设方法，包含四字段结构、12 种 Prompt Patterns、多模型适配表和 5 个生产级模板，可直接复制使用。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Prompt-Cache-%E6%80%8E%E4%B9%88%E5%B8%AE%E4%BD%A0%E7%9C%81%E9%92%B1"><span class="toc-number">1.</span> <span class="toc-text">Prompt Cache 怎么帮你省钱</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BD%A0%E7%9A%84-Agent-%E7%BC%93%E5%AD%98%E6%80%BB%E6%98%AF%E5%A4%B1%E6%95%88"><span class="toc-number">2.</span> <span class="toc-text">为什么你的 Agent 缓存总是失效</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#prompt-cache-skills-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-number">3.</span> <span class="toc-text">prompt-cache-skills 是什么</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E7%94%A8-prompt-cache-skills-%E4%BF%AE%E5%A4%8D%E4%BD%A0%E7%9A%84-Agent"><span class="toc-number">4.</span> <span class="toc-text">怎么用 prompt-cache-skills 修复你的 Agent</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E5%BC%8F%E4%B8%80%EF%BC%9A%E8%AE%A9-Agent-%E8%87%AA%E5%8A%A8%E4%BF%AE%E5%A4%8D%EF%BC%88%E6%8E%A8%E8%8D%90%EF%BC%89"><span class="toc-number">4.1.</span> <span class="toc-text">方式一：让 Agent 自动修复（推荐）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%96%B9%E5%BC%8F%E4%BA%8C%EF%BC%9A%E6%89%8B%E5%8A%A8%E4%BF%AE%E5%A4%8D"><span class="toc-number">4.2.</span> <span class="toc-text">方式二：手动修复</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E5%85%A8%E6%8F%90%E7%A4%BA"><span class="toc-number">4.3.</span> <span class="toc-text">安全提示</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8A%80%E8%83%BD%E5%BA%93%E8%AF%A6%E8%A7%A3%EF%BC%88%E5%85%B8%E5%9E%8B%E4%BF%AE%E5%A4%8D%E6%A1%88%E4%BE%8B%EF%BC%89"><span class="toc-number">5.</span> <span class="toc-text">技能库详解（典型修复案例）</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E9%AA%8C%E8%AF%81%E7%BC%93%E5%AD%98%E7%9C%9F%E7%9A%84%E5%91%BD%E4%B8%AD%E4%BA%86"><span class="toc-number">6.</span> <span class="toc-text">怎么验证缓存真的命中了</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E6%AD%A5%E9%AA%A4"><span class="toc-number">6.1.</span> <span class="toc-text">使用步骤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%87%E6%A0%87%E8%AF%B4%E6%98%8E"><span class="toc-number">6.2.</span> <span class="toc-text">指标说明</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E6%8E%A8%E8%8D%90-%E4%B8%8D%E6%8E%A8%E8%8D%90%E7%94%A8%E8%BF%99%E5%A5%97%E6%8A%80%E8%83%BD"><span class="toc-number">7.</span> <span class="toc-text">什么时候推荐&#x2F;不推荐用这套技能</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%A3%8E%E9%99%A9%E4%B8%8E%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">8.</span> <span class="toc-text">风险与注意事项</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">9.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#prompt-cache-skills-%E6%94%AF%E6%8C%81%E5%93%AA%E4%BA%9B-AI-%E7%BC%96%E7%A8%8B%E5%B7%A5%E5%85%B7%EF%BC%9F"><span class="toc-number">9.1.</span> <span class="toc-text">prompt-cache-skills 支持哪些 AI 编程工具？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BF%AE%E5%A4%8D%E5%90%8E%E7%BC%93%E5%AD%98%E5%91%BD%E4%B8%AD%E7%8E%87%E4%B8%80%E5%AE%9A%E8%83%BD%E8%BE%BE%E5%88%B0-80-%E4%BB%A5%E4%B8%8A%E5%90%97%EF%BC%9F"><span class="toc-number">9.2.</span> <span class="toc-text">修复后缓存命中率一定能达到 80% 以上吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BC%93%E5%AD%98%E5%91%BD%E4%B8%AD%E8%83%BD%E7%9C%81%E5%A4%9A%E5%B0%91%E9%92%B1%EF%BC%9F"><span class="toc-number">9.3.</span> <span class="toc-text">缓存命中能省多少钱？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%A9-Agent-%E8%87%AA%E5%8A%A8%E4%BF%AE%E6%94%B9%E9%85%8D%E7%BD%AE%E5%AE%89%E5%85%A8%E5%90%97%EF%BC%9F"><span class="toc-number">9.4.</span> <span class="toc-text">让 Agent 自动修改配置安全吗？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E6%9E%9C%E4%BD%BF%E7%94%A8%E7%9A%84-Agent-%E6%B2%A1%E6%9C%89%E5%AF%B9%E5%BA%94%E6%8A%80%E8%83%BD%E6%80%8E%E4%B9%88%E5%8A%9E%EF%BC%9F"><span class="toc-number">9.5.</span> <span class="toc-text">如果使用的 Agent 没有对应技能怎么办？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：Semantic Router 与 RRF 实现"></a><div class="content"><a class="title" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现">RAG 查询路由：Semantic Router 与 RRF 实现</a><time datetime="2026-11-19T00:00:00.000Z" title="发表于 2026-11-19 08:00:00">2026-11-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：逻辑、语义与混合检索选型"></a><div class="content"><a class="title" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型">RAG 查询路由：逻辑、语义与混合检索选型</a><time datetime="2026-11-18T00:00:00.000Z" title="发表于 2026-11-18 08:00:00">2026-11-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 系统优化实战：检索精度与生成质量的平衡之道"></a><div class="content"><a class="title" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道">RAG 系统优化实战：检索精度与生成质量的平衡之道</a><time datetime="2026-11-17T00:00:00.000Z" title="发表于 2026-11-17 08:00:00">2026-11-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height:570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height:480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"><a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"><a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Prompt-工程实战指南/">Prompt 工程实战指南</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/RAG-工程专题：架构、向量库、查询路由与知识治理/">RAG 工程专题：架构、向量库、查询路由与知识治理</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      var anchor = parent_div_git.querySelector('.page-title')
+      if (anchor) { anchor.insertAdjacentHTML('afterend',item_html) }
+      else { parent_div_git.insertAdjacentHTML('afterbegin',item_html) }
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

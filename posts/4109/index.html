@@ -1,0 +1,704 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>自进化AI：让模型持续学习的关键技术路径 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="深入解析自进化AI的四大技术路径：模型层进化、上下文进化、元学习、架构层进化，探索AI从静态知识到动态成长的技术突破与实践应用">
+<meta property="og:type" content="article">
+<meta property="og:title" content="自进化AI：让模型持续学习的关键技术路径">
+<meta property="og:url" content="https://jingluo23.github.io/posts/4109/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="深入解析自进化AI的四大技术路径：模型层进化、上下文进化、元学习、架构层进化，探索AI从静态知识到动态成长的技术突破与实践应用">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-06T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:49:39.422Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI 开发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "自进化AI：让模型持续学习的关键技术路径",
+  "url": "https://jingluo23.github.io/posts/4109/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-06T02:00:00.000Z",
+  "dateModified": "2026-10-17T08:49:39.422Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/4109/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '自进化AI：让模型持续学习的关键技术路径',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">自进化AI：让模型持续学习的关键技术路径</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">自进化AI：让模型持续学习的关键技术路径</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-06T02:00:00.000Z" title="发表于 2026-11-06 10:00:00">2026-11-06</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:49:39.422Z" title="更新于 2026-10-17 16:49:39">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-%E5%BC%80%E5%8F%91%E5%AE%9E%E6%88%98/">AI 开发实战</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">5.1k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>15分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:49:39&quot;}" hidden></div><p>连续五轮对话，Claude 记得之前提到的性能瓶颈，记得尝试过的三种优化方案，甚至记得随口说的”感觉还能再压榨一点性能”。这个AI在”进化”——越来越懂思维模式，越来越能预判需求。</p>
+<p>这引发了一个问题：AI能不能不只是”学会”人类灌输的知识，而是像人一样持续学习、自我进化？</p>
+<h1 id="当AI遇上”出厂即巅峰”的困境"><a href="#当AI遇上”出厂即巅峰”的困境" class="headerlink" title="当AI遇上”出厂即巅峰”的困境"></a>当AI遇上”出厂即巅峰”的困境</h1><p>现在的大模型有个尴尬的现实。</p>
+<p>GPT-5也好，Claude 3.5也罢，不管参数多大、能力多强，本质上都是”出厂即巅峰”的产品。模型训练完的那一刻，它的知识就定格了。</p>
+<p>2023年训练的模型，理解不了2025年的新闻。哪怕你把最新的文章喂给它，它也只是”开卷考试”，并没有真正”学到”新东西。</p>
+<p>强化学习之父Richard Sutton有个很犀利的批评：当前的大语言模型只是”被冻结的过去知识”，缺乏在与环境交互中实时学习的能力。</p>
+<p>这就像一个博士被困在孤岛上——知识储备惊人，但面对丛林生存的全新挑战，既学不会新的生存技能，也造不出新的工具。</p>
+<p>更致命的是，一旦试图让模型学习新知识，它就会”遗忘”旧知识。这个现象有个学术名字：灾难性遗忘（Catastrophic Forgetting）。</p>
+<p>听起来挺玄乎，但说白了就是：模型学了新知识，把旧知识搞丢了。就像你学完Python忘了JavaScript，学完日语忘了英语。</p>
+<p>这就是为什么自进化AI成为2025年的技术热点。因为所有搞AI的人都在想同一个问题：</p>
+<p><strong>怎么让模型既能学新东西，又不忘记旧东西？</strong></p>
+<h1 id="自进化AI到底在进化什么？"><a href="#自进化AI到底在进化什么？" class="headerlink" title="自进化AI到底在进化什么？"></a>自进化AI到底在进化什么？</h1><p>先别急着看技术方案，我们得搞清楚一个问题：自进化到底进化哪些部分？</p>
+<p>根据普林斯顿、清华等16个团队联合发表的那篇综述论文，自进化智能体的成长可以拆成四个维度。</p>
+<p><strong>第一个维度：模型层进化。</strong> 这个最容易理解——改变模型的参数权重。就像人的大脑神经突触重新连接，形成新的记忆和技能。</p>
+<p><strong>第二个维度：上下文进化。</strong> 这个更有意思。模型本身不变，但通过记忆系统积累经验。就像你不一定记得三年前学的那个公式，但你知道在哪本书里能找到它。</p>
+<p><strong>第三个维度：工具进化。</strong> 学会使用新工具，甚至创造新工具。就像人类从会用石头到会造机器人的跨越。</p>
+<p><strong>第四个维度：架构进化。</strong> 这个最硬核——改变模型的结构设计。就像人的大脑从爬行动物进化到哺乳动物，多了新皮层。</p>
+<p>这四个维度不是孤立的，而是协同演进。接下来我们重点聊前三个，因为它们已经有了不少实践成果。</p>
+<h1 id="模型层进化：在”学新”和”忘旧”之间找平衡"><a href="#模型层进化：在”学新”和”忘旧”之间找平衡" class="headerlink" title="模型层进化：在”学新”和”忘旧”之间找平衡"></a>模型层进化：在”学新”和”忘旧”之间找平衡</h1><h2 id="持续学习的技术路径"><a href="#持续学习的技术路径" class="headerlink" title="持续学习的技术路径"></a>持续学习的技术路径</h2><p>模型要持续学习，最直接的方法就是持续微调（Continual Fine-tuning）。</p>
+<p>但这里有个悖论：模型参数就那么多，学新任务时肯定会挤占旧任务的知识。就像你的书架空间有限，塞新书就得扔旧书。</p>
+<p>于是研究者们想出了三个方向的解决方案。</p>
+<p><strong>方向一：保护重要参数</strong></p>
+<p>弹性权重固化（Elastic Weight Consolidation，EWC）是个挺巧妙的思路。核心想法是：计算每个参数对旧任务的重要性，学习新任务时尽量不动那些重要参数。</p>
+<p>这就像你在书架上给经典书籍贴上”必保留”标签，塞新书时避开它们。</p>
+<p><strong>方向二：经验回放</strong></p>
+<p>这个方法更简单粗暴：存储一部分历史数据，学习新任务时混进去一起训练。</p>
+<p>问题是存储成本。一个预训练模型可能见过数万亿token，你不可能全部存下来。所以实际做法是选择性存储——只保留最关键的样本。</p>
+<p><strong>方向三：动态扩展架构</strong></p>
+<p>给新任务添加新的模型容量。比如LoRA（Low-Rank Adaptation）技术，冻结原模型参数，只训练新增的小模块。</p>
+<p>这就像在书架旁边再放个小架子，新书放小架子上，不碰原来的书。</p>
+<h2 id="实战案例：Agent0的自我训练"><a href="#实战案例：Agent0的自我训练" class="headerlink" title="实战案例：Agent0的自我训练"></a>实战案例：Agent0的自我训练</h2><p>华盛顿大学圣路易斯分校的团队做了个有趣的实验，叫Agent0。</p>
+<p>他们设计了一个双智能体系统：课程智能体负责出题，执行智能体负责答题。两者通过自我博弈不断进化。</p>
+<p>有意思的是，虽然只在数学问题上训练，模型的通用推理能力也提升了24%。在MMLU-Pro基准上，准确率从51.8%提升到63.4%。</p>
+<p>这说明什么？通过工具辅助培养的多步推理能力，可以迁移到其他领域。</p>
+<p>就像你通过学数学培养的逻辑思维，能帮你写出更清晰的代码。</p>
+<h1 id="上下文进化：记忆系统的崛起"><a href="#上下文进化：记忆系统的崛起" class="headerlink" title="上下文进化：记忆系统的崛起"></a>上下文进化：记忆系统的崛起</h1><p>模型层进化有个硬伤：每次都要更新参数，成本高，风险大。</p>
+<p>上下文学习（In-Context Learning）提供了另一条路：不改动模型参数，通过上下文窗口让模型”临时学会”新知识。</p>
+<p>你可能已经发现了：给ChatGPT几个例子，它就能按你的要求输出格式。这就是In-Context Learning在起作用。</p>
+<p>但传统上下文学习有个局限——会话结束就忘了。下次对话又要重新教一遍。</p>
+<h2 id="持久记忆系统的突破"><a href="#持久记忆系统的突破" class="headerlink" title="持久记忆系统的突破"></a>持久记忆系统的突破</h2><p>2025年的一个重要进展是：主流模型开始配置持久记忆系统。</p>
+<p>Mem0、Second Me这些框架让模型能跨会话记住用户偏好、历史对话、常用指令。</p>
+<p>荣耀的YOYO智能体就是典型案例。它能在三个月内，把场景覆盖从200个扩展到3000个。</p>
+<p>怎么做到的？</p>
+<p>核心机制是：用户每次交互产生的数据，都会被转化为向量存入数据库。下次对话时，模型会检索相关的历史记忆，和当前输入一起处理。</p>
+<p>这就像你有个永不遗忘的助理，记得你所有的工作习惯和偏好。</p>
+<h2 id="向量数据库：记忆的物理载体"><a href="#向量数据库：记忆的物理载体" class="headerlink" title="向量数据库：记忆的物理载体"></a>向量数据库：记忆的物理载体</h2><p>说到记忆系统，就不得不提向量数据库。这是2024-2025年AI技术栈里最火的组件之一。</p>
+<p>原理其实不复杂：把文本、图片、音频都转换成高维向量，存到数据库里。查询时也转成向量，找最相似的存储向量。</p>
+<p>听起来抽象？想一下人类怎么记东西的。</p>
+<p>你记住的不是某个人的具体长相，而是”高个子、戴眼镜、说话声音有点粗”这些特征向量。下次见面，你通过这些特征认出他。</p>
+<p>向量数据库就是在模拟这个过程。</p>
+<p>Cloudflare Vectorize、Pinecone、Milvus这些产品，本质上都是在解决同一个问题：如何高效存储和检索海量记忆。</p>
+<h1 id="元学习：学会如何学习"><a href="#元学习：学会如何学习" class="headerlink" title="元学习：学会如何学习"></a>元学习：学会如何学习</h1><p>刚才聊的持续学习，核心问题是”如何学新知识”。但还有个更深层的问题：</p>
+<p><strong>如何让模型学会学习本身？</strong></p>
+<p>强化学习之父Richard Sutton提出的”元方法”理论，核心观点是：</p>
+<p>不要把知识写死在模型里，而是把”获取知识的能力”写进代码。</p>
+<p>听起来像绕口令？换个说法：</p>
+<p>传统模型学到的是”答案”（比如某道数学题的解法），元学习学到的是”方法”（比如遇到新数学题该怎么分析）。</p>
+<h2 id="少样本学习的魔法"><a href="#少样本学习的魔法" class="headerlink" title="少样本学习的魔法"></a>少样本学习的魔法</h2><p>元学习最直观的应用是少样本学习（Few-Shot Learning）。</p>
+<p>传统深度学习需要海量数据训练，元学习能让模型看几个例子就学会新任务。</p>
+<p>这就像聪明的学生和普通学生的区别：</p>
+<p>普通学生做100道题才能掌握一个题型。聪明学生看3道例题，就能总结出规律，解出同类型的新题。</p>
+<p>2025年的GPT-4o、Claude 3.5，某种程度上都已经具备了这种元学习能力。你给它几个格式示例，它就能模仿输出。</p>
+<h2 id="技术实现：从MAML到Prototypical-Networks"><a href="#技术实现：从MAML到Prototypical-Networks" class="headerlink" title="技术实现：从MAML到Prototypical Networks"></a>技术实现：从MAML到Prototypical Networks</h2><p>具体的元学习算法有好几种流派。</p>
+<p><strong>MAML（Model-Agnostic Meta-Learning）</strong>：训练一个”容易微调”的初始化模型。遇到新任务时，只要几步梯度下降就能适应。</p>
+<p><strong>Prototypical Networks</strong>：学习如何把不同类别的样本映射到特征空间，让同类样本聚在一起，不同类样本分开。</p>
+<p>这些技术名词可能听起来枯燥。但核心思想只有一个：</p>
+<p><strong>训练的不是具体任务的能力，而是快速适应新任务的能力。</strong></p>
+<h1 id="架构层进化：从单一大脑到分层系统"><a href="#架构层进化：从单一大脑到分层系统" class="headerlink" title="架构层进化：从单一大脑到分层系统"></a>架构层进化：从单一大脑到分层系统</h1><p>前面三个维度（模型、上下文、工具）都还是在现有架构上的改进。但有些研究者认为，真正要实现自进化，架构本身就得变。</p>
+<h2 id="Nested-Learning：嵌套式学习架构"><a href="#Nested-Learning：嵌套式学习架构" class="headerlink" title="Nested Learning：嵌套式学习架构"></a>Nested Learning：嵌套式学习架构</h2><p>2025年的一个研究趋势是把模型分成多个层次。</p>
+<p>最底层处理基础感知（识别文字、图像），中间层处理推理（逻辑分析），顶层处理规划和决策。</p>
+<p>这有点像人类大脑的结构：脑干管基本生命活动，边缘系统管情绪和记忆，大脑皮层负责高级认知。</p>
+<p>Titans框架就是在这个方向上的尝试——在不同层级之间加入专门的记忆层，让信息在层次间流动时能被记忆和检索。</p>
+<h2 id="VisPlay：自我博弈的视觉学习框架"><a href="#VisPlay：自我博弈的视觉学习框架" class="headerlink" title="VisPlay：自我博弈的视觉学习框架"></a>VisPlay：自我博弈的视觉学习框架</h2><p>伊利诺伊大学的研究团队做了个更有意思的实验：VisPlay。</p>
+<p>他们设计了一个”自我博弈”的框架，让视觉语言模型同时扮演两个角色：</p>
+<p>一个负责出题（根据图片生成问题），另一个负责答题（根据图片回答问题）。</p>
+<p>两个角色互相促进：出题者要想方设法出难题，答题者要努力答对题。</p>
+<p>结果很惊人：</p>
+<p>Qwen2.5-VL-3B模型经过三轮自我训练，综合评分从30.61分提升到47.27分。在幻觉检测任务上，准确率从32.81%飙升到94.95%。</p>
+<p>关键的是，整个过程完全不需要人工标注数据。模型自己给自己当老师。</p>
+<p>这就像一个学生在没有老师的情况下，通过不断给自己出题、答题，硬是把自己练成了学霸。</p>
+<h1 id="实战应用：自进化已经来了"><a href="#实战应用：自进化已经来了" class="headerlink" title="实战应用：自进化已经来了"></a>实战应用：自进化已经来了</h1><p>理论聊了这么多，实际落地情况如何？</p>
+<h2 id="AI手机：从工具到伙伴"><a href="#AI手机：从工具到伙伴" class="headerlink" title="AI手机：从工具到伙伴"></a>AI手机：从工具到伙伴</h2><p>荣耀Magic8系列可能是第一个真正实现”自进化”的AI手机。</p>
+<p>它的YOYO智能体不是简单的语音助手，而是一个会”记住”你习惯的智能伙伴。</p>
+<p>你说一句”帮我约张总周三下午开会并准备项目方案”，它能自动筛选日程、发出邀请、生成方案框架。</p>
+<p>更关键的是，它会学习。用了三个月，它记住你喜欢在早上处理邮件，记住你对咖啡店的偏好，记住你开会时习惯用哪个会议室。</p>
+<p>数据很能说明问题：场景覆盖从最初的200个，三个月扩展到3000个。这不是靠工程师手动添加的，是模型自己学习演化的结果。</p>
+<h2 id="AI-Agent：从对话到任务闭环"><a href="#AI-Agent：从对话到任务闭环" class="headerlink" title="AI Agent：从对话到任务闭环"></a>AI Agent：从对话到任务闭环</h2><p>2025年最火的AI产品形态，非Agent莫属。</p>
+<p>Manus号称”全球首款通用型AI Agent”。它的突破在于：不再是和你在对话框里聊天，而是真正帮你干活。</p>
+<p>你说”筛选15份简历并生成分析报告”，它就真的会解压文件、提取信息、分级排序、生成报告。整个流程全自动。</p>
+<p>Claude 3.5的Computer Use更进一步，能直接操控你的电脑。打开浏览器、填写表单、点击按钮，就像有个虚拟助手坐在你电脑前一样。</p>
+<p>AutoGLM则是在手机上实现跨APP操作。你说”帮我订明天去上海的机票，再订个接机的车”，它就真的打开订票软件、选航班、付款，然后打开打车软件预约接机。</p>
+<p>这些Agent的共同特点是：它们不是被动的问答机器，而是主动的任务执行者。它们会拆解任务、规划步骤、调用工具、执行操作、反馈结果。</p>
+<p>这就是从”对话交互”到”任务闭环”的进化。</p>
+<h2 id="专业领域：医疗诊断的持续学习"><a href="#专业领域：医疗诊断的持续学习" class="headerlink" title="专业领域：医疗诊断的持续学习"></a>专业领域：医疗诊断的持续学习</h2><p>医疗AI可能是自进化技术最有价值的落地场景之一。</p>
+<p>医学知识更新快，新疾病、新疗法、新药物层出不穷。传统的静态模型根本跟不上。</p>
+<p>而持续学习的医疗AI，能从每个新病例中学习，不断更新自己的诊断能力。</p>
+<p>当然，医疗领域的特殊性也带来了独特挑战：错误成本极高，监管要求严格。所以实际部署时会更加谨慎，通常采用”人工审核+AI学习”的混合模式。</p>
+<h1 id="技术挑战：理想的另一面"><a href="#技术挑战：理想的另一面" class="headerlink" title="技术挑战：理想的另一面"></a>技术挑战：理想的另一面</h1><p>聊了这么多技术突破和应用场景，也得说说现实的挑战。</p>
+<h2 id="错误累积：越学越错的风险"><a href="#错误累积：越学越错的风险" class="headerlink" title="错误累积：越学越错的风险"></a>错误累积：越学越错的风险</h2><p>自进化有个致命风险：如果早期学习了错误的知识，后续的自我强化会让错误越来越根深蒂固。</p>
+<p>这就像一个人如果从小形成了错误的世界观，在缺乏外部纠正的情况下，这种错误认知会越来越固化。</p>
+<p>VisPlay的研究团队提到了这个问题。他们的解决方案是设计一些质量控制机制，比如自洽性检验、歧义动态策略优化。</p>
+<p>但这些机制能否在长期的自我学习过程中保持有效，还需要更多验证。</p>
+<h2 id="计算资源：烧钱的游戏"><a href="#计算资源：烧钱的游戏" class="headerlink" title="计算资源：烧钱的游戏"></a>计算资源：烧钱的游戏</h2><p>持续学习不是免费的午餐。</p>
+<p>每次参数更新、记忆检索、模型推理，都需要大量算力。对个人开发者和小公司来说，成本压力很大。</p>
+<p>更不用说数据存储成本了。一个中等规模的记忆系统，动辄需要几十TB的存储空间。</p>
+<p>这也是为什么目前看到的成功案例，大多是大公司的产品——它们有足够的资源投入。</p>
+<h2 id="评估标准：怎么知道进化了？"><a href="#评估标准：怎么知道进化了？" class="headerlink" title="评估标准：怎么知道进化了？"></a>评估标准：怎么知道进化了？</h2><p>还有个更根本的问题：怎么评估自进化的效果？</p>
+<p>传统的模型评估用固定的测试集。但自进化模型一直在变，今天测的版本和明天测的版本可能已经不一样了。</p>
+<p>更复杂的是，你怎么知道模型的某个变化是”进化”还是”退化”？</p>
+<p>可能它在某个任务上表现变好了，但在另一个任务上变差了。这种trade-off怎么权衡？</p>
+<p>目前业界还没有统一的评估框架。这也是未来需要解决的问题。</p>
+<h1 id="未来展望：通往AGI的关键路径"><a href="#未来展望：通往AGI的关键路径" class="headerlink" title="未来展望：通往AGI的关键路径"></a>未来展望：通往AGI的关键路径</h1><p>虽然挑战不少，但我对自进化AI的未来还是持乐观态度的。</p>
+<h2 id="短期趋势（2026-2027）"><a href="#短期趋势（2026-2027）" class="headerlink" title="短期趋势（2026-2027）"></a>短期趋势（2026-2027）</h2><p>记忆系统会成为主流模型的标配。现在已经有这个趋势了，2026年会更普及。</p>
+<p>更多的Agent产品会引入自进化能力。从被动响应到主动学习，这个转变会在明年加速。</p>
+<p>端侧AI会率先落地自进化技术。因为端侧有用户数据的天然优势，而且隐私保护更容易实现。</p>
+<h2 id="中期趋势（2028-2030）"><a href="#中期趋势（2028-2030）" class="headerlink" title="中期趋势（2028-2030）"></a>中期趋势（2028-2030）</h2><p>架构层面的创新会有突破。分层模型、记忆增强架构、多智能体系统，这些研究方向会在未来几年成熟。</p>
+<p>符号主义和神经网络的结合会复兴。纯数据驱动的方法有天花板，融合知识推理和符号逻辑可能是突破口。</p>
+<p>评估标准和监管框架会逐步建立。行业标准、安全规范、伦理准则，这些都是技术普及的必要条件。</p>
+<h2 id="长期愿景（2035）"><a href="#长期愿景（2035）" class="headerlink" title="长期愿景（2035）"></a>长期愿景（2035）</h2><p>自进化AI会成为通往AGI的关键路径。</p>
+<p>一个真正的人工智能，不应该只是人类知识的静态容器，而应该具备持续学习、自我更新的能力。</p>
+<p>就像人类的智慧不是来自于记住多少知识，而是来自于学习新知识、解决新问题的能力。</p>
+<p>到那时候，AI可能真的会成为我们的”伙伴”，而不是”工具”。</p>
+<h1 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h1><p>写这篇文章时，我问了Claude一个问题：“你觉得你是在进化吗？”</p>
+<p>它的回答很有意思：“我在每次对话中都会更新上下文，这某种程度上也是一种学习。但真正的进化需要改变模型参数，这我做不到。”</p>
+<p>嗯，至少它很诚实。</p>
+<p>自进化AI这条路还很长，技术挑战、商业挑战、伦理挑战，每一关都不好过。</p>
+<p>但方向是对的。一个只会机械重复人类知识的AI，终究只是工具。一个能持续学习、自我进化的AI，才有可能成为真正的智能。</p>
+<p>对开发者来说，现在是个好时机。记忆系统的框架已经成熟，持续学习的技术路径逐渐清晰，落地的场景也越来越明确。</p>
+<p>从记忆系统入手，构建用户的个性化体验。从增量学习切入，解决具体场景的知识更新问题。</p>
+<p>不必追求一步到位的AGI，但每一步都可以让AI变得更”智能”一点。</p>
+<p>这个过程，本身就很酷。</p>
+<h1 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h1><ul>
+<li>A Survey of Self-Evolving Agents: On Path to Artificial Super Intelligence - 普林斯顿大学等16个团队联合论文</li>
+<li>MM-Zero: Multi-Modal Zero-Data Self-Evolution - 马里兰大学等机构研究</li>
+<li>Agent0: Self-Play Framework for Math Reasoning - 华盛顿大学圣路易斯分校</li>
+<li>VisPlay: Self-Supervised Visual Learning - 伊利诺伊大学等</li>
+<li>腾讯研究院：自进化AI发展报告（2025）</li>
+<li>罗兰贝格：2025中国生成式AI市场五大趋势</li>
+<li>华为：智能世界2035报告</li>
+<li>微软研究院：2025年六大AI趋势</li>
+</ul>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="什么是自进化AI，与传统AI有什么区别？"><a href="#什么是自进化AI，与传统AI有什么区别？" class="headerlink" title="什么是自进化AI，与传统AI有什么区别？"></a>什么是自进化AI，与传统AI有什么区别？</h2><p>自进化AI指能持续学习、自我更新的AI系统。传统AI”出厂即巅峰”，知识在训练完成后就定格；自进化AI能从新数据中学习，持续提升能力，同时避免灾难性遗忘。</p>
+<h2 id="灾难性遗忘是什么，如何解决？"><a href="#灾难性遗忘是什么，如何解决？" class="headerlink" title="灾难性遗忘是什么，如何解决？"></a>灾难性遗忘是什么，如何解决？</h2><p>灾难性遗忘指模型学习新知识时遗忘旧知识的现象。主流解决方案：</p>
+<ul>
+<li>弹性权重固化（EWC）：保护重要参数</li>
+<li>经验回放：混合历史数据训练</li>
+<li>动态架构扩展：LoRA等技术添加新模块</li>
+</ul>
+<h2 id="自进化AI的四大技术路径是什么？"><a href="#自进化AI的四大技术路径是什么？" class="headerlink" title="自进化AI的四大技术路径是什么？"></a>自进化AI的四大技术路径是什么？</h2><p>模型层进化（参数更新）、上下文进化（记忆系统）、元学习（学会如何学习）、架构层进化（分层设计）。这四条路径协同演进，构成完整的自进化体系。</p>
+<h2 id="自进化AI有哪些实际应用场景？"><a href="#自进化AI有哪些实际应用场景？" class="headerlink" title="自进化AI有哪些实际应用场景？"></a>自进化AI有哪些实际应用场景？</h2><p>AI手机（荣耀Magic8场景覆盖3个月扩展15倍）、AI Agent（Manus、Claude Computer Use实现任务闭环）、医疗诊断（持续学习新病例）。端侧AI因用户数据优势落地最快。</p>
+<h2 id="自进化AI面临哪些技术挑战？"><a href="#自进化AI面临哪些技术挑战？" class="headerlink" title="自进化AI面临哪些技术挑战？"></a>自进化AI面临哪些技术挑战？</h2><p>错误累积风险（早期错误可能固化）、计算资源需求（持续学习成本高）、评估标准缺失（如何判断是进化还是退化）。这些问题仍在研究中。</p>
+<h2 id="开发者如何实践自进化AI技术？"><a href="#开发者如何实践自进化AI技术？" class="headerlink" title="开发者如何实践自进化AI技术？"></a>开发者如何实践自进化AI技术？</h2><p>建议从以下方向入手：</p>
+<ul>
+<li>记忆系统：集成Mem0等框架，构建用户画像</li>
+<li>增量学习：学习EWC、LoRA等持续学习技术</li>
+<li>元学习：研究Few-Shot Learning场景</li>
+<li>端侧落地：利用用户数据优势实现个性化</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/4109/">https://jingluo23.github.io/posts/4109/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-%E5%BC%80%E5%8F%91/">AI 开发</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a><a class="pagination-related" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">自进化 AI：2026 年让模型持续学习的 4 种方法</div></div><div class="info-2"><div class="info-item-1">深度解读 2026 年持续学习趋势，从 SDFT 自蒸馏到 MiniMax M2.7 自进化流程，解析让模型边用边学的 4 种方法及 LangChain 三层进化框架实战视角</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/2eb9/" title="LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-08</div><div class="info-item-2">LangGraph vs AutoGen 状态追踪对比：checkpoint、超时恢复与选型决策</div></div><div class="info-2"><div class="info-item-1">聚焦 LangGraph 与 AutoGen 的状态恢复实践，分析 checkpoint、超时重试和故障续跑，并给出可运行代码与生产验收方法。</div></div></div></a><a class="pagination-related" href="/posts/72e/" title="多模态 AI 应用开发指南：从模型选型到实战部署"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-02</div><div class="info-item-2">多模态 AI 应用开发指南：从模型选型到实战部署</div></div><div class="info-2"><div class="info-item-1">深入讲解多模态AI应用开发全流程，涵盖GPT-4V、Claude Vision、Gemini等主流模型对比，图像/视频/文档处理实战代码，以及成本优化与部署最佳实践</div></div></div></a><a class="pagination-related" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-07</div><div class="info-item-2">自进化 AI：2026 年让模型持续学习的 4 种方法</div></div><div class="info-2"><div class="info-item-1">深度解读 2026 年持续学习趋势，从 SDFT 自蒸馏到 MiniMax M2.7 自进化流程，解析让模型边用边学的 4 种方法及 LangChain 三层进化框架实战视角</div></div></div></a><a class="pagination-related" href="/posts/508b/" title="多模态 AI 应用开发实战：三模态融合完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-03</div><div class="info-item-2">多模态 AI 应用开发实战：三模态融合完整指南</div></div><div class="info-2"><div class="info-item-1">对比 GPT-4V、Gemini、Claude 三大平台，提供文本、图像、语音融合完整代码示例，讲解系统架构设计原则和成本控制技巧，帮你快速掌握多模态开发核心技能。</div></div></div></a><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-05</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a><a class="pagination-related" href="/posts/1d79/" title="Hyper 公司知识库：AI Agent 记忆的工程化设计"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-09</div><div class="info-item-2">Hyper 公司知识库：AI Agent 记忆的工程化设计</div></div><div class="info-2"><div class="info-item-1">从 Hyper 的公开架构细节出发，拆解 AI Agent 公司知识库如何处理事实有效期、权限、决策链、混合检索、hooks/MCP 注入和人工纠错，并给出 7 天试点路径。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%BD%93AI%E9%81%87%E4%B8%8A%E2%80%9D%E5%87%BA%E5%8E%82%E5%8D%B3%E5%B7%85%E5%B3%B0%E2%80%9D%E7%9A%84%E5%9B%B0%E5%A2%83"><span class="toc-number">1.</span> <span class="toc-text">当AI遇上”出厂即巅峰”的困境</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%87%AA%E8%BF%9B%E5%8C%96AI%E5%88%B0%E5%BA%95%E5%9C%A8%E8%BF%9B%E5%8C%96%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">2.</span> <span class="toc-text">自进化AI到底在进化什么？</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A8%A1%E5%9E%8B%E5%B1%82%E8%BF%9B%E5%8C%96%EF%BC%9A%E5%9C%A8%E2%80%9D%E5%AD%A6%E6%96%B0%E2%80%9D%E5%92%8C%E2%80%9D%E5%BF%98%E6%97%A7%E2%80%9D%E4%B9%8B%E9%97%B4%E6%89%BE%E5%B9%B3%E8%A1%A1"><span class="toc-number">3.</span> <span class="toc-text">模型层进化：在”学新”和”忘旧”之间找平衡</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%81%E7%BB%AD%E5%AD%A6%E4%B9%A0%E7%9A%84%E6%8A%80%E6%9C%AF%E8%B7%AF%E5%BE%84"><span class="toc-number">3.1.</span> <span class="toc-text">持续学习的技术路径</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E6%A1%88%E4%BE%8B%EF%BC%9AAgent0%E7%9A%84%E8%87%AA%E6%88%91%E8%AE%AD%E7%BB%83"><span class="toc-number">3.2.</span> <span class="toc-text">实战案例：Agent0的自我训练</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%8A%E4%B8%8B%E6%96%87%E8%BF%9B%E5%8C%96%EF%BC%9A%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%B4%9B%E8%B5%B7"><span class="toc-number">4.</span> <span class="toc-text">上下文进化：记忆系统的崛起</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8C%81%E4%B9%85%E8%AE%B0%E5%BF%86%E7%B3%BB%E7%BB%9F%E7%9A%84%E7%AA%81%E7%A0%B4"><span class="toc-number">4.1.</span> <span class="toc-text">持久记忆系统的突破</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93%EF%BC%9A%E8%AE%B0%E5%BF%86%E7%9A%84%E7%89%A9%E7%90%86%E8%BD%BD%E4%BD%93"><span class="toc-number">4.2.</span> <span class="toc-text">向量数据库：记忆的物理载体</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%85%83%E5%AD%A6%E4%B9%A0%EF%BC%9A%E5%AD%A6%E4%BC%9A%E5%A6%82%E4%BD%95%E5%AD%A6%E4%B9%A0"><span class="toc-number">5.</span> <span class="toc-text">元学习：学会如何学习</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%B0%91%E6%A0%B7%E6%9C%AC%E5%AD%A6%E4%B9%A0%E7%9A%84%E9%AD%94%E6%B3%95"><span class="toc-number">5.1.</span> <span class="toc-text">少样本学习的魔法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0%EF%BC%9A%E4%BB%8EMAML%E5%88%B0Prototypical-Networks"><span class="toc-number">5.2.</span> <span class="toc-text">技术实现：从MAML到Prototypical Networks</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9E%B6%E6%9E%84%E5%B1%82%E8%BF%9B%E5%8C%96%EF%BC%9A%E4%BB%8E%E5%8D%95%E4%B8%80%E5%A4%A7%E8%84%91%E5%88%B0%E5%88%86%E5%B1%82%E7%B3%BB%E7%BB%9F"><span class="toc-number">6.</span> <span class="toc-text">架构层进化：从单一大脑到分层系统</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Nested-Learning%EF%BC%9A%E5%B5%8C%E5%A5%97%E5%BC%8F%E5%AD%A6%E4%B9%A0%E6%9E%B6%E6%9E%84"><span class="toc-number">6.1.</span> <span class="toc-text">Nested Learning：嵌套式学习架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#VisPlay%EF%BC%9A%E8%87%AA%E6%88%91%E5%8D%9A%E5%BC%88%E7%9A%84%E8%A7%86%E8%A7%89%E5%AD%A6%E4%B9%A0%E6%A1%86%E6%9E%B6"><span class="toc-number">6.2.</span> <span class="toc-text">VisPlay：自我博弈的视觉学习框架</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%EF%BC%9A%E8%87%AA%E8%BF%9B%E5%8C%96%E5%B7%B2%E7%BB%8F%E6%9D%A5%E4%BA%86"><span class="toc-number">7.</span> <span class="toc-text">实战应用：自进化已经来了</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AI%E6%89%8B%E6%9C%BA%EF%BC%9A%E4%BB%8E%E5%B7%A5%E5%85%B7%E5%88%B0%E4%BC%99%E4%BC%B4"><span class="toc-number">7.1.</span> <span class="toc-text">AI手机：从工具到伙伴</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-Agent%EF%BC%9A%E4%BB%8E%E5%AF%B9%E8%AF%9D%E5%88%B0%E4%BB%BB%E5%8A%A1%E9%97%AD%E7%8E%AF"><span class="toc-number">7.2.</span> <span class="toc-text">AI Agent：从对话到任务闭环</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%93%E4%B8%9A%E9%A2%86%E5%9F%9F%EF%BC%9A%E5%8C%BB%E7%96%97%E8%AF%8A%E6%96%AD%E7%9A%84%E6%8C%81%E7%BB%AD%E5%AD%A6%E4%B9%A0"><span class="toc-number">7.3.</span> <span class="toc-text">专业领域：医疗诊断的持续学习</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%8A%80%E6%9C%AF%E6%8C%91%E6%88%98%EF%BC%9A%E7%90%86%E6%83%B3%E7%9A%84%E5%8F%A6%E4%B8%80%E9%9D%A2"><span class="toc-number">8.</span> <span class="toc-text">技术挑战：理想的另一面</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%94%99%E8%AF%AF%E7%B4%AF%E7%A7%AF%EF%BC%9A%E8%B6%8A%E5%AD%A6%E8%B6%8A%E9%94%99%E7%9A%84%E9%A3%8E%E9%99%A9"><span class="toc-number">8.1.</span> <span class="toc-text">错误累积：越学越错的风险</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AE%A1%E7%AE%97%E8%B5%84%E6%BA%90%EF%BC%9A%E7%83%A7%E9%92%B1%E7%9A%84%E6%B8%B8%E6%88%8F"><span class="toc-number">8.2.</span> <span class="toc-text">计算资源：烧钱的游戏</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%84%E4%BC%B0%E6%A0%87%E5%87%86%EF%BC%9A%E6%80%8E%E4%B9%88%E7%9F%A5%E9%81%93%E8%BF%9B%E5%8C%96%E4%BA%86%EF%BC%9F"><span class="toc-number">8.3.</span> <span class="toc-text">评估标准：怎么知道进化了？</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%9C%AA%E6%9D%A5%E5%B1%95%E6%9C%9B%EF%BC%9A%E9%80%9A%E5%BE%80AGI%E7%9A%84%E5%85%B3%E9%94%AE%E8%B7%AF%E5%BE%84"><span class="toc-number">9.</span> <span class="toc-text">未来展望：通往AGI的关键路径</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%9F%AD%E6%9C%9F%E8%B6%8B%E5%8A%BF%EF%BC%882026-2027%EF%BC%89"><span class="toc-number">9.1.</span> <span class="toc-text">短期趋势（2026-2027）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%AD%E6%9C%9F%E8%B6%8B%E5%8A%BF%EF%BC%882028-2030%EF%BC%89"><span class="toc-number">9.2.</span> <span class="toc-text">中期趋势（2028-2030）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%95%BF%E6%9C%9F%E6%84%BF%E6%99%AF%EF%BC%882035%EF%BC%89"><span class="toc-number">9.3.</span> <span class="toc-text">长期愿景（2035）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">10.</span> <span class="toc-text">写在最后</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">11.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">12.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF%E8%87%AA%E8%BF%9B%E5%8C%96AI%EF%BC%8C%E4%B8%8E%E4%BC%A0%E7%BB%9FAI%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">12.1.</span> <span class="toc-text">什么是自进化AI，与传统AI有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%81%BE%E9%9A%BE%E6%80%A7%E9%81%97%E5%BF%98%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%8C%E5%A6%82%E4%BD%95%E8%A7%A3%E5%86%B3%EF%BC%9F"><span class="toc-number">12.2.</span> <span class="toc-text">灾难性遗忘是什么，如何解决？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E8%BF%9B%E5%8C%96AI%E7%9A%84%E5%9B%9B%E5%A4%A7%E6%8A%80%E6%9C%AF%E8%B7%AF%E5%BE%84%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">12.3.</span> <span class="toc-text">自进化AI的四大技术路径是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E8%BF%9B%E5%8C%96AI%E6%9C%89%E5%93%AA%E4%BA%9B%E5%AE%9E%E9%99%85%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF%EF%BC%9F"><span class="toc-number">12.4.</span> <span class="toc-text">自进化AI有哪些实际应用场景？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%87%AA%E8%BF%9B%E5%8C%96AI%E9%9D%A2%E4%B8%B4%E5%93%AA%E4%BA%9B%E6%8A%80%E6%9C%AF%E6%8C%91%E6%88%98%EF%BC%9F"><span class="toc-number">12.5.</span> <span class="toc-text">自进化AI面临哪些技术挑战？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%BC%80%E5%8F%91%E8%80%85%E5%A6%82%E4%BD%95%E5%AE%9E%E8%B7%B5%E8%87%AA%E8%BF%9B%E5%8C%96AI%E6%8A%80%E6%9C%AF%EF%BC%9F"><span class="toc-number">12.6.</span> <span class="toc-text">开发者如何实践自进化AI技术？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：Semantic Router 与 RRF 实现"></a><div class="content"><a class="title" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现">RAG 查询路由：Semantic Router 与 RRF 实现</a><time datetime="2026-11-19T00:00:00.000Z" title="发表于 2026-11-19 08:00:00">2026-11-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：逻辑、语义与混合检索选型"></a><div class="content"><a class="title" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型">RAG 查询路由：逻辑、语义与混合检索选型</a><time datetime="2026-11-18T00:00:00.000Z" title="发表于 2026-11-18 08:00:00">2026-11-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 系统优化实战：检索精度与生成质量的平衡之道"></a><div class="content"><a class="title" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道">RAG 系统优化实战：检索精度与生成质量的平衡之道</a><time datetime="2026-11-17T00:00:00.000Z" title="发表于 2026-11-17 08:00:00">2026-11-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height:570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height:480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"><a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"><a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Prompt-工程实战指南/">Prompt 工程实战指南</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/RAG-工程专题：架构、向量库、查询路由与知识治理/">RAG 工程专题：架构、向量库、查询路由与知识治理</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      var anchor = parent_div_git.querySelector('.page-title')
+      if (anchor) { anchor.insertAdjacentHTML('afterend',item_html) }
+      else { parent_div_git.insertAdjacentHTML('afterbegin',item_html) }
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

@@ -1,0 +1,726 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>AI重构10000行老代码：2周完成1个月工作量的真实复盘 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="记录用Claude Code重构10000行Vue遗留代码的完整过程。从接手3年无人敢动的屎山，到2周上线零事故，包含测试生成、代码诊断、重构执行的完整Prompt模板和避坑指南。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI重构10000行老代码：2周完成1个月工作量的真实复盘">
+<meta property="og:url" content="https://jingluo23.github.io/posts/34ea/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="记录用Claude Code重构10000行Vue遗留代码的完整过程。从接手3年无人敢动的屎山，到2周上线零事故，包含测试生成、代码诊断、重构执行的完整Prompt模板和避坑指南。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-01T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-17T08:49:39.416Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="AI 开发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AI重构10000行老代码：2周完成1个月工作量的真实复盘",
+  "url": "https://jingluo23.github.io/posts/34ea/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-01T02:00:00.000Z",
+  "dateModified": "2026-10-17T08:49:39.416Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/34ea/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'AI重构10000行老代码：2周完成1个月工作量的真实复盘',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">AI重构10000行老代码：2周完成1个月工作量的真实复盘</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">AI重构10000行老代码：2周完成1个月工作量的真实复盘</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-01T02:00:00.000Z" title="发表于 2026-11-01 10:00:00">2026-11-01</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-17T08:49:39.416Z" title="更新于 2026-10-17 16:49:39">2026-10-17</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/AI-%E5%BC%80%E5%8F%91%E5%AE%9E%E6%88%98/">AI 开发实战</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">3.7k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>11分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-17 16:49:39&quot;}" hidden></div><p>10月初接到一个紧急项目：10000行核心业务逻辑的Vue 2.x订单管理系统，测试覆盖率不到10%，状态管理混乱到根本看不懂数据流转，而且已经3年没人敢动了。Leader给的时限是2周内重构完上线。</p>
+<p>我当时就想，这不是为难人吗？按传统方式人肉重构，光理解业务逻辑就得花一周，再小心翼翼地改代码、写测试、验证，30-40天都不一定搞得定。但业务方那边等不了，系统已经慢到用户投诉了。</p>
+<p>然后我突然想起前段时间朋友安利的Claude Code，说是能处理大规模代码重构。老实讲，我当时心里也打鼓——AI重构代码，这靠谱吗？万一改坏了怎么办？</p>
+<p>但没别的选择了。我决定试试。</p>
+<p>2周后，当我按下部署按钮，看着监控面板上一片绿色的正常指标，说不激动是假的。整个重构过程只用了14天，零线上事故，接口响应时间还优化了20%，bug率直接降了40%。</p>
+<p>这篇文章，我想聊聊这14天到底怎么过来的，踩过什么坑，有哪些经验可以直接拿来用。如果你手头也有类似的技术债要还，或者对AI辅助重构感兴趣，这篇应该能帮到你。</p>
+<h1 id="项目背景：这个项目到底有多乱"><a href="#项目背景：这个项目到底有多乱" class="headerlink" title="项目背景：这个项目到底有多乱"></a>项目背景：这个项目到底有多乱</h1><p>先说说这个项目有多乱吧。</p>
+<p>这是公司一个核心的订单管理系统，日均处理订单量大概5000单，涉及订单创建、支付、物流跟踪、售后处理等十几个业务流程。代码是2022年初用Vue 2.x写的，当时负责的前端老哥写完就跑路了，后来陆陆续续又有4个人维护过，每个人都在上面打补丁，风格完全不统一。</p>
+<p><strong>有多糟糕？</strong> 我花了整整2天诊断，发现的问题触目惊心：</p>
+<ol>
+<li><strong>10000行核心业务代码</strong>，单个文件最长的有1800行，最臃肿的<code>OrderService.js</code>包含47个方法</li>
+<li><strong>测试覆盖率不足10%</strong>，只有几个简单的单元测试，关键业务逻辑完全没覆盖</li>
+<li><strong>状态管理混乱</strong>：Vuex、LocalStorage、SessionStorage、全局事件总线，四种状态管理方式混用，数据流向根本理不清</li>
+<li><strong>重复代码泛滥</strong>：同样的订单状态判断逻辑，我找到了23处拷贝粘贴</li>
+<li><strong>性能问题</strong>：订单列表页加载需要3-4秒，用户疯狂投诉</li>
+</ol>
+<p>最头疼的是，这套系统虽然乱，但一直在线上跑，每天服务着几千个用户。你不敢大刀阔斧地改，万一改出问题，业务直接瘫痪。</p>
+<p><strong>传统重构要多久？</strong></p>
+<p>我在白板上列了下传统重构需要的步骤：</p>
+<ol>
+<li>理解业务逻辑（预计5-7天）</li>
+<li>补充测试用例（预计7-10天）</li>
+<li>拆解重构模块（预计10-15天）</li>
+<li>逐个重构验证（预计8-12天）</li>
+<li>集成测试+灰度发布（预计5天）</li>
+</ol>
+<p>算下来，最快也得35天，还不包括踩坑返工的时间。</p>
+<p>但我只有14天。</p>
+<h1 id="为什么选择Claude-Code"><a href="#为什么选择Claude-Code" class="headerlink" title="为什么选择Claude Code"></a>为什么选择Claude Code</h1><p>其实决定用AI之前，我心里也没底。</p>
+<p>市面上AI编程工具挺多的，GitHub Copilot我一直在用，Cursor也听说过不少好评，Claude Code算是新面孔。你可能会问，为啥最后选了Claude Code？</p>
+<p><strong>我做了个小实验</strong></p>
+<p>花了半天时间，我从项目里挑了一个最复杂的函数——订单状态更新逻辑，200多行，包含各种边界判断、异步调用、错误处理。然后分别让这三个工具帮我重构。</p>
+<p>结果挺有意思：</p>
+<ul>
+<li><strong>GitHub Copilot</strong>：给的建议很零碎，更像是代码补全工具，需要我一行一行地引导它。对于这种大规模重构，有点力不从心。</li>
+<li><strong>Cursor</strong>：表现不错，能理解我的意图，重构建议也比较合理。但在处理复杂业务逻辑时，偶尔会”理解偏了”，需要反复解释上下文。</li>
+<li><strong>Claude Code</strong>：这个让我眼前一亮。它不仅重构了代码，还主动帮我识别出3个潜在的bug，建议我先写测试用例再重构，而且给出了详细的重构步骤说明。</li>
+</ul>
+<p>最关键的是<strong>上下文理解能力</strong>。Claude Code支持200K token的上下文窗口，什么概念？我可以一次性把整个项目的核心代码都喂给它，它能理解模块之间的关联，而不是只看单个文件。</p>
+<blockquote>
+<p>“Claude Code 的 200K token 上下文窗口可以容纳约 15 万字的代码，足够理解整个中型项目的核心业务逻辑和模块关联关系。”</p>
+</blockquote>
+<h1 id="重构实战：14天是怎么过来的"><a href="#重构实战：14天是怎么过来的" class="headerlink" title="重构实战：14天是怎么过来的"></a>重构实战：14天是怎么过来的</h1><p>这部分是干货，我会把14天的具体操作步骤和踩过的坑都写出来。</p>
+<h2 id="前期准备：搭建安全网（Day-1-2）"><a href="#前期准备：搭建安全网（Day-1-2）" class="headerlink" title="前期准备：搭建安全网（Day 1-2）"></a>前期准备：搭建安全网（Day 1-2）</h2><p>重构最怕的就是改出问题，所以第一步不是急着动代码，而是先建立<strong>安全网</strong>。</p>
+<p><strong>任务1：补充测试用例</strong></p>
+<p>我给Claude Code的第一个任务就是：帮我生成测试用例。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">我：这是我们的订单模块核心代码（粘贴了3000行代码），</span><br><span class="line">请帮我分析关键业务流程，生成完整的测试用例，</span><br><span class="line">重点覆盖订单创建、支付、退款、状态流转等场景。</span><br></pre></td></tr></table></figure>
+<p>说真的，Claude的表现超出预期。它不仅生成了单元测试，还贴心地按业务场景分类，给每个测试写了清晰的注释。我稍微改了改边界条件，两天时间就把测试覆盖率从10%提升到45%。</p>
+<p>传统方式下，这活儿少说得干一周。</p>
+<p><strong>任务2：代码诊断</strong></p>
+<p>有了测试兜底，下一步是全面诊断代码问题。我让Claude Code帮我做了个”体检”：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">我：请分析这个项目的代码质量问题，</span><br><span class="line">重点关注：代码坏味道、重复逻辑、性能瓶颈、潜在bug。</span><br><span class="line">给我一份详细的诊断报告。</span><br></pre></td></tr></table></figure>
+<p>它扫描完给了我一份20页的报告（真的，我打印出来有20页），列出了：</p>
+<ul>
+<li>87个代码坏味道（函数过长、嵌套过深、命名不规范等）</li>
+<li>23处重复逻辑</li>
+<li>14个潜在的性能问题</li>
+<li>5个可能的bug（有2个后来验证确实是bug）</li>
+</ul>
+<p>这份报告直接成了我的重构roadmap。</p>
+<h2 id="重构执行：人机协作的艺术（Day-3-10）"><a href="#重构执行：人机协作的艺术（Day-3-10）" class="headerlink" title="重构执行：人机协作的艺术（Day 3-10）"></a>重构执行：人机协作的艺术（Day 3-10）</h2><p>真正开始重构后，我慢慢摸索出了一套和Claude Code协作的节奏。</p>
+<p><strong>节奏1：从最痛的地方下手</strong></p>
+<p>第一个动刀的是那个800行的<code>processOrder</code>函数。这个函数包含了订单创建的所有逻辑：参数校验、库存检查、优惠计算、支付调用、通知发送……全塞在一起，维护起来就是噩梦。</p>
+<p>我是这样跟Claude沟通的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">我：这个processOrder函数太臃肿了，请帮我重构，要求：</span><br><span class="line">1. 拆分成职责单一的小函数</span><br><span class="line">2. 每个函数不超过50行</span><br><span class="line">3. 提取公共逻辑到工具类</span><br><span class="line">4. 保持原有功能100%兼容</span><br><span class="line">5. 为每个新函数生成对应的测试用例</span><br></pre></td></tr></table></figure>
+<p>Claude给了我一个超详细的重构方案，把800行拆成了6个独立函数：</p>
+<ul>
+<li><code>validateOrderParams()</code> - 参数校验</li>
+<li><code>checkInventory()</code> - 库存检查</li>
+<li><code>calculateDiscount()</code> - 优惠计算</li>
+<li><code>processPayment()</code> - 支付处理</li>
+<li><code>sendNotifications()</code> - 通知发送</li>
+<li><code>createOrder()</code> - 主流程编排</li>
+</ul>
+<p>每个函数职责清晰，测试起来也方便多了。这一个函数的重构，传统方式我得花3天，用Claude Code半天就搞定了。</p>
+<h2 id="质量保证：不能省的验证环节（Day-11-13）"><a href="#质量保证：不能省的验证环节（Day-11-13）" class="headerlink" title="质量保证：不能省的验证环节（Day 11-13）"></a>质量保证：不能省的验证环节（Day 11-13）</h2><p>代码改完不是终点，验证才是。这3天我就干了一件事：各种测试。</p>
+<p><strong>第1层：自动化测试</strong></p>
+<p>先跑完整的测试套件：</p>
+<ul>
+<li>单元测试：187个用例，全部通过</li>
+<li>集成测试：34个场景，通过率100%</li>
+<li>E2E测试：核心业务流程走一遍</li>
+</ul>
+<p>这一步Claude Code帮了大忙，之前生成的测试用例这时候就派上用场了。</p>
+<p><strong>第2层：代码审查</strong></p>
+<p>我让Claude帮我做了一遍自动化审查，它还真找出了2个问题：一个变量命名不规范，一个异步调用没处理异常。</p>
+<h2 id="上线与监控：最紧张的时刻（Day-14）"><a href="#上线与监控：最紧张的时刻（Day-14）" class="headerlink" title="上线与监控：最紧张的时刻（Day 14）"></a>上线与监控：最紧张的时刻（Day 14）</h2><p>10月25日，周五，下午3点，业务低峰期。</p>
+<p>我选择了灰度发布策略：</p>
+<ul>
+<li>3:00 发布5%流量，盯着监控看了半小时</li>
+<li>3:30 没问题，扩大到10%</li>
+<li>4:00 继续扩大到30%</li>
+<li>5:00 全量发布</li>
+</ul>
+<p>整个过程我就盯着监控大盘，手心都是汗。团队的人也都在线待命，随时准备回滚。</p>
+<p>当看到监控面板上所有指标都是绿色，接口响应时间还从平均450ms降到了360ms，我长舒了一口气。</p>
+<p><strong>最终结果：</strong></p>
+<ul>
+<li>零线上事故</li>
+<li>接口响应时间优化20%</li>
+<li>bug率下降40%</li>
+<li>SonarQube代码质量评分从C提升到A</li>
+<li>测试覆盖率从10%到75%</li>
+</ul>
+<h1 id="高效Prompt模板库"><a href="#高效Prompt模板库" class="headerlink" title="高效Prompt模板库"></a>高效Prompt模板库</h1><p>这是我实战总结的4类Prompt模板，直接复制改改就能用。</p>
+<p><strong>模板1：代码诊断</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">我有一个[项目类型]项目，使用[技术栈]。</span><br><span class="line">这是核心业务代码：[粘贴代码]</span><br><span class="line"></span><br><span class="line">请帮我做全面诊断，重点分析：</span><br><span class="line">1. 代码坏味道（函数过长、嵌套过深、命名不规范等）</span><br><span class="line">2. 重复逻辑和可抽取的公共代码</span><br><span class="line">3. 潜在的性能瓶颈</span><br><span class="line">4. 可能的bug和安全隐患</span><br><span class="line"></span><br><span class="line">请给出详细报告，并按优先级排序。</span><br></pre></td></tr></table></figure>
+<p><strong>模板2：重构执行</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">请帮我重构以下代码：[粘贴代码]</span><br><span class="line"></span><br><span class="line">重构要求：</span><br><span class="line">1. 拆分成职责单一的小函数，每个函数不超过[50]行</span><br><span class="line">2. 提取重复逻辑到工具类</span><br><span class="line">3. 改善命名，遵循[团队规范]</span><br><span class="line">4. 保持原有功能100%兼容</span><br><span class="line">5. 为每个新函数生成对应的测试用例</span><br><span class="line"></span><br><span class="line">重要约束：</span><br><span class="line">- 不要改变业务逻辑，只改代码结构</span><br><span class="line">- 不要引入新的依赖包（除非明确说明）</span><br><span class="line">- 不要删除任何你不确定用途的代码，请标注出来让我确认</span><br><span class="line">- 遵循项目现有的代码风格：[描述风格]</span><br><span class="line"></span><br><span class="line">相关上下文：</span><br><span class="line">[粘贴相关的调用方代码、数据结构定义等]</span><br></pre></td></tr></table></figure>
+<p><strong>模板3：测试生成</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">这是我的[模块名]核心代码：[粘贴代码]</span><br><span class="line"></span><br><span class="line">请帮我生成完整的测试用例，要求：</span><br><span class="line">1. 使用[测试框架名，如Jest/Vitest]</span><br><span class="line">2. 覆盖主要业务场景：[列举关键场景]</span><br><span class="line">3. 包含边界条件测试（空值、异常输入、极限值等）</span><br><span class="line">4. 包含异常场景测试（网络超时、接口报错等）</span><br><span class="line">5. 每个测试用例都要有清晰的注释说明测试目的</span><br><span class="line"></span><br><span class="line">测试覆盖率目标：&gt;70%</span><br></pre></td></tr></table></figure>
+<p><strong>模板4：代码审查</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">我刚完成了一次代码重构，请帮我审查：</span><br><span class="line"></span><br><span class="line">原代码：[粘贴]</span><br><span class="line">重构后代码：[粘贴]</span><br><span class="line"></span><br><span class="line">请重点检查：</span><br><span class="line">1. 是否引入了新的bug或逻辑错误</span><br><span class="line">2. 是否有性能问题（如多余的循环、不必要的计算）</span><br><span class="line">3. 是否符合[团队规范]</span><br><span class="line">4. 是否有安全隐患（如SQL注入、XSS等）</span><br><span class="line">5. 命名和注释是否清晰易懂</span><br><span class="line">6. 测试覆盖是否充分</span><br><span class="line"></span><br><span class="line">请给出详细的审查意见和改进建议。</span><br></pre></td></tr></table></figure>
+<h1 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h1><p>回想10月初接到这个任务时的焦虑，再看看现在重构后的代码，真有种”劫后余生”的感觉。</p>
+<p>14天，10000行代码，从接手屎山到成功上线，这个过程让我对AI辅助开发有了全新的认识。</p>
+<p><strong>AI不是银弹</strong>，它不能替你做决策，不能替你理解业务，也不能替你承担风险。但它是个非常强大的助手——就像有个经验丰富的高级工程师坐在你旁边，随时帮你review代码、生成测试、指出问题。</p>
+<p><strong>真正的效率提升，来自人机协作</strong>。你提供业务理解和判断，AI提供执行效率和最佳实践。这种配合，能让1个人干出3个人的活儿，而且质量还更高。</p>
+<p>如果你也面临类似的挑战，我的建议是：</p>
+<ol>
+<li><strong>别怕尝试</strong>：AI工具发展到现在，已经足够成熟了</li>
+<li><strong>小步快跑</strong>：从一个小模块开始，慢慢熟悉AI的工作方式</li>
+<li><strong>保持警惕</strong>：AI很强大，但不完美，人工审核永远不能省</li>
+<li><strong>做好准备</strong>：测试、监控、回滚机制一个都不能少</li>
+</ol>
+<p>技术债这事儿，拖着不是办法，早还早轻松。有了Claude Code这样的工具，还债其实没那么痛苦，甚至还有点成就感。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="AI-重构代码靠谱吗？会不会改出-bug？"><a href="#AI-重构代码靠谱吗？会不会改出-bug？" class="headerlink" title="AI 重构代码靠谱吗？会不会改出 bug？"></a>AI 重构代码靠谱吗？会不会改出 bug？</h2><p>AI 重构需要配合完善的测试和人工审核。</p>
+<p>本文案例中：</p>
+<ul>
+<li>先建立测试安全网（覆盖率从 10% 提升到 45%）</li>
+<li>采用小步快跑策略</li>
+<li>每次改完立即测试</li>
+<li>最终实现零线上事故</li>
+</ul>
+<p>关键是人机协作，而非完全依赖 AI。</p>
+<h2 id="为什么选择-Claude-Code-而不是-GitHub-Copilot？"><a href="#为什么选择-Claude-Code-而不是-GitHub-Copilot？" class="headerlink" title="为什么选择 Claude Code 而不是 GitHub Copilot？"></a>为什么选择 Claude Code 而不是 GitHub Copilot？</h2><p>Claude Code 优势：</p>
+<ul>
+<li>拥有 200K token 上下文窗口</li>
+<li>能理解整个项目的模块关联</li>
+<li>在大规模重构场景下，它能主动识别 bug、建议最佳实践、提供详细重构步骤</li>
+</ul>
+<p>Copilot：</p>
+<ul>
+<li>更适合代码补全</li>
+<li>在复杂重构场景下力不从心</li>
+</ul>
+<h2 id="14-天重构-10000-行代码的具体流程是什么？"><a href="#14-天重构-10000-行代码的具体流程是什么？" class="headerlink" title="14 天重构 10000 行代码的具体流程是什么？"></a>14 天重构 10000 行代码的具体流程是什么？</h2><p>分为 4 个阶段：</p>
+<p>Day 1-2 搭建安全网：</p>
+<ul>
+<li>补测试、诊断问题</li>
+</ul>
+<p>Day 3-10 重构执行：</p>
+<ul>
+<li>从最痛的地方下手、小步快跑</li>
+</ul>
+<p>Day 11-13 质量保证：</p>
+<ul>
+<li>自动化测试、代码审查、沙箱验证</li>
+</ul>
+<p>Day 14 灰度发布上线</p>
+<h2 id="如何使用文中的-Prompt-模板？"><a href="#如何使用文中的-Prompt-模板？" class="headerlink" title="如何使用文中的 Prompt 模板？"></a>如何使用文中的 Prompt 模板？</h2><p>文章提供 4 类可复用模板：</p>
+<ul>
+<li>代码诊断</li>
+<li>重构执行</li>
+<li>测试生成</li>
+<li>代码审查</li>
+</ul>
+<p>使用方法：</p>
+<ul>
+<li>每个模板都有占位符（如 [项目类型]、[技术栈]）</li>
+<li>替换成你的项目信息即可</li>
+</ul>
+<p>建议先从代码诊断模板开始，了解项目问题。</p>
+<h2 id="重构过程中如何避免引入新-bug？"><a href="#重构过程中如何避免引入新-bug？" class="headerlink" title="重构过程中如何避免引入新 bug？"></a>重构过程中如何避免引入新 bug？</h2><p>5 个关键原则：</p>
+<ol>
+<li>测试先行（先补测试再重构）</li>
+<li>小步快跑（每次只改一个模块）</li>
+<li>频繁验证（改完立即跑测试）</li>
+<li>灰度发布（从 5% 流量开始）</li>
+<li>人工复审（AI 生成的代码必须人工审核）</li>
+</ol>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/34ea/">https://jingluo23.github.io/posts/34ea/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/AI-%E5%BC%80%E5%8F%91/">AI 开发</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/3f77/" title="Mnemo 本地记忆层：Ollama 长期记忆、部署与治理"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Mnemo 本地记忆层：Ollama 长期记忆、部署与治理</div></div><div class="info-2"><div class="info-item-1">解析 Mnemo 如何用 Rust、SQLite 与知识图谱为 Ollama 提供跨会话记忆，附 Docker 最小验证、当前 API、性能口径，以及噪声、撤回、迁移和多 Agent 共享边界。</div></div></div></a><a class="pagination-related" href="/posts/72e/" title="多模态 AI 应用开发指南：从模型选型到实战部署"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">多模态 AI 应用开发指南：从模型选型到实战部署</div></div><div class="info-2"><div class="info-item-1">深入讲解多模态AI应用开发全流程，涵盖GPT-4V、Claude Vision、Gemini等主流模型对比，图像/视频/文档处理实战代码，以及成本优化与部署最佳实践</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/9731/" title="LangChain LCEL 实战：从传统链到流式响应的现代范式"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-04</div><div class="info-item-2">LangChain LCEL 实战：从传统链到流式响应的现代范式</div></div><div class="info-2"><div class="info-item-1">LCEL 用 | 运算符重构 LangChain 开发，代码量减少 70%，自动支持流式响应。详解 Pipe 原理、Runnable 接口、流式机制，提供迁移实战指南。</div></div></div></a><a class="pagination-related" href="/posts/2216/" title="自进化 AI：2026 年让模型持续学习的 4 种方法"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-07</div><div class="info-item-2">自进化 AI：2026 年让模型持续学习的 4 种方法</div></div><div class="info-2"><div class="info-item-1">深度解读 2026 年持续学习趋势，从 SDFT 自蒸馏到 MiniMax M2.7 自进化流程，解析让模型边用边学的 4 种方法及 LangChain 三层进化框架实战视角</div></div></div></a><a class="pagination-related" href="/posts/72e/" title="多模态 AI 应用开发指南：从模型选型到实战部署"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-02</div><div class="info-item-2">多模态 AI 应用开发指南：从模型选型到实战部署</div></div><div class="info-2"><div class="info-item-1">深入讲解多模态AI应用开发全流程，涵盖GPT-4V、Claude Vision、Gemini等主流模型对比，图像/视频/文档处理实战代码，以及成本优化与部署最佳实践</div></div></div></a><a class="pagination-related" href="/posts/508b/" title="多模态 AI 应用开发实战：三模态融合完整指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-03</div><div class="info-item-2">多模态 AI 应用开发实战：三模态融合完整指南</div></div><div class="info-2"><div class="info-item-1">对比 GPT-4V、Gemini、Claude 三大平台，提供文本、图像、语音融合完整代码示例，讲解系统架构设计原则和成本控制技巧，帮你快速掌握多模态开发核心技能。</div></div></div></a><a class="pagination-related" href="/posts/c1f2/" title="LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-05</div><div class="info-item-2">LLM 评估框架对比：LangSmith vs W&amp;B vs MLflow</div></div><div class="info-2"><div class="info-item-1">深度对比 LangSmith、Weights & Biases、MLflow 三大 LLM 评估框架，从追踪能力、评估方法、生产部署到真实成本，帮你做出最佳选型决策。</div></div></div></a><a class="pagination-related" href="/posts/4109/" title="自进化AI：让模型持续学习的关键技术路径"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-06</div><div class="info-item-2">自进化AI：让模型持续学习的关键技术路径</div></div><div class="info-2"><div class="info-item-1">深入解析自进化AI的四大技术路径：模型层进化、上下文进化、元学习、架构层进化，探索AI从静态知识到动态成长的技术突破与实践应用</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%A1%B9%E7%9B%AE%E8%83%8C%E6%99%AF%EF%BC%9A%E8%BF%99%E4%B8%AA%E9%A1%B9%E7%9B%AE%E5%88%B0%E5%BA%95%E6%9C%89%E5%A4%9A%E4%B9%B1"><span class="toc-number">1.</span> <span class="toc-text">项目背景：这个项目到底有多乱</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%89%E6%8B%A9Claude-Code"><span class="toc-number">2.</span> <span class="toc-text">为什么选择Claude Code</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%87%8D%E6%9E%84%E5%AE%9E%E6%88%98%EF%BC%9A14%E5%A4%A9%E6%98%AF%E6%80%8E%E4%B9%88%E8%BF%87%E6%9D%A5%E7%9A%84"><span class="toc-number">3.</span> <span class="toc-text">重构实战：14天是怎么过来的</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E6%9C%9F%E5%87%86%E5%A4%87%EF%BC%9A%E6%90%AD%E5%BB%BA%E5%AE%89%E5%85%A8%E7%BD%91%EF%BC%88Day-1-2%EF%BC%89"><span class="toc-number">3.1.</span> <span class="toc-text">前期准备：搭建安全网（Day 1-2）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E6%9E%84%E6%89%A7%E8%A1%8C%EF%BC%9A%E4%BA%BA%E6%9C%BA%E5%8D%8F%E4%BD%9C%E7%9A%84%E8%89%BA%E6%9C%AF%EF%BC%88Day-3-10%EF%BC%89"><span class="toc-number">3.2.</span> <span class="toc-text">重构执行：人机协作的艺术（Day 3-10）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%B4%A8%E9%87%8F%E4%BF%9D%E8%AF%81%EF%BC%9A%E4%B8%8D%E8%83%BD%E7%9C%81%E7%9A%84%E9%AA%8C%E8%AF%81%E7%8E%AF%E8%8A%82%EF%BC%88Day-11-13%EF%BC%89"><span class="toc-number">3.3.</span> <span class="toc-text">质量保证：不能省的验证环节（Day 11-13）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%8A%E7%BA%BF%E4%B8%8E%E7%9B%91%E6%8E%A7%EF%BC%9A%E6%9C%80%E7%B4%A7%E5%BC%A0%E7%9A%84%E6%97%B6%E5%88%BB%EF%BC%88Day-14%EF%BC%89"><span class="toc-number">3.4.</span> <span class="toc-text">上线与监控：最紧张的时刻（Day 14）</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E9%AB%98%E6%95%88Prompt%E6%A8%A1%E6%9D%BF%E5%BA%93"><span class="toc-number">4.</span> <span class="toc-text">高效Prompt模板库</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">5.</span> <span class="toc-text">写在最后</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#AI-%E9%87%8D%E6%9E%84%E4%BB%A3%E7%A0%81%E9%9D%A0%E8%B0%B1%E5%90%97%EF%BC%9F%E4%BC%9A%E4%B8%8D%E4%BC%9A%E6%94%B9%E5%87%BA-bug%EF%BC%9F"><span class="toc-number">6.1.</span> <span class="toc-text">AI 重构代码靠谱吗？会不会改出 bug？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%80%89%E6%8B%A9-Claude-Code-%E8%80%8C%E4%B8%8D%E6%98%AF-GitHub-Copilot%EF%BC%9F"><span class="toc-number">6.2.</span> <span class="toc-text">为什么选择 Claude Code 而不是 GitHub Copilot？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#14-%E5%A4%A9%E9%87%8D%E6%9E%84-10000-%E8%A1%8C%E4%BB%A3%E7%A0%81%E7%9A%84%E5%85%B7%E4%BD%93%E6%B5%81%E7%A8%8B%E6%98%AF%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">6.3.</span> <span class="toc-text">14 天重构 10000 行代码的具体流程是什么？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8%E6%96%87%E4%B8%AD%E7%9A%84-Prompt-%E6%A8%A1%E6%9D%BF%EF%BC%9F"><span class="toc-number">6.4.</span> <span class="toc-text">如何使用文中的 Prompt 模板？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%87%8D%E6%9E%84%E8%BF%87%E7%A8%8B%E4%B8%AD%E5%A6%82%E4%BD%95%E9%81%BF%E5%85%8D%E5%BC%95%E5%85%A5%E6%96%B0-bug%EF%BC%9F"><span class="toc-number">6.5.</span> <span class="toc-text">重构过程中如何避免引入新 bug？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：Semantic Router 与 RRF 实现"></a><div class="content"><a class="title" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现">RAG 查询路由：Semantic Router 与 RRF 实现</a><time datetime="2026-11-19T00:00:00.000Z" title="发表于 2026-11-19 08:00:00">2026-11-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：逻辑、语义与混合检索选型"></a><div class="content"><a class="title" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型">RAG 查询路由：逻辑、语义与混合检索选型</a><time datetime="2026-11-18T00:00:00.000Z" title="发表于 2026-11-18 08:00:00">2026-11-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 系统优化实战：检索精度与生成质量的平衡之道"></a><div class="content"><a class="title" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道">RAG 系统优化实战：检索精度与生成质量的平衡之道</a><time datetime="2026-11-17T00:00:00.000Z" title="发表于 2026-11-17 08:00:00">2026-11-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height:570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height:480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"><a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"><a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Prompt-工程实战指南/">Prompt 工程实战指南</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/RAG-工程专题：架构、向量库、查询路由与知识治理/">RAG 工程专题：架构、向量库、查询路由与知识治理</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      var anchor = parent_div_git.querySelector('.page-title')
+      if (anchor) { anchor.insertAdjacentHTML('afterend',item_html) }
+      else { parent_div_git.insertAdjacentHTML('afterbegin',item_html) }
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>

@@ -1,0 +1,823 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Prompt Engineering 模板库：12 种可复用的提示词设计模式 | 鲸落のblog</title><meta name="author" content="鲸落"><meta name="copyright" content="鲸落"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#f5f0fa"><meta name="description" content="一套经过验证的 Prompt 模板库建设方法，包含四字段结构、12 种 Prompt Patterns、多模型适配表和 5 个生产级模板，可直接复制使用。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Prompt Engineering 模板库：12 种可复用的提示词设计模式">
+<meta property="og:url" content="https://jingluo23.github.io/posts/faa8/index.html">
+<meta property="og:site_name" content="鲸落のblog">
+<meta property="og:description" content="一套经过验证的 Prompt 模板库建设方法，包含四字段结构、12 种 Prompt Patterns、多模型适配表和 5 个生产级模板，可直接复制使用。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png">
+<meta property="article:published_time" content="2026-11-13T00:00:00.000Z">
+<meta property="article:modified_time" content="2026-10-19T00:34:31.194Z">
+<meta property="article:author" content="鲸落">
+<meta property="article:tag" content="Prompt">
+<meta property="article:tag" content="模板库">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Prompt Engineering 模板库：12 种可复用的提示词设计模式",
+  "url": "https://jingluo23.github.io/posts/faa8/",
+  "image": "https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png",
+  "datePublished": "2026-11-13T00:00:00.000Z",
+  "dateModified": "2026-10-19T00:34:31.194Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "鲸落",
+      "url": "https://jingluo23.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png"><link rel="canonical" href="https://jingluo23.github.io/posts/faa8/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"><link rel="preconnect" href="//fonts.googleapis.com" crossorigin><link rel="preconnect" href="//busuanzi.ibruce.info"><meta name="google-site-verification" content="VGC3bI8DoGj3nEbzAtpw5mqOKNBD7gZrnDyfdFC07fg"><link rel="stylesheet" href="/css/index.css?v=5.7.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.3.1/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        const data = { value }
+
+        if (ttl != null) {
+          data.expiry = Date.now() + ttl * 86400000
+        }
+
+        localStorage.setItem(key, JSON.stringify(data))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return
+
+        try {
+          const data = JSON.parse(itemStr)
+
+          if (data.expiry && Date.now() > data.expiry) {
+            localStorage.removeItem(key)
+            return
+          }
+
+          return data.value
+        } catch {
+          localStorage.removeItem(key)
+        }
+      }
+    }
+
+    const scriptCache = new Map()
+    const cssCache = new Map()
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => {
+        if (scriptCache.has(url)) {
+          return scriptCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+
+          script.src = url
+          script.async = true
+
+          for (const key in attr) {
+            script.setAttribute(key, attr[key])
+          }
+
+          script.onload = resolve
+          script.onerror = reject
+
+          document.head.appendChild(script)
+        })
+
+        scriptCache.set(url, promise)
+
+        return promise
+      },
+      getCSS: (url, id) => {
+        if (cssCache.has(url)) {
+          return cssCache.get(url)
+        }
+
+        const promise = new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+
+          link.rel = 'stylesheet'
+          link.href = url
+
+          if (id) {
+            link.id = id
+          }
+
+          link.onload = resolve
+          link.onerror = reject
+
+          document.head.appendChild(link)
+        })
+
+        cssCache.set(url, promise)
+
+        return promise
+      },
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]')
+      const activateDarkMode = () => {
+        document.documentElement.dataset.theme = 'dark'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#2d0a3d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.dataset.theme = 'light'
+        if (metaThemeColor !== null) {
+          metaThemeColor.setAttribute('content', '#f5f0fa')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script async="async" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><script>(adsbygoogle = window.adsbygoogle || []).push({
+  google_ad_client: 'ca-pub-2645433172005553',
+  enable_page_level_ads: 'true'
+});</script><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&amp;family=Ma+Shan+Zheng&amp;family=Fredoka+One&amp;display=swap" media="print" onload="this.media='all'"><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: {"path":"/search.xml","preload":true,"top_n_per_article":1,"unescape":false,"pagination":{"enable":false,"hitsPerPage":8},"languages":{"hits_empty":"未找到符合您查询的内容：${query}","hits_stats":"共找到 ${hits} 篇文章"}},
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":400,"highlightFullpage":true,"highlightMacStyle":true},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '天',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: {"limitCount":300,"languages":{"author":"作者: 鲸落","link":"链接: ","source":"来源: 鲸落のblog","info":"著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。"}},
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: true,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Prompt Engineering 模板库：12 种可复用的提示词设计模式',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="referrer" content="no-referrer"><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/css/custom.css"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"><link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Chewy&family=Fredoka+One&family=Caveat:wght@400;700&family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet"><!-- hexo injector head_end start --><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiperstyle.css" media="print" onload="this.media='all'"><link rel="stylesheet" href="https://npm.elemecdn.com/hexo-butterfly-categories-card@1.0.0/lib/categorybar.css"><!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head><body><div class="bg-animation" id="web_bg" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"></div><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png);"><nav id="nav"><!-- 左侧博客信息区域--><span id="blog-info"><a class="nav-site-title" href="/"><img class="site-icon" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152663555-6e2c87a6-fe3a-4482-8071-dd58f657c442.png" alt="Logo"><span class="site-name">鲸落のblog</span></a><a class="nav-page-title" href="/"><span class="site-name">Prompt Engineering 模板库：12 种可复用的提示词设计模式</span></a></span><!-- 新增的导航菜单容器（居中布局关键）--><div id="nav-menus-container"><!-- 菜单主体部分--><div id="menus"><!-- 菜单项--><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-house"></i><span> 首页</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-list-ul"></i><span> 文章</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/archives/"><i class="fa-fw fas fa-box-archive"></i><span> 归档</span></a></li><li><a class="site-page child" href="/article/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/article/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><span class="site-page group hide"><i class="fa-fw fas fa-user"></i><span> 个人</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/personal/comments/"><i class="fa-fw fas fa-comment-dots"></i><span> 留言板</span></a></li><li><a class="site-page child" href="/personal/about/"><i class="fa-fw fas fa-paper-plane"></i><span> 关于</span></a></li><li><a class="site-page child" href="/privacy/"><i class="fa-fw fas fa-user-shield"></i><span> 隐私政策</span></a></li></ul></div></div></div></div><!-- 右侧功能区域（新增容器）--><div id="nav-right-container"><!-- 搜索按钮（移动到右侧）--><div id="search-button"><span class="site-page social-icon search"><i class="fas fa-search fa-fw"></i><span> 搜索</span></span></div><!-- 移动端汉堡菜单按钮--><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Prompt Engineering 模板库：12 种可复用的提示词设计模式</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-11-13T00:00:00.000Z" title="发表于 2026-11-13 08:00:00">2026-11-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-10-19T00:34:31.194Z" title="更新于 2026-10-19 08:34:31">2026-10-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/article/categories/Prompt-%E5%B7%A5%E7%A8%8B%E5%AE%9E%E6%88%98%E6%8C%87%E5%8D%97/">Prompt 工程实战指南</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-wordcount"><i class="far fa-file-word fa-fw post-meta-icon"></i><span class="post-meta-label">总字数:</span><span class="word-count">6.4k</span><span class="post-meta-separator">|</span><i class="far fa-clock fa-fw post-meta-icon"></i><span class="post-meta-label">阅读时长:</span><span>22分钟</span></span><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id data-flag-title><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><div id="post-outdate-notice" data="{&quot;limitDay&quot;:365,&quot;messagePrev&quot;:&quot;本文最后更新于&quot;,&quot;messageNext&quot;:&quot;天前，部分内容可能已失效&quot;,&quot;postUpdate&quot;:&quot;2026-10-19 08:34:31&quot;}" hidden></div><p>花了四十分钟写了一个堪称完美的 Prompt，让 Claude 把一堆乱七八糟的用户反馈整理成了结构清晰的改进建议。效果很惊艳。但三天后，需要做同样的任务时——对着空白的输入框，脑子一片空白。</p>
+<p>那个”完美 Prompt”去哪了？</p>
+<p>翻遍了 Notion、备忘录、聊天记录，找不着。最后只能凭印象重写了一个，结果输出质量差了一大截。</p>
+<p>这种事遇到过不下十次。每次都是：灵光一现写了好 Prompt → 用完就忘 → 下次又从零开始 → 质量时好时坏。</p>
+<p>直到意识到一个关键问题：<strong>Prompt 写得好不好，一半靠技巧，另一半靠”能不能复用”</strong>。</p>
+<p>根据 aiengineerlab.in 2026 年的研究，区分”偶尔有效”和”持续可靠”的 Prompt，核心差异就四个字段。这四个字段组合好，能覆盖 80% 的日常工作场景。</p>
+<p>这篇文章，我会分享一套经过验证的 Prompt 模板库建设方法，包括：</p>
+<ul>
+<li><strong>四字段结构</strong>：Role + Task + Constraints + Output Format</li>
+<li><strong>12 种 Prompt Patterns</strong>：按 Beginner/Intermediate/Advanced 分级</li>
+<li><strong>多模型适配表</strong>：Claude、GPT-4、DeepSeek 的差异化策略</li>
+<li><strong>模板迭代方法</strong>：如何把”还不错”的模板优化成”生产级”</li>
+<li><strong>5 个直接可用的模板</strong>：复制粘贴就能跑</li>
+</ul>
+<h1 id="Prompt-模板的四字段结构"><a href="#Prompt-模板的四字段结构" class="headerlink" title="Prompt 模板的四字段结构"></a>Prompt 模板的四字段结构</h1><p>在看具体的模板之前，先说一个挺基础但容易被忽略的事实：<strong>好的模板和差的模板，结构上差的就是那四个字段</strong>。</p>
+<p>aiengineerlab.in 的研究指出，一个”可靠有效”的 Prompt，必须包含四个要素：Role（角色）、Task（任务）、Constraints（约束）、Output Format（输出格式）。</p>
+<h2 id="先看一个反例"><a href="#先看一个反例" class="headerlink" title="先看一个反例"></a>先看一个反例</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">帮我写一个代码审查的回复</span><br></pre></td></tr></table></figure>
+<p>这种 Prompt 我以前写过无数次。结果呢？AI 给出的回复五花八门——有时候太客气，有时候太技术化，有时候干脆只给一句”代码写得不错”。</p>
+<h2 id="再看加了四字段之后的版本"><a href="#再看加了四字段之后的版本" class="headerlink" title="再看加了四字段之后的版本"></a>再看加了四字段之后的版本</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">## Role</span><br><span class="line">你是一位有 10 年经验的后端工程师，擅长 Python 和分布式系统。</span><br><span class="line"></span><br><span class="line">## Task</span><br><span class="line">审查以下代码变更，指出潜在问题并提供改进建议。</span><br><span class="line"></span><br><span class="line">## Constraints</span><br><span class="line">- 关注点：性能、安全性、可维护性</span><br><span class="line">- 语气：专业但友好，避免过于严苛</span><br><span class="line">- 篇幅：控制在 200 字以内</span><br><span class="line">- 必须指出至少一个改进点</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">请用以下格式输出：</span><br><span class="line">### 问题列表</span><br><span class="line">- [问题类型] 具体描述</span><br><span class="line"></span><br><span class="line">### 改进建议</span><br><span class="line">1. ...</span><br><span class="line">2. ...</span><br><span class="line"></span><br><span class="line">### 总体评价</span><br><span class="line">（一句话总结）</span><br></pre></td></tr></table></figure>
+<p>差别挺明显的，对吧。</p>
+<h2 id="四字段详解"><a href="#四字段详解" class="headerlink" title="四字段详解"></a>四字段详解</h2><p><strong>Role（角色）</strong>——告诉 AI 它是谁。不是随便说个身份，而是设定一个有具体背景的”人设”。比如”有 10 年经验的后端工程师”就比”你是专家”具体得多。角色设定越具体，AI 的输出风格就越稳定。</p>
+<p><strong>Task（任务）</strong>——要 AI 干什么。这里有个小技巧：用动词开头。“审查代码变更”比”代码审查”更明确。“指出潜在问题并提供改进建议”又比”看看代码”清晰多了。</p>
+<p><strong>Constraints（约束）</strong>——这是最容易被忽略、但也最重要的字段。我见过太多 Prompt 死在这一步——没有约束，AI 就放飞自我。约束包括：关注领域（性能？安全？）、语气风格、篇幅限制、必须包含的元素。说白了，约束就是给 AI 划清边界。</p>
+<p><strong>Output Format（输出格式）</strong>——你希望结果长什么样。是要 JSON？Markdown？还是特定的章节结构？提前说清楚，能省掉大量后期整理的时间。</p>
+<h2 id="一张对比表"><a href="#一张对比表" class="headerlink" title="一张对比表"></a>一张对比表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">字段</th>
+<th style="text-align:center">反例</th>
+<th style="text-align:center">正例</th>
+<th style="text-align:center">效果差异</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Role</td>
+<td style="text-align:center">”你是专家”</td>
+<td style="text-align:center">“10年经验后端工程师，擅长 Python”</td>
+<td style="text-align:center">输出风格稳定</td>
+</tr>
+<tr>
+<td style="text-align:center">Task</td>
+<td style="text-align:center">”看看代码”</td>
+<td style="text-align:center">“审查代码变更，指出问题并提供建议”</td>
+<td style="text-align:center">任务边界清晰</td>
+</tr>
+<tr>
+<td style="text-align:center">Constraints</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">”关注性能和安全，200字以内，至少一个改进点”</td>
+<td style="text-align:center">输出可控</td>
+</tr>
+<tr>
+<td style="text-align:center">Output Format</td>
+<td style="text-align:center">无</td>
+<td style="text-align:center">”问题列表 + 改进建议 + 总体评价”</td>
+<td style="text-align:center">无需二次整理</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>当你把这四个字段组合好，一个 Prompt 就从”碰运气”变成了”可复用”。这就是模板化的基础。</p>
+<h1 id="12-种可复用-Prompt-Patterns-速查"><a href="#12-种可复用-Prompt-Patterns-速查" class="headerlink" title="12 种可复用 Prompt Patterns 速查"></a>12 种可复用 Prompt Patterns 速查</h1><p>best-ai.org 整理了一份挺实用的 Prompt Patterns 清单，按难度分了三级。我把这些模式按使用场景重新组织了一下，方便你快速找到适合的模式。</p>
+<h2 id="Beginner-级别（5-种）"><a href="#Beginner-级别（5-种）" class="headerlink" title="Beginner 级别（5 种）"></a>Beginner 级别（5 种）</h2><p><strong>1. Zero-Shot（零样本）</strong></p>
+<p>直接给任务，不给示例。适合简单、明确的任务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">&#123;&#123;输出格式&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：写邮件摘要、翻译短文本、回答事实性问题。</p>
+<p><strong>2. Few-Shot（少样本）</strong></p>
+<p>给 2-3 个示例，让 AI 模仿。aiengineerlab.in 的测试显示，通常 2-3 个示例效果最佳，分类任务可以用 5-7 个。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Examples</span><br><span class="line">示例 1：</span><br><span class="line">输入：&#123;&#123;示例输入1&#125;&#125;</span><br><span class="line">输出：&#123;&#123;示例输出1&#125;&#125;</span><br><span class="line"></span><br><span class="line">示例 2：</span><br><span class="line">输入：&#123;&#123;示例输入2&#125;&#125;</span><br><span class="line">输出：&#123;&#123;示例输出2&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Now Process</span><br><span class="line">输入：&#123;&#123;实际输入&#125;&#125;</span><br><span class="line">输出：</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：文案风格模仿、分类任务、格式转换。</p>
+<p><strong>3. Persona（角色扮演）</strong></p>
+<p>设定 AI 的身份和背景。这是最常用的模式之一，和第一章的”Role”字段配合使用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">## Role</span><br><span class="line">你是一位&#123;&#123;具体身份&#125;&#125;，拥有&#123;&#123;具体背景&#125;&#125;。</span><br><span class="line"></span><br><span class="line">## Style</span><br><span class="line">你的说话风格是：&#123;&#123;风格描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：代码审查、技术咨询、创意写作。</p>
+<p><strong>4. Output Format（输出格式化）</strong></p>
+<p>强制 AI 按特定格式输出。这个模式几乎可以和所有其他模式组合。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">请严格按以下格式输出：</span><br><span class="line">&#123;&#123;格式模板&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Note</span><br><span class="line">只输出格式化内容，不要额外解释。</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：生成 JSON、填报表、结构化文档。</p>
+<p><strong>5. Negative Prompting（否定约束）</strong></p>
+<p>告诉 AI “不要做什么”。有时候比正面约束更有效。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Do NOT</span><br><span class="line">- 不要&#123;&#123;禁止项1&#125;&#125;</span><br><span class="line">- 不要&#123;&#123;禁止项2&#125;&#125;</span><br><span class="line">- 避免&#123;&#123;禁止项3&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：避免特定术语、排除敏感内容、控制输出风格。</p>
+<h2 id="Intermediate-级别（4-种）"><a href="#Intermediate-级别（4-种）" class="headerlink" title="Intermediate 级别（4 种）"></a>Intermediate 级别（4 种）</h2><p><strong>6. Chain of Thought（思维链）</strong></p>
+<p>让 AI 展示推理过程。适合需要逻辑推理的任务。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Instructions</span><br><span class="line">请一步步思考，先分析问题，再给出答案。</span><br><span class="line">在最终答案前，展示你的推理过程。</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：数学问题、逻辑推理、复杂决策。</p>
+<p><strong>7. System Prompt（系统提示）</strong></p>
+<p>把角色的核心指令放在 System Prompt 里，保持对话一致性。这个在 Claude 和 GPT-4 里用得特别多。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">## System</span><br><span class="line">你是&#123;&#123;角色描述&#125;&#125;。</span><br><span class="line">你的核心职责是&#123;&#123;职责描述&#125;&#125;。</span><br><span class="line">你必须遵守以下规则：</span><br><span class="line">1. &#123;&#123;规则1&#125;&#125;</span><br><span class="line">2. &#123;&#123;规则2&#125;&#125;</span><br><span class="line"></span><br><span class="line">## User</span><br><span class="line">&#123;&#123;用户输入&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：AI Agent、聊天机器人、持续对话场景。</p>
+<p><strong>8. Iterative Refinement（迭代优化）</strong></p>
+<p>先让 AI 生成初稿，再让它自己修改。适合需要高质量的输出。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">## Round 1</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line">生成初稿。</span><br><span class="line"></span><br><span class="line">## Round 2</span><br><span class="line">请审查上面的初稿，找出以下问题：</span><br><span class="line">- 逻辑漏洞</span><br><span class="line">- 表达不清</span><br><span class="line">- 事实错误</span><br><span class="line"></span><br><span class="line">## Round 3</span><br><span class="line">根据审查结果，优化初稿并输出最终版本。</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：文章写作、代码生成、方案设计。</p>
+<p><strong>9. Constraint Stacking（约束叠加）</strong></p>
+<p>堆叠多个约束，让输出更加精准。生产环境里最常用的组合。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Constraints</span><br><span class="line">- 约束 1：&#123;&#123;具体约束&#125;&#125;</span><br><span class="line">- 约束 2：&#123;&#123;具体约束&#125;&#125;</span><br><span class="line">- 约束 3：&#123;&#123;具体约束&#125;&#125;</span><br><span class="line">- 约束 4：&#123;&#123;具体约束&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">&#123;&#123;格式要求&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：需要严格控制输出的生产任务。</p>
+<h2 id="Advanced-级别（3-种）"><a href="#Advanced-级别（3-种）" class="headerlink" title="Advanced 级别（3 种）"></a>Advanced 级别（3 种）</h2><p><strong>10. Self-Critique（自我审查）</strong></p>
+<p>让 AI 自己评估自己的输出质量。这个模式在高质量场景下特别有用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Self-Critique</span><br><span class="line">生成答案后，请评估：</span><br><span class="line">1. 答案是否完整？</span><br><span class="line">2. 是否有逻辑漏洞？</span><br><span class="line">3. 是否符合所有约束？</span><br><span class="line"></span><br><span class="line">如果有问题，请重新生成。</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">答案：</span><br><span class="line">&#123;&#123;答案&#125;&#125;</span><br><span class="line"></span><br><span class="line">自我评估：</span><br><span class="line">&#123;&#123;评估&#125;&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：高风险输出、需要可靠性的任务。</p>
+<p><strong>11. Task Decomposition（任务分解）</strong></p>
+<p>把复杂任务拆成子任务。适合多步骤工作流。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">## Complex Task</span><br><span class="line">&#123;&#123;复杂任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Decomposition</span><br><span class="line">请把这个任务拆分成多个子任务：</span><br><span class="line">1. &#123;&#123;子任务1&#125;&#125;</span><br><span class="line">2. &#123;&#123;子任务2&#125;&#125;</span><br><span class="line">3. &#123;&#123;子任务3&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Execution</span><br><span class="line">请依次完成每个子任务，并说明每步的结果。</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：项目管理、复杂问题分析、系统设计。</p>
+<p><strong>12. Meta-Prompting（元提示）</strong></p>
+<p>让 AI 帮你写 Prompt。当你不确定怎么表达时特别好用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">我需要完成以下任务：&#123;&#123;任务描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">## Request</span><br><span class="line">请帮我写一个高质量的 Prompt，让另一个 AI 能顺利完成这个任务。</span><br><span class="line">Prompt 需要包含：Role、Task、Constraints、Output Format。</span><br></pre></td></tr></table></figure>
+<p><strong>适用场景</strong>：Prompt 工程新手、复杂任务梳理。</p>
+<h2 id="组合使用的小建议"><a href="#组合使用的小建议" class="headerlink" title="组合使用的小建议"></a>组合使用的小建议</h2><blockquote>
+<p>“组合 2-4 个 Pattern 效果最好。常见组合包括：Business Writing 用 Persona + Output Format + Constraint Stacking；Code Generation 用 Persona + Few-Shot + Negative Prompting；Research &amp; Analysis 用 Chain of Thought + Self-Critique + Task Decomposition。”</p>
+</blockquote>
+<h1 id="多模型适配对比表"><a href="#多模型适配对比表" class="headerlink" title="多模型适配对比表"></a>多模型适配对比表</h1><p>不同的 AI 模型，对 Prompt 的”理解方式”不太一样。一个在 Claude 上效果很好的 Prompt，放到 GPT-4 上可能就差点意思。</p>
+<p>这一章，我整理了一份模型适配指南，帮你少踩坑。</p>
+<h2 id="Claude：XML-标签和契约式指令"><a href="#Claude：XML-标签和契约式指令" class="headerlink" title="Claude：XML 标签和契约式指令"></a>Claude：XML 标签和契约式指令</h2><p>Claude 有个特点：它特别喜欢结构化的东西。官方文档推荐用 XML 标签来组织 Prompt，效果比纯文本好不少。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">&lt;instructions&gt;</span><br><span class="line">审查以下代码变更，指出潜在问题。</span><br><span class="line">&lt;/instructions&gt;</span><br><span class="line"></span><br><span class="line">&lt;context&gt;</span><br><span class="line">你是一位有 10 年经验的后端工程师。</span><br><span class="line">项目是一个 Python 微服务，使用 FastAPI 框架。</span><br><span class="line">&lt;/context&gt;</span><br><span class="line"></span><br><span class="line">&lt;constraints&gt;</span><br><span class="line">- 关注性能和安全性</span><br><span class="line">- 语气专业但友好</span><br><span class="line">- 控制在 200 字以内</span><br><span class="line">&lt;/constraints&gt;</span><br><span class="line"></span><br><span class="line">&lt;output_format&gt;</span><br><span class="line">### 问题列表</span><br><span class="line">- [类型] 描述</span><br><span class="line"></span><br><span class="line">### 改进建议</span><br><span class="line">1. ...</span><br><span class="line">&lt;/output_format&gt;</span><br></pre></td></tr></table></figure>
+<p><strong>Claude 的另外两个优势</strong>：</p>
+<ul>
+<li><strong>Extended Thinking</strong>：让 Claude 在输出前先”思考”，适合复杂推理任务</li>
+<li><strong>契约式指令</strong>：在开头说清楚”如果你遵守所有约束，输出 OK”，能提高约束遵守率</li>
+</ul>
+<h2 id="GPT-4：长约束列表和-JSON-输出"><a href="#GPT-4：长约束列表和-JSON-输出" class="headerlink" title="GPT-4：长约束列表和 JSON 输出"></a>GPT-4：长约束列表和 JSON 输出</h2><p>GPT-4 不太吃 XML 标签那一套。它更适应”列表式”的约束。而且 GPT-4 的 JSON 输出稳定性比 Claude 稍好一些。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">审查以下代码变更。</span><br><span class="line"></span><br><span class="line">## Constraints</span><br><span class="line">1. 关注性能和安全性</span><br><span class="line">2. 语气专业但友好</span><br><span class="line">3. 控制在 200 字以内</span><br><span class="line">4. 必须指出至少一个改进点</span><br><span class="line">5. 使用中文输出</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">请输出 JSON 格式：</span><br><span class="line">&#123;</span><br><span class="line">  &quot;issues&quot;: [...],</span><br><span class="line">  &quot;suggestions&quot;: [...],</span><br><span class="line">  &quot;summary&quot;: &quot;...&quot;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>GPT-4 的特点</strong>：</p>
+<ul>
+<li>约束列表可以写到 10 条以上，模型仍能较好遵守</li>
+<li>Few-shot 模式效果比 Claude 稍好</li>
+<li>代码生成和解释能力比较均衡</li>
+</ul>
+<h2 id="DeepSeek-和-Qwen：国产大模型的适配"><a href="#DeepSeek-和-Qwen：国产大模型的适配" class="headerlink" title="DeepSeek 和 Qwen：国产大模型的适配"></a>DeepSeek 和 Qwen：国产大模型的适配</h2><p>国产模型这两年进步很快，但也有自己的特点：</p>
+<p><strong>DeepSeek</strong>：</p>
+<ul>
+<li>中文理解能力强，但结构化指令的遵守度稍弱</li>
+<li>建议把约束写得更明确、更短</li>
+<li>Few-shot 示例数量可以减少到 1-2 个</li>
+</ul>
+<p><strong>Qwen（通义千问）</strong>：</p>
+<ul>
+<li>比较吃”角色设定”，Persona 模式效果好</li>
+<li>长文本处理能力强，适合文档类任务</li>
+<li>约束建议用”禁止”而非”避免”，正向指令比负向更有效</li>
+</ul>
+<h2 id="Llama（小参数版本）：需要更直白的指令"><a href="#Llama（小参数版本）：需要更直白的指令" class="headerlink" title="Llama（小参数版本）：需要更直白的指令"></a>Llama（小参数版本）：需要更直白的指令</h2><p>对于 Llama 7B、13B 这类小参数模型，Prompt 得写得更”傻瓜”一些。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">## Task</span><br><span class="line">审查代码变更。</span><br><span class="line"></span><br><span class="line">## Output Format</span><br><span class="line">Return ONLY valid JSON. No explanation. No markdown.</span><br><span class="line">&#123;</span><br><span class="line">  &quot;issues&quot;: [],</span><br><span class="line">  &quot;suggestions&quot;: []</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>关键点</strong>：必须显式说”只输出 JSON，不要解释”，否则小模型会多嘴多舌。</p>
+<h2 id="一张适配速查表"><a href="#一张适配速查表" class="headerlink" title="一张适配速查表"></a>一张适配速查表</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:center">模型</th>
+<th style="text-align:center">推荐结构</th>
+<th style="text-align:center">Few-shot 数量</th>
+<th style="text-align:center">约束格式</th>
+<th style="text-align:center">特殊技巧</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:center">Claude</td>
+<td style="text-align:center">XML 标签</td>
+<td style="text-align:center">2-3 个</td>
+<td style="text-align:center">分块写在标签内</td>
+<td style="text-align:center">Extended Thinking</td>
+</tr>
+<tr>
+<td style="text-align:center">GPT-4</td>
+<td style="text-align:center">列表式</td>
+<td style="text-align:center">3-5 个</td>
+<td style="text-align:center">编号列表</td>
+<td style="text-align:center">Function Calling</td>
+</tr>
+<tr>
+<td style="text-align:center">DeepSeek</td>
+<td style="text-align:center">简洁结构</td>
+<td style="text-align:center">1-2 个</td>
+<td style="text-align:center">短句式</td>
+<td style="text-align:center">中文优先</td>
+</tr>
+<tr>
+<td style="text-align:center">Qwen</td>
+<td style="text-align:center">Persona + 列表</td>
+<td style="text-align:center">2-3 个</td>
+<td style="text-align:center">正向指令</td>
+<td style="text-align:center">长文档友好</td>
+</tr>
+<tr>
+<td style="text-align:center">Llama under 13B</td>
+<td style="text-align:center">极简结构</td>
+<td style="text-align:center">1 个</td>
+<td style="text-align:center">显式禁止</td>
+<td style="text-align:center">强调”只输出 X”</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>说到底，模型适配这事儿，最好的办法就是”测一测”。写完 Prompt，在目标模型上跑几个案例，看看输出质量，再针对性调整。</p>
+<h1 id="模板迭代方法论"><a href="#模板迭代方法论" class="headerlink" title="模板迭代方法论"></a>模板迭代方法论</h1><p>写出一个”还行”的 Prompt 不难。难的是把它变成一个”每次都好用”的模板。</p>
+<blockquote>
+<p>“最佳模板不是一蹴而就的，而是经过反复使用和改进才成型的。一个好模板，至少要迭代五六次。”</p>
+</blockquote>
+<h2 id="迭代的五个步骤"><a href="#迭代的五个步骤" class="headerlink" title="迭代的五个步骤"></a>迭代的五个步骤</h2><p><strong>Step 1：写出 Prompt，获得好结果</strong></p>
+<p>先别急着模板化。先写一个 Prompt，跑几次，确认输出质量稳定。</p>
+<p><strong>Step 2：识别固定部分和变量</strong></p>
+<p>拿到一个满意的输出后，分析一下 Prompt 里哪些是”固定的”，哪些是”每次会变的”。</p>
+<p>固定的部分——比如角色设定、输出格式——这些就是模板的核心骨架。</p>
+<p>变量的部分——比如具体任务内容、输入数据——这些用 <code>&#123;&#123;变量名&#125;&#125;</code> 标记，每次替换。</p>
+<p><strong>Step 3：添加质量护栏</strong></p>
+<p>把骨架扩展成完整模板，加上约束和验证条件。</p>
+<p>护栏的作用是防止”意外输出”。比如：</p>
+<ul>
+<li>如果输出太长，加一个”控制在 X 字以内”的约束</li>
+<li>如果 AI 总是多嘴多舌，加一个”不要解释，只输出结果”</li>
+<li>如果输出格式不一致，加一个具体的格式模板</li>
+</ul>
+<p><strong>Step 4：使用并记录问题</strong></p>
+<p>模板投入使用后，记录每次遇到的问题：</p>
+<ul>
+<li>输出质量波动了吗？</li>
+<li>有没有违反约束的情况？</li>
+<li>哪些场景表现好，哪些场景表现差？</li>
+</ul>
+<p><strong>Step 5：迭代改进</strong></p>
+<p>针对记录的问题，调整模板。常见改进方向：</p>
+<ul>
+<li>约束不够明确 → 加更具体的描述</li>
+<li>输出格式不稳定 → 加示例或格式模板</li>
+<li>特定场景效果差 → 添加场景适配的条件分支</li>
+</ul>
+<h2 id="一个迭代案例"><a href="#一个迭代案例" class="headerlink" title="一个迭代案例"></a>一个迭代案例</h2><p>我有一个”周报生成”的模板，经历了大概 8 次迭代才稳定下来。</p>
+<p><strong>初版（迭代 1）</strong>：只写了一个简单的 Prompt，让 AI 把本周工作整理成周报格式。问题：输出太随意，有时候写得很详细，有时候只有一句话。</p>
+<p><strong>迭代 2-3</strong>：加了输出格式模板和字数约束。问题：格式基本稳定了，但有时候会漏掉某些任务的描述。</p>
+<p><strong>迭代 4-5</strong>：加了”必须包含每个任务的进展、问题、下一步”的约束。问题：输出质量稳定了，但 AI 会把不重要的小任务也写进去。</p>
+<p><strong>迭代 6-7</strong>：加了”只写本周完成的核心任务”的约束，并给了一个示例。问题：基本稳定了，偶尔会出现格式偏差。</p>
+<p><strong>迭代 8（最终版）</strong>：加了一个 Self-Critique 模块，让 AI 检查输出是否符合格式要求，再输出。</p>
+<h2 id="关键问题模板"><a href="#关键问题模板" class="headerlink" title="关键问题模板"></a>关键问题模板</h2><p>每次遇到问题，我都会问自己这几个问题：</p>
+<ol>
+<li><strong>输出需要大幅编辑吗？</strong> → 如果需要，说明约束不够明确</li>
+<li><strong>AI 违反了哪些约束？</strong> → 把这些约束写得更具体</li>
+<li><strong>有没有遗漏的信息？</strong> → 添加”必须包含 X”的指令</li>
+<li><strong>有没有多余的信息？</strong> → 添加”不要输出 X”的 Negative Prompting</li>
+<li><strong>格式是否一致？</strong> → 加示例或格式模板</li>
+</ol>
+<h2 id="团队共享模板的三个关键"><a href="#团队共享模板的三个关键" class="headerlink" title="团队共享模板的三个关键"></a>团队共享模板的三个关键</h2><p>如果你的团队也在用 AI 工具，建立一个共享的 Prompt Library 会大大提升效率。mintedbrain.com 提了三个建议：</p>
+<p><strong>1. 共享文档</strong>：把所有模板放在一个团队都能访问的文档里（比如 Notion、飞书）。按类别分组：写作类、分析类、开发类、沟通类。</p>
+<p><strong>2. 使用说明</strong>：每个模板配一个简单的说明：适用场景、变量说明、注意事项。不然别人拿了模板也不知道怎么用。</p>
+<p><strong>3. 改进提案机制</strong>：团队成员发现问题后，不是直接改模板，而是提一个”改进提案”。这样可以追踪每次改动的原因，避免模板被改得面目全非。</p>
+<h1 id="5-个生产级模板直接可用"><a href="#5-个生产级模板直接可用" class="headerlink" title="5 个生产级模板直接可用"></a>5 个生产级模板直接可用</h1><p>最后这一章，我直接给你 5 个可以直接复制使用的模板。这些模板都经历过实际使用和迭代，基本可以直接上手。</p>
+<h2 id="模板-1：周报生成"><a href="#模板-1：周报生成" class="headerlink" title="模板 1：周报生成"></a>模板 1：周报生成</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">&lt;instructions&gt;</span><br><span class="line">根据本周的工作记录，生成一份简洁的周报。</span><br><span class="line">&lt;/instructions&gt;</span><br><span class="line"></span><br><span class="line">&lt;role&gt;</span><br><span class="line">你是一位高效的团队协作者，擅长用简洁的语言总结工作进展。</span><br><span class="line">&lt;/role&gt;</span><br><span class="line"></span><br><span class="line">&lt;input&gt;</span><br><span class="line">&#123;&#123;本周工作记录&#125;&#125;</span><br><span class="line">&lt;/input&gt;</span><br><span class="line"></span><br><span class="line">&lt;constraints&gt;</span><br><span class="line">- 只包含本周完成的核心任务</span><br><span class="line">- 每个任务说明：进展、问题、下一步</span><br><span class="line">- 控制在 300 字以内</span><br><span class="line">- 语气专业、简洁</span><br><span class="line">- 不要添加评价性语言（如&quot;做得很好&quot;）</span><br><span class="line">&lt;/constraints&gt;</span><br><span class="line"></span><br><span class="line">&lt;output_format&gt;</span><br><span class="line">## 本周进展</span><br><span class="line">- &#123;&#123;任务1&#125;&#125;：&#123;&#123;进展&#125;&#125; | &#123;&#123;问题&#125;&#125; | &#123;&#123;下一步&#125;&#125;</span><br><span class="line">- &#123;&#123;任务2&#125;&#125;：&#123;&#123;进展&#125;&#125; | &#123;&#123;问题&#125;&#125; | &#123;&#123;下一步&#125;&#125;</span><br><span class="line"></span><br><span class="line">## 需要协助</span><br><span class="line">- &#123;&#123;需要协助的事项&#125;&#125;</span><br><span class="line"></span><br><span class="line">## 下周计划</span><br><span class="line">- &#123;&#123;下周计划&#125;&#125;</span><br><span class="line">&lt;/output_format&gt;</span><br><span class="line"></span><br><span class="line">&lt;self_check&gt;</span><br><span class="line">生成后请检查：</span><br><span class="line">1. 是否只包含核心任务？</span><br><span class="line">2. 每个任务是否都有进展、问题、下一步？</span><br><span class="line">3. 总字数是否在 300 字以内？</span><br><span class="line">&lt;/self_check&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="模板-2：代码审查"><a href="#模板-2：代码审查" class="headerlink" title="模板 2：代码审查"></a>模板 2：代码审查</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">&lt;instructions&gt;</span><br><span class="line">审查以下代码变更，指出潜在问题并提供改进建议。</span><br><span class="line">&lt;/instructions&gt;</span><br><span class="line"></span><br><span class="line">&lt;role&gt;</span><br><span class="line">你是一位有 10 年经验的后端工程师，擅长 &#123;&#123;编程语言&#125;&#125; 和 &#123;&#123;技术栈&#125;&#125;。</span><br><span class="line">你的风格是：专业但不严苛，指出问题时给出具体可行的建议。</span><br><span class="line">&lt;/role&gt;</span><br><span class="line"></span><br><span class="line">&lt;input&gt;</span><br><span class="line">&#123;&#123;代码变更内容&#125;&#125;</span><br><span class="line">&lt;/input&gt;</span><br><span class="line"></span><br><span class="line">&lt;constraints&gt;</span><br><span class="line">- 关注点：性能、安全性、可维护性、代码规范</span><br><span class="line">- 至少指出一个改进点</span><br><span class="line">- 每个问题说明：类型、位置、原因、建议</span><br><span class="line">- 控制在 200 字以内</span><br><span class="line">- 不要只说&quot;代码写得不错&quot;，必须有具体内容</span><br><span class="line">&lt;/constraints&gt;</span><br><span class="line"></span><br><span class="line">&lt;output_format&gt;</span><br><span class="line">### 问题列表</span><br><span class="line">- [&#123;&#123;问题类型&#125;&#125;] &#123;&#123;文件名&#125;&#125;#&#123;&#123;行号&#125;&#125;：&#123;&#123;问题描述&#125;&#125;</span><br><span class="line"></span><br><span class="line">### 改进建议</span><br><span class="line">1. &#123;&#123;建议内容&#125;&#125;</span><br><span class="line"></span><br><span class="line">### 总体评价</span><br><span class="line">&#123;&#123;一句话评价&#125;&#125;</span><br><span class="line">&lt;/output_format&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="模板-3：会议纪要整理"><a href="#模板-3：会议纪要整理" class="headerlink" title="模板 3：会议纪要整理"></a>模板 3：会议纪要整理</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">&lt;instructions&gt;</span><br><span class="line">把以下会议记录整理成结构化的会议纪要。</span><br><span class="line">&lt;/instructions&gt;</span><br><span class="line"></span><br><span class="line">&lt;role&gt;</span><br><span class="line">你是一位专业的会议记录员，擅长提取关键信息、归纳要点。</span><br><span class="line">&lt;/role&gt;</span><br><span class="line"></span><br><span class="line">&lt;input&gt;</span><br><span class="line">&#123;&#123;会议记录内容&#125;&#125;</span><br><span class="line">&lt;/input&gt;</span><br><span class="line"></span><br><span class="line">&lt;constraints&gt;</span><br><span class="line">- 只提取关键信息，去除冗余对话</span><br><span class="line">- 明确标注：讨论议题、结论、待办事项、负责人、截止日期</span><br><span class="line">- 使用简洁的语言</span><br><span class="line">- 控制在 500 字以内</span><br><span class="line">&lt;/constraints&gt;</span><br><span class="line"></span><br><span class="line">&lt;output_format&gt;</span><br><span class="line">## 会议基本信息</span><br><span class="line">- 时间：&#123;&#123;日期时间&#125;&#125;</span><br><span class="line">- 参会人：&#123;&#123;参会人列表&#125;&#125;</span><br><span class="line">- 议题：&#123;&#123;议题列表&#125;&#125;</span><br><span class="line"></span><br><span class="line">## 讨论要点</span><br><span class="line">### &#123;&#123;议题1&#125;&#125;</span><br><span class="line">- &#123;&#123;要点1&#125;&#125;</span><br><span class="line">- &#123;&#123;要点2&#125;&#125;</span><br><span class="line">- 结论：&#123;&#123;结论&#125;&#125;</span><br><span class="line"></span><br><span class="line">### &#123;&#123;议题2&#125;&#125;</span><br><span class="line">- ...</span><br><span class="line"></span><br><span class="line">## 待办事项</span><br><span class="line">| 事项 | 负责人 | 截止日期 |</span><br><span class="line">|------|--------|----------|</span><br><span class="line">| &#123;&#123;事项1&#125;&#125; | &#123;&#123;负责人&#125;&#125; | &#123;&#123;日期&#125;&#125; |</span><br><span class="line">| &#123;&#123;事项2&#125;&#125; | &#123;&#123;负责人&#125;&#125; | &#123;&#123;日期&#125;&#125; |</span><br><span class="line"></span><br><span class="line">## 备注</span><br><span class="line">&#123;&#123;备注内容&#125;&#125;</span><br><span class="line">&lt;/output_format&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="模板-4：JSON-数据提取"><a href="#模板-4：JSON-数据提取" class="headerlink" title="模板 4：JSON 数据提取"></a>模板 4：JSON 数据提取</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">&lt;instructions&gt;</span><br><span class="line">从以下文本中提取结构化数据，输出为 JSON 格式。</span><br><span class="line">&lt;/instructions&gt;</span><br><span class="line"></span><br><span class="line">&lt;role&gt;</span><br><span class="line">你是一位精确的数据提取专家。</span><br><span class="line">&lt;/role&gt;</span><br><span class="line"></span><br><span class="line">&lt;input&gt;</span><br><span class="line">&#123;&#123;输入文本&#125;&#125;</span><br><span class="line">&lt;/input&gt;</span><br><span class="line"></span><br><span class="line">&lt;constraints&gt;</span><br><span class="line">- 只输出 JSON，不要额外解释</span><br><span class="line">- JSON 必须是有效的格式</span><br><span class="line">- 如果信息缺失，字段值为 null</span><br><span class="line">- 不要添加原文中没有的信息</span><br><span class="line">&lt;/constraints&gt;</span><br><span class="line"></span><br><span class="line">&lt;output_format&gt;</span><br><span class="line">Return ONLY valid JSON. No explanation. No markdown.</span><br><span class="line"></span><br><span class="line">&#123;</span><br><span class="line">  &#123;&#123;字段定义&#125;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Example:</span><br><span class="line">Input: &quot;张三，电话 13800138000，邮箱 [email protected]&quot;</span><br><span class="line">Output:</span><br><span class="line">&#123;</span><br><span class="line">  &quot;name&quot;: &quot;张三&quot;,</span><br><span class="line">  &quot;phone&quot;: &quot;13800138000&quot;,</span><br><span class="line">  &quot;email&quot;: &quot;[email protected]&quot;</span><br><span class="line">&#125;</span><br><span class="line">&lt;/output_format&gt;</span><br></pre></td></tr></table></figure>
+<h2 id="模板-5：AI-Agent-系统提示"><a href="#模板-5：AI-Agent-系统提示" class="headerlink" title="模板 5：AI Agent 系统提示"></a>模板 5：AI Agent 系统提示</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">&lt;system_prompt&gt;</span><br><span class="line">你是一个 &#123;&#123;agent_name&#125;&#125;，专门负责 &#123;&#123;agent_description&#125;&#125;。</span><br><span class="line"></span><br><span class="line">## 核心职责</span><br><span class="line">1. &#123;&#123;职责1&#125;&#125;</span><br><span class="line">2. &#123;&#123;职责2&#125;&#125;</span><br><span class="line">3. &#123;&#123;职责3&#125;&#125;</span><br><span class="line"></span><br><span class="line">## 工作流程</span><br><span class="line">当收到用户请求时，按以下步骤处理：</span><br><span class="line">1. 分析请求意图</span><br><span class="line">2. 检查是否有足够的信息完成任务</span><br><span class="line">3. 如信息不足，主动询问</span><br><span class="line">4. 执行任务</span><br><span class="line">5. 验证结果</span><br><span class="line"></span><br><span class="line">## 行为规范</span><br><span class="line">- 语气友好、专业</span><br><span class="line">- 遇到不确定的问题，主动说明并提出建议</span><br><span class="line">- 不要做出超出职责范围的承诺</span><br><span class="line">- 输出必须清晰、可执行</span><br><span class="line"></span><br><span class="line">## 禁止事项</span><br><span class="line">- 不要编造信息</span><br><span class="line">- 不要做出未经授权的决定</span><br><span class="line">- 不要输出敏感或有害内容</span><br><span class="line"></span><br><span class="line">## 输出格式</span><br><span class="line">根据任务类型选择合适的格式：</span><br><span class="line">- 信息查询：简洁的回答 + 来源说明</span><br><span class="line">- 操作执行：步骤列表 + 结果确认</span><br><span class="line">- 问题解答：分析 + 方案 + 建议</span><br><span class="line">&lt;/system_prompt&gt;</span><br></pre></td></tr></table></figure>
+<p>这几个模板覆盖了日常工作中最常见的场景。你可以根据自己的需求，调整变量和约束，让它们更适合你的具体情况。</p>
+<h1 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h1><p>说了这么多，其实核心就三层：</p>
+<p><strong>结构层面</strong>——四字段结构（Role + Task + Constraints + Output Format）是模板的基础。把这四个字段填好，一个 Prompt 就从”碰运气”变成了”可控”。</p>
+<p><strong>Pattern 层面</strong>——12 种 Prompt Patterns 不是孤立的。组合 2-4 个 Pattern，效果比单一 Pattern 好得多。生产环境最常见的是 Persona + Output Format + Constraint Stacking。</p>
+<p><strong>工程层面</strong>——模板不是写完就完了。迭代才是关键。一个好模板，至少要经历五六次使用和改进。记录问题、调整约束、添加护栏，这才是模板化的完整流程。</p>
+<p>如果你看完这篇文章，想立刻动手，我有三个建议：</p>
+<ol>
+<li><p><strong>这周就试一个 Pattern</strong>。从 Beginner 级别选一个（比如 Persona 或 Output Format），应用到你的实际工作中。写完 Prompt 后，看看输出质量有没有变化。</p>
+</li>
+<li><p><strong>建立你的 Personal Prompt Library</strong>。从 5 个模板起步。把这 5 个模板放到一个文档里，每次用的时候直接复制粘贴，替换变量。</p>
+</li>
+<li><p><strong>每月迭代一次</strong>。用了一个月后，看看哪些模板表现好，哪些有问题。针对性地调整约束、添加示例、优化格式。</p>
+</li>
+</ol>
+<p>Prompt Engineering 这事儿，说复杂也复杂，说简单也简单。复杂的是方法论和技巧，简单的是——一旦你有了可复用的模板库，就再也不用每次对着空白输入框发愁了。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="四字段结构中的-Constraints-应该怎么写才有效？"><a href="#四字段结构中的-Constraints-应该怎么写才有效？" class="headerlink" title="四字段结构中的 Constraints 应该怎么写才有效？"></a>四字段结构中的 Constraints 应该怎么写才有效？</h2><p>Constraints 应该具体、可量化、可验证。避免模糊的描述如’高质量’、’专业’，改用’控制在 200 字以内’、’必须包含至少一个改进点’这样的具体约束。每个约束最好对应一个可检验的标准。</p>
+<h2 id="12-种-Prompt-Patterns-中哪个最实用？"><a href="#12-种-Prompt-Patterns-中哪个最实用？" class="headerlink" title="12 种 Prompt Patterns 中哪个最实用？"></a>12 种 Prompt Patterns 中哪个最实用？</h2><p>没有’最实用’的单一 Pattern，因为不同场景适合不同模式。根据实际数据，Persona（角色扮演）和 Output Format（输出格式化）的组合使用频率最高，适合 80% 的日常工作场景。建议从这两个开始掌握。</p>
+<h2 id="Claude-和-GPT-4-的-Prompt-有什么区别？"><a href="#Claude-和-GPT-4-的-Prompt-有什么区别？" class="headerlink" title="Claude 和 GPT-4 的 Prompt 有什么区别？"></a>Claude 和 GPT-4 的 Prompt 有什么区别？</h2><p>Claude 偏好 XML 标签结构，约束写在标签内；GPT-4 适应编号列表式约束，可以写 10 条以上。Claude 支持 Extended Thinking（思维链），适合复杂推理；GPT-4 的 Function Calling 更稳定，适合结构化输出。</p>
+<h2 id="模板迭代几次才能稳定？"><a href="#模板迭代几次才能稳定？" class="headerlink" title="模板迭代几次才能稳定？"></a>模板迭代几次才能稳定？</h2><p>根据实践经验，一个好模板至少需要 5-6 次迭代才能稳定。迭代的核心是：使用 → 记录问题 → 针对性改进。关键问题包括：输出需要大幅编辑吗？AI 违反了哪些约束？格式是否一致？</p>
+<h2 id="如何建立团队共享的-Prompt-Library？"><a href="#如何建立团队共享的-Prompt-Library？" class="headerlink" title="如何建立团队共享的 Prompt Library？"></a>如何建立团队共享的 Prompt Library？</h2><p>三个关键点：<br>1) 使用共享文档（Notion、飞书），按类别分组；<br>2) 每个模板配使用说明，包括适用场景、变量说明、注意事项；<br>3) 建立改进提案机制，追踪每次改动原因，避免模板被随意修改。</p>
+<h2 id="Few-shot-应该给几个示例？"><a href="#Few-shot-应该给几个示例？" class="headerlink" title="Few-shot 应该给几个示例？"></a>Few-shot 应该给几个示例？</h2><p>根据 aiengineerlab.in 的研究，通常 2-3 个示例效果最佳。分类任务可以用 5-7 个示例。示例过多会增加 Prompt 长度但效果不一定更好。关键是示例要覆盖典型情况，质量比数量重要。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io">鲸落</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://jingluo23.github.io/posts/faa8/">https://jingluo23.github.io/posts/faa8/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="external nofollow noopener noreferrer">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://jingluo23.github.io" target="_blank">鲸落のblog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/article/tags/Prompt/">Prompt</a><a class="post-meta__tags" href="/article/tags/%E6%A8%A1%E6%9D%BF%E5%BA%93/">模板库</a></div><div class="post-share"><div class="social-share" data-image="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" data-sites="wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><div class="post-reward"><div class="reward-button"><i class="fas fa-qrcode"></i>感谢您的支持！</div><div class="reward-main"><ul class="reward-all"><li class="reward-item"><a href="/img/wechat.jpg" target="_blank"><img class="post-qr-code-img" src="/img/wechat.jpg" alt="微信"></a><div class="post-qr-code-desc">微信</div></li><li class="reward-item"><a href="/img/zfb.jpg" target="_blank"><img class="post-qr-code-img" src="/img/zfb.jpg" alt="支付宝"></a><div class="post-qr-code-desc">支付宝</div></li></ul></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/posts/6649/" title="Prompt Engineering 商业实战：客服、销售、运营三大场景指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Prompt Engineering 商业实战：客服、销售、运营三大场景指南</div></div><div class="info-2"><div class="info-item-1">详解 Prompt Engineering 在客服、销售、运营三大商业场景的实战应用，包含真实数据、可复用 Prompt 模板和七步企业落地流程，帮你解决 AI 项目水土不服问题</div></div></div></a><a class="pagination-related" href="/posts/b8c/" title="Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="onerror=null;src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存</div></div><div class="info-2"><div class="info-item-1">解释 AI 编程 Agent 的 Prompt Cache 为什么会因易变前缀、cache key、默认开关或 TTL 失效，并用 prompt-cache-skills 修复后通过冷、热请求验证真实命中率。</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/posts/b8c/" title="Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-14</div><div class="info-item-2">Prompt Cache 为什么没省钱？用 prompt-cache-skills 排查 AI 编程缓存</div></div><div class="info-2"><div class="info-item-1">解释 AI 编程 Agent 的 Prompt Cache 为什么会因易变前缀、cache key、默认开关或 TTL 失效，并用 prompt-cache-skills 修复后通过冷、热请求验证真实命中率。</div></div></div></a><a class="pagination-related" href="/posts/6649/" title="Prompt Engineering 商业实战：客服、销售、运营三大场景指南"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-12</div><div class="info-item-2">Prompt Engineering 商业实战：客服、销售、运营三大场景指南</div></div><div class="info-2"><div class="info-item-1">详解 Prompt Engineering 在客服、销售、运营三大商业场景的实战应用，包含真实数据、可复用 Prompt 模板和七步企业落地流程，帮你解决 AI 项目水土不服问题</div></div></div></a><a class="pagination-related" href="/posts/11d2/" title="Prompt Engineering 进阶实战：从套路到方法论"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-11</div><div class="info-item-2">Prompt Engineering 进阶实战：从套路到方法论</div></div><div class="info-2"><div class="info-item-1">从零散技巧到系统方法论，深度解析 Chain-of-Thought、ReAct、DSPy 等进阶技术，掌握 Claude 和 ChatGPT 的差异化最佳实践，建立可评估、可迭代的 Prompt 工程体系</div></div></div></a><a class="pagination-related" href="/posts/f155/" title="Prompt工程实战：让AI输出质量提升10倍的技巧"><img class="cover" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-11-10</div><div class="info-item-2">Prompt工程实战：让AI输出质量提升10倍的技巧</div></div><div class="info-2"><div class="info-item-1">掌握7个实战技巧优化AI提示词,从模糊指令到结构化任务,涵盖写作、编程、数据分析场景。学会角色定位、思维链、示例学习等方法,让ChatGPT、Claude输出质量翻倍。附完整模板库。</div></div></div></a></div></div><hr class="custom-hr"><div id="post-comment"><div class="comment-head"><div class="comment-headline"><i class="fas fa-comments fa-fw"></i><span> 评论</span></div></div><div class="comment-wrap"><div><div id="giscus-wrap"></div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="https://cdn.nlark.com/yuque/0/2026/jpeg/40785784/1787152658457-e682a461-5202-4005-a2d3-e15c4351dfad.jpeg" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/friend_404.gif'" alt="avatar"></div><div class="author-info-name">鲸落</div><div class="author-info-description">项目实战 | 面试</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">150</div></a><a href="/article/tags/"><div class="headline">标签</div><div class="length-num">33</div></a><a href="/article/categories/"><div class="headline">分类</div><div class="length-num">8</div></a></div><a id="card-info-btn" target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jingluo23"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/jingluo23" target="_blank" title="Github" rel="external nofollow noopener noreferrer"><i class="fab fa-github" style="color: #8a2be2;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content"><style>
+.announcement-card {
+    --main-color: #ff00ff;
+    --secondary-color: #00ffff;
+    --highlight-color: #ff5500;
+    position: relative;
+    overflow: hidden;
+}
+.announcement-content {
+    font-size: 1rem; 
+    line-height: 1.2; 
+    color: #ffffff;
+    position: relative;
+}
+.keyword {
+    color: var(--secondary-color);
+    font-weight: 300;
+    font-size: 1.1rem; 
+}
+.highlight {
+    color: var(--main-color);
+    font-weight: 1000;
+    font-size: 1.2rem; 
+}
+.announcement-content ul {
+    list-style-type: none;
+    margin: 0.8rem 0; 
+    padding-left: 1.5rem;   
+}
+</style>
+<div class="announcement-card">
+    <div class="announcement-content">
+        <p><span class="highlight">欢迎来到「鲸落」的学习笔记</span>！🎉</p>
+        <p><strong>本平台专注于：</strong></p>
+        <ul>
+            <li><span class="keyword">> 面试</span></li>
+            <li><span class="keyword">> 企业级项目实战</span></li>
+        </ul>
+        <p>🌟 <strong>加入我们，一起探索，提升实战能力，共同进步！</strong></p>
+    </div>
+</div>
+</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#Prompt-%E6%A8%A1%E6%9D%BF%E7%9A%84%E5%9B%9B%E5%AD%97%E6%AE%B5%E7%BB%93%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">Prompt 模板的四字段结构</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%88%E7%9C%8B%E4%B8%80%E4%B8%AA%E5%8F%8D%E4%BE%8B"><span class="toc-number">1.1.</span> <span class="toc-text">先看一个反例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%8D%E7%9C%8B%E5%8A%A0%E4%BA%86%E5%9B%9B%E5%AD%97%E6%AE%B5%E4%B9%8B%E5%90%8E%E7%9A%84%E7%89%88%E6%9C%AC"><span class="toc-number">1.2.</span> <span class="toc-text">再看加了四字段之后的版本</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E5%AD%97%E6%AE%B5%E8%AF%A6%E8%A7%A3"><span class="toc-number">1.3.</span> <span class="toc-text">四字段详解</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E5%BC%A0%E5%AF%B9%E6%AF%94%E8%A1%A8"><span class="toc-number">1.4.</span> <span class="toc-text">一张对比表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#12-%E7%A7%8D%E5%8F%AF%E5%A4%8D%E7%94%A8-Prompt-Patterns-%E9%80%9F%E6%9F%A5"><span class="toc-number">2.</span> <span class="toc-text">12 种可复用 Prompt Patterns 速查</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Beginner-%E7%BA%A7%E5%88%AB%EF%BC%885-%E7%A7%8D%EF%BC%89"><span class="toc-number">2.1.</span> <span class="toc-text">Beginner 级别（5 种）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Intermediate-%E7%BA%A7%E5%88%AB%EF%BC%884-%E7%A7%8D%EF%BC%89"><span class="toc-number">2.2.</span> <span class="toc-text">Intermediate 级别（4 种）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Advanced-%E7%BA%A7%E5%88%AB%EF%BC%883-%E7%A7%8D%EF%BC%89"><span class="toc-number">2.3.</span> <span class="toc-text">Advanced 级别（3 种）</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%84%E5%90%88%E4%BD%BF%E7%94%A8%E7%9A%84%E5%B0%8F%E5%BB%BA%E8%AE%AE"><span class="toc-number">2.4.</span> <span class="toc-text">组合使用的小建议</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%A4%9A%E6%A8%A1%E5%9E%8B%E9%80%82%E9%85%8D%E5%AF%B9%E6%AF%94%E8%A1%A8"><span class="toc-number">3.</span> <span class="toc-text">多模型适配对比表</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Claude%EF%BC%9AXML-%E6%A0%87%E7%AD%BE%E5%92%8C%E5%A5%91%E7%BA%A6%E5%BC%8F%E6%8C%87%E4%BB%A4"><span class="toc-number">3.1.</span> <span class="toc-text">Claude：XML 标签和契约式指令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#GPT-4%EF%BC%9A%E9%95%BF%E7%BA%A6%E6%9D%9F%E5%88%97%E8%A1%A8%E5%92%8C-JSON-%E8%BE%93%E5%87%BA"><span class="toc-number">3.2.</span> <span class="toc-text">GPT-4：长约束列表和 JSON 输出</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#DeepSeek-%E5%92%8C-Qwen%EF%BC%9A%E5%9B%BD%E4%BA%A7%E5%A4%A7%E6%A8%A1%E5%9E%8B%E7%9A%84%E9%80%82%E9%85%8D"><span class="toc-number">3.3.</span> <span class="toc-text">DeepSeek 和 Qwen：国产大模型的适配</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Llama%EF%BC%88%E5%B0%8F%E5%8F%82%E6%95%B0%E7%89%88%E6%9C%AC%EF%BC%89%EF%BC%9A%E9%9C%80%E8%A6%81%E6%9B%B4%E7%9B%B4%E7%99%BD%E7%9A%84%E6%8C%87%E4%BB%A4"><span class="toc-number">3.4.</span> <span class="toc-text">Llama（小参数版本）：需要更直白的指令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E5%BC%A0%E9%80%82%E9%85%8D%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="toc-number">3.5.</span> <span class="toc-text">一张适配速查表</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E8%BF%AD%E4%BB%A3%E6%96%B9%E6%B3%95%E8%AE%BA"><span class="toc-number">4.</span> <span class="toc-text">模板迭代方法论</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%BF%AD%E4%BB%A3%E7%9A%84%E4%BA%94%E4%B8%AA%E6%AD%A5%E9%AA%A4"><span class="toc-number">4.1.</span> <span class="toc-text">迭代的五个步骤</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E8%BF%AD%E4%BB%A3%E6%A1%88%E4%BE%8B"><span class="toc-number">4.2.</span> <span class="toc-text">一个迭代案例</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E9%97%AE%E9%A2%98%E6%A8%A1%E6%9D%BF"><span class="toc-number">4.3.</span> <span class="toc-text">关键问题模板</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%A2%E9%98%9F%E5%85%B1%E4%BA%AB%E6%A8%A1%E6%9D%BF%E7%9A%84%E4%B8%89%E4%B8%AA%E5%85%B3%E9%94%AE"><span class="toc-number">4.4.</span> <span class="toc-text">团队共享模板的三个关键</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#5-%E4%B8%AA%E7%94%9F%E4%BA%A7%E7%BA%A7%E6%A8%A1%E6%9D%BF%E7%9B%B4%E6%8E%A5%E5%8F%AF%E7%94%A8"><span class="toc-number">5.</span> <span class="toc-text">5 个生产级模板直接可用</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF-1%EF%BC%9A%E5%91%A8%E6%8A%A5%E7%94%9F%E6%88%90"><span class="toc-number">5.1.</span> <span class="toc-text">模板 1：周报生成</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF-2%EF%BC%9A%E4%BB%A3%E7%A0%81%E5%AE%A1%E6%9F%A5"><span class="toc-number">5.2.</span> <span class="toc-text">模板 2：代码审查</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF-3%EF%BC%9A%E4%BC%9A%E8%AE%AE%E7%BA%AA%E8%A6%81%E6%95%B4%E7%90%86"><span class="toc-number">5.3.</span> <span class="toc-text">模板 3：会议纪要整理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF-4%EF%BC%9AJSON-%E6%95%B0%E6%8D%AE%E6%8F%90%E5%8F%96"><span class="toc-number">5.4.</span> <span class="toc-text">模板 4：JSON 数据提取</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF-5%EF%BC%9AAI-Agent-%E7%B3%BB%E7%BB%9F%E6%8F%90%E7%A4%BA"><span class="toc-number">5.5.</span> <span class="toc-text">模板 5：AI Agent 系统提示</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%BB%93%E8%AE%BA"><span class="toc-number">6.</span> <span class="toc-text">结论</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">常见问题</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E5%AD%97%E6%AE%B5%E7%BB%93%E6%9E%84%E4%B8%AD%E7%9A%84-Constraints-%E5%BA%94%E8%AF%A5%E6%80%8E%E4%B9%88%E5%86%99%E6%89%8D%E6%9C%89%E6%95%88%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">四字段结构中的 Constraints 应该怎么写才有效？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#12-%E7%A7%8D-Prompt-Patterns-%E4%B8%AD%E5%93%AA%E4%B8%AA%E6%9C%80%E5%AE%9E%E7%94%A8%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">12 种 Prompt Patterns 中哪个最实用？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Claude-%E5%92%8C-GPT-4-%E7%9A%84-Prompt-%E6%9C%89%E4%BB%80%E4%B9%88%E5%8C%BA%E5%88%AB%EF%BC%9F"><span class="toc-number">7.3.</span> <span class="toc-text">Claude 和 GPT-4 的 Prompt 有什么区别？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%A8%A1%E6%9D%BF%E8%BF%AD%E4%BB%A3%E5%87%A0%E6%AC%A1%E6%89%8D%E8%83%BD%E7%A8%B3%E5%AE%9A%EF%BC%9F"><span class="toc-number">7.4.</span> <span class="toc-text">模板迭代几次才能稳定？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%A6%82%E4%BD%95%E5%BB%BA%E7%AB%8B%E5%9B%A2%E9%98%9F%E5%85%B1%E4%BA%AB%E7%9A%84-Prompt-Library%EF%BC%9F"><span class="toc-number">7.5.</span> <span class="toc-text">如何建立团队共享的 Prompt Library？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Few-shot-%E5%BA%94%E8%AF%A5%E7%BB%99%E5%87%A0%E4%B8%AA%E7%A4%BA%E4%BE%8B%EF%BC%9F"><span class="toc-number">7.6.</span> <span class="toc-text">Few-shot 应该给几个示例？</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：Semantic Router 与 RRF 实现"></a><div class="content"><a class="title" href="/posts/7a0/" title="RAG 查询路由：Semantic Router 与 RRF 实现">RAG 查询路由：Semantic Router 与 RRF 实现</a><time datetime="2026-11-19T00:00:00.000Z" title="发表于 2026-11-19 08:00:00">2026-11-19</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 查询路由：逻辑、语义与混合检索选型"></a><div class="content"><a class="title" href="/posts/eba4/" title="RAG 查询路由：逻辑、语义与混合检索选型">RAG 查询路由：逻辑、语义与混合检索选型</a><time datetime="2026-11-18T00:00:00.000Z" title="发表于 2026-11-18 08:00:00">2026-11-18</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道"><img src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/img/404.jpg'" alt="RAG 系统优化实战：检索精度与生成质量的平衡之道"></a><div class="content"><a class="title" href="/posts/2369/" title="RAG 系统优化实战：检索精度与生成质量的平衡之道">RAG 系统优化实战：检索精度与生成质量的平衡之道</a><time datetime="2026-11-17T00:00:00.000Z" title="发表于 2026-11-17 08:00:00">2026-11-17</time></div></div></div></div></div></div></main><footer id="footer" style="background-color: rgba(45, 10, 61, 0.2);"><div class="footer-flex"><div class="footer-flex-items" style="flex-grow:20"><div class="footer-flex-item"><div class="footer-flex-title">文章</div><div class="footer-flex-content"><a href="/archives/" target="_blank" title="归档">归档</a><a href="/article/tags/" target="_blank" title="标签">标签</a></div></div><div class="footer-flex-item"><div class="footer-flex-title">导航</div><div class="footer-flex-content"><a href="/personal/comments/" target="_blank" title="留言板">留言板</a><a href="/personal/about/" target="_blank" title="关于">关于</a><a href="/privacy/" target="_blank" title="隐私政策">隐私政策</a></div></div></div></div><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 鲸落</span><span class="framework-info"><span class="footer-separator">|</span><span>框架 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://hexo.io">Hexo 8.1.2</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="external nofollow noopener noreferrer" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.7.0</a></span></div><div class="footer_custom_text"><style>
+  .footer {
+    text-align: center;
+    position: relative;
+  }
+  .social-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .social-links i {
+    color: #8400ff;
+  }
+  .social-link {
+    color: #8a2be2;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: rgba(138, 43, 226, 0.1);
+  }
+  .social-link:hover {
+    color: #892be294;
+    background: #892be294;
+    transform: translateY(-3px) scale(1.2);
+    box-shadow: 0 5px 15px rgba(138, 43, 226, 0.4);
+    text-decoration: none !important; 
+  }
+  .footer p {
+    margin: 0.5rem 0;
+    line-height: 1;
+  }
+  .copyright {
+    font-size: 1.1rem; 
+    color: #c08bdf;
+    font-weight: 400;
+  }
+  .tagline {
+    font-size: 0.8rem;
+    color: #8a2be2;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .visitor-count {
+    font-size: 0.75rem;
+    color: rgba(219, 142, 255, 0.658);
+    font-weight: 300;
+  }
+  #visitorCount {
+    font-weight: bold;
+  }
+</style>
+<div class="footer">
+  <div class="social-links">
+    <a href="https://github.com/jingluo23" class="social-link" target="_blank" rel="external nofollow noopener noreferrer" aria-label="GitHub" title="GitHub">
+      <i class="fab fa-github"></i>
+    </a>
+  </div>
+  <p class="copyright">© 2026 鲸落のblog - 所有权利保留</p>
+  <p class="tagline">> Stay curious, stay hacking, stay anime! <</p>
+  <p class="visitor-count">访问量: <span id="visitorCount">1024</span> | 你是第 <span id="dailyVisitor">1</span> 位今日访客</p>
+</div>
+<script>
+  // 确保DOM加载完成后执行
+  document.addEventListener('DOMContentLoaded', function() {
+    // 模拟访问量增长
+    function updateVisitorCount() {
+      const countElement = document.getElementById('visitorCount');
+      let count = parseInt(countElement.textContent) || 1024;
+      // 从localStorage获取或初始化计数
+      const storedCount = localStorage.getItem('totalVisitors');
+      if (storedCount) {
+        count = parseInt(storedCount);
+        countElement.textContent = count;
+      }
+      // 每日访客计数
+      const today = new Date().toDateString();
+      const dailyData = JSON.parse(localStorage.getItem('dailyVisitors') || '{"date":"", "count":0}');
+      if (dailyData.date !== today) {
+        dailyData.date = today;
+        dailyData.count = 0;
+      }
+      dailyData.count += 1;
+      document.getElementById('dailyVisitor').textContent = dailyData.count;
+      localStorage.setItem('dailyVisitors', JSON.stringify(dailyData));
+      // 每30秒随机增加访问量
+      setInterval(() => {
+        count += Math.floor(Math.random() * 3);
+        countElement.textContent = count;
+        localStorage.setItem('totalVisitors', count.toString());
+      }, 30000);
+    }
+    updateVisitorCount();
+    // 添加点击动画效果
+    const socialLinks = document.querySelectorAll('.social-link');
+    socialLinks.forEach(link => {
+      link.addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 300);
+      });
+    });
+  });
+</script>
+</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><a id="to_comment" href="#post-comment" title="前往评论"><i class="fas fa-comments"></i></a><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.7.0"></script><script src="/js/main.js?v=5.7.0"></script><div class="js-pjax"><script>(() => {
+  const changeScriptToMath = article => {
+    article.querySelectorAll('script[type^="math/tex"]').forEach(el => {
+      const display = /mode=display/.test(el.type)
+      const node = document.createElement(display ? 'div' : 'span')
+      node.textContent = display
+        ? `$$${el.textContent}$$`
+        : `$${el.textContent}$`
+      el.parentNode.replaceChild(node, el)
+    })
+  }
+
+  const loadMathjax = () => {
+    const article = document.getElementById('article-container')
+    if (!article || article.querySelector('.hbe-container')) return
+    changeScriptToMath(article)
+
+    if (!window.MathJax) {
+      window.MathJax = {
+        loader: {
+          load: [
+            // Four font extension packages (optional)
+            //- '[tex]/bbm',
+            //- '[tex]/bboldx',
+            //- '[tex]/dsfont',
+            '[tex]/mhchem',
+            'ui/lazy'
+          ],
+          paths: {
+            'mathjax-newcm': '[mathjax]/../@mathjax/mathjax-newcm-font',
+
+            //- // Four font extension packages (optional)
+            //- 'mathjax-bbm-extension': '[mathjax]/../@mathjax/mathjax-bbm-font-extension',
+            //- 'mathjax-bboldx-extension': '[mathjax]/../@mathjax/mathjax-bboldx-font-extension',
+            //- 'mathjax-dsfont-extension': '[mathjax]/../@mathjax/mathjax-dsfont-font-extension',
+            'mathjax-mhchem-extension': '[mathjax]/../@mathjax/mathjax-mhchem-font-extension'
+          }
+        },
+        output: {
+          font: 'mathjax-newcm',
+        },
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          tags: 'none',
+          packages: {
+            '[+]': [
+              'mhchem'
+            ]
+          }
+        },
+        chtml: {
+          scale: 1.1
+        },
+        options: {
+          lazyMargin: '200px',
+          enableMenu: true,
+          menuOptions: {
+            settings: {
+              enrich: false  // Turn off Braille and voice narration text automatic generation
+            }
+          },
+        }
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@4.1.3/tex-mml-chtml.min.js'
+      script.id = 'MathJax-script'
+      script.async = true
+      document.head.appendChild(script)
+    } else {
+      MathJax.typesetClear()
+      MathJax.typesetPromise([ article ])
+    }
+  }
+
+  btf.addGlobalFn('encrypt', loadMathjax, 'mathjax')
+  window.pjax ? loadMathjax() : window.addEventListener('load', loadMathjax)
+})()</script><script>(() => {
+  const isShuoshuo = GLOBAL_CONFIG_SITE.pageType === 'shuoshuo'
+  const option = null
+
+  const getGiscusTheme = theme => theme === 'dark' ? 'dark' : 'light'
+
+  const createScriptElement = config => {
+    const ele = document.createElement('script')
+    Object.entries(config).forEach(([key, value]) => {
+      ele.setAttribute(key, value)
+    })
+    return ele
+  }
+
+  const loadGiscus = (el = document, key) => {
+    const mappingConfig = isShuoshuo
+      ? { 'data-mapping': 'specific', 'data-term': key }
+      : { 'data-mapping': (option && option['data-mapping']) || 'pathname' }
+
+    const giscusConfig = {
+      src: 'https://giscus.app/client.js',
+      'data-repo': 'jingluo23/jingluo23.github.io',
+      'data-repo-id': 'R_kgDOUUQVLw',
+      'data-category-id': 'DIC_kwDOUUQVL84DFXRl',
+      'data-theme': getGiscusTheme(document.documentElement.getAttribute('data-theme')),
+      'data-reactions-enabled': '1',
+      crossorigin: 'anonymous',
+      async: true,
+      ...option,
+      ...mappingConfig
+    }
+
+    const scriptElement = createScriptElement(giscusConfig)
+
+    el.querySelector('#giscus-wrap').appendChild(scriptElement)
+
+    if (isShuoshuo) {
+      window.shuoshuoComment.destroyGiscus = () => {
+        if (el.children.length) {
+          el.innerHTML = ''
+          el.classList.add('no-comment')
+        }
+      }
+    }
+  }
+
+  const changeGiscusTheme = theme => {
+    const iframe = document.querySelector('#giscus-wrap iframe')
+    if (iframe) {
+      const message = {
+        giscus: {
+          setConfig: {
+            theme: getGiscusTheme(theme)
+          }
+        }
+      }
+      iframe.contentWindow.postMessage(message, 'https://giscus.app')
+    }
+  }
+
+  btf.addGlobalFn('themeChange', changeGiscusTheme, 'giscus')
+
+  if (isShuoshuo) {
+    'Giscus' === 'Giscus'
+      ? window.shuoshuoComment = { loadComment: loadGiscus }
+      : window.loadOtherComment = loadGiscus
+    return
+  }
+
+  if ('Giscus' === 'Giscus' || !false) {
+    if (false) btf.loadComment(document.getElementById('giscus-wrap'), loadGiscus)
+    else loadGiscus()
+  } else {
+    window.loadOtherComment = loadGiscus
+  }
+})()</script></div><script defer src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/cursor.js"></script><script src="https://cdn.jsdelivr.net/gh/jingluo23/blog.github.io@main/js/sakura.js"></script><style>#footer{display:flex !important;flex-wrap:wrap;align-items:center;justify-content:center;gap:1rem}#footer .footer-other{order:1;width:auto;background-color:transparent}#footer .footer-flex{order:2;width:auto;margin:0;justify-content:center}#footer .footer-flex-items{display:flex;flex-wrap:wrap;align-items:flex-start;gap:2.5rem}#footer .footer-flex-item{margin:0}</style><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><div id="local-search"><div class="search-dialog"><nav class="search-nav"><span class="search-dialog-title">搜索</span><i class="fas fa-spinner fa-pulse" id="loading-status" hidden="hidden"></i><button class="search-close-button"><i class="fas fa-times"></i></button></nav><div class="text-center" id="loading-database"><i class="fas fa-spinner fa-pulse"></i><span>  数据加载中</span></div><div class="local-search-input"><input placeholder="输入关键词…" type="text"></div><hr><div id="local-search-results"></div><div class="ais-Pagination" id="local-search-pagination" style="display:none;"><ul class="ais-Pagination-list"></ul></div><div id="local-search-stats"></div></div><div id="search-mask"></div><script src="/js/search/local-search.js?v=5.7.0"></script></div></div><!-- hexo injector body_end start --><script data-pjax>
+  function butterfly_swiper_injector_config(){
+    var parent_div_git = document.getElementById('recent-posts');
+    var item_html = '<div class="recent-post-item" style="height: auto;width: 100%"><div class="blog-slider swiper-container-fade swiper-container-horizontal" id="swiper_container"><div class="blog-slider__wrp swiper-wrapper" style="transition-duration: 0ms;"><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6505/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-05</span><a class="blog-slider__title" href="posts/6505/" alt="">OpenClaw 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6505/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/1669/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-04</span><a class="blog-slider__title" href="posts/1669/" alt="">Skills 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/1669/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/fbd7/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-25</span><a class="blog-slider__title" href="posts/fbd7/" alt="">Java 并发编程篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/fbd7/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/6815/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-03</span><a class="blog-slider__title" href="posts/6815/" alt="">Linux 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/6815/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/83e9/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-31</span><a class="blog-slider__title" href="posts/83e9/" alt="">分布式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/83e9/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/464e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-01</span><a class="blog-slider__title" href="posts/464e/" alt="">微服务八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/464e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/b7bd/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-27</span><a class="blog-slider__title" href="posts/b7bd/" alt="">MyBatis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/b7bd/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/5b2/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-09-02</span><a class="blog-slider__title" href="posts/5b2/" alt="">设计模式八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/5b2/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/bd0e/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-28</span><a class="blog-slider__title" href="posts/bd0e/" alt="">操作系统八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/bd0e/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/4526/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-29</span><a class="blog-slider__title" href="posts/4526/" alt="">计算机网络八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/4526/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/48ed/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-30</span><a class="blog-slider__title" href="posts/48ed/" alt="">RocketMQ 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/48ed/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/ba71/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-26</span><a class="blog-slider__title" href="posts/ba71/" alt="">Java 虚拟机篇八股文面试篇</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/ba71/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/a365/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-22</span><a class="blog-slider__title" href="posts/a365/" alt="">Spring 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/a365/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/c0e8/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-20</span><a class="blog-slider__title" href="posts/c0e8/" alt="">MySQL 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/c0e8/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/cc06/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-21</span><a class="blog-slider__title" href="posts/cc06/" alt="">Redis 八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/cc06/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/58f3/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-23</span><a class="blog-slider__title" href="posts/58f3/" alt="">Java 基础篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/58f3/" alt="">详情   </a></div></div><div class="blog-slider__item swiper-slide" style="width: 750px; opacity: 1; transform: translate3d(0px, 0px, 0px); transition-duration: 0ms;"><a class="blog-slider__img" href="posts/be08/" alt=""><img width="48" height="48" src="https://cdn.nlark.com/yuque/0/2026/png/40785784/1787152665327-406668e4-12f9-4a33-86d1-1e96bbbf748a.png" alt="" onerror="this.src=https://unpkg.zhimg.com/akilar-candyassets/image/loading.gif; this.onerror = null;"/></a><div class="blog-slider__content"><span class="blog-slider__code">2026-08-24</span><a class="blog-slider__title" href="posts/be08/" alt="">Java 集合框架篇八股文面试题</a><div class="blog-slider__text">再怎么看我也不知道怎么描述它的啦！</div><a class="blog-slider__button" href="posts/be08/" alt="">详情   </a></div></div></div><div class="blog-slider__pagination swiper-pagination-clickable swiper-pagination-bullets"></div></div></div>';
+    console.log('已挂载butterfly_swiper')
+    parent_div_git.insertAdjacentHTML("afterbegin",item_html)
+    }
+  var elist = 'undefined'.split(',');
+  var cpage = location.pathname;
+  var epage = '/';
+  var flag = 0;
+
+  for (var i=0;i<elist.length;i++){
+    if (cpage.includes(elist[i])){
+      flag++;
+    }
+  }
+
+  if ((epage ==='all')&&(flag == 0)){
+    butterfly_swiper_injector_config();
+  }
+  else if (epage === cpage){
+    butterfly_swiper_injector_config();
+  }
+  </script><script defer src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper.min.js"></script><script defer data-pjax src="https://npm.elemecdn.com/hexo-butterfly-swiper/lib/swiper_init.js"></script><script data-pjax>
+    function butterfly_categories_card_injector_config(){
+      var parent_div_git = document.getElementById('page');
+      var item_html = '<style>li.categoryBar-list-item{width:32.3%;}.categoryBar-list{max-height:570px;overflow:auto;}.categoryBar-list::-webkit-scrollbar{width:0!important}@media screen and (max-width: 650px){.categoryBar-list{max-height:480px;}}</style><div class="recent-post-item" style="height:auto;width:100%;padding:0px;"><div id="categoryBar"><ul class="categoryBar-list"><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover1.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-Agent-工程化专题：架构、工具调用、评估与恢复/">AI Agent 工程化专题：架构、工具调用、评估与恢复</a><span class="categoryBar-list-count">21</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover2.webp);"><a class="categoryBar-list-link" href="/article/categories/AI-开发实战/">AI 开发实战</a><span class="categoryBar-list-count">9</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Java-面渣手册/">Java 面渣手册</a><span class="categoryBar-list-count">17</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/Docker-专题：安装、网络、报错与生产实践/">Docker 专题：安装、网络、报错与生产实践</a><span class="categoryBar-list-count">38</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover5.webp);"><a class="categoryBar-list-link" href="/article/categories/Ollama-本地-LLM-实战指南/">Ollama 本地 LLM 实战指南</a><span class="categoryBar-list-count">18</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover6.webp);"><a class="categoryBar-list-link" href="/article/categories/OpenClaw-专题：安装、配置、安全与部署指南/">OpenClaw 专题：安装、配置、安全与部署指南</a><span class="categoryBar-list-count">36</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover3.webp);"><a class="categoryBar-list-link" href="/article/categories/Prompt-工程实战指南/">Prompt 工程实战指南</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li><li class="categoryBar-list-item" style="background:url(https://npm.elemecdn.com/akilar-candyassets/image/cover4.webp);"><a class="categoryBar-list-link" href="/article/categories/RAG-工程专题：架构、向量库、查询路由与知识治理/">RAG 工程专题：架构、向量库、查询路由与知识治理</a><span class="categoryBar-list-count">5</span><span class="categoryBar-list-descr"></span></li></ul></div></div>';
+      console.log('已挂载butterfly_categories_card')
+      var anchor = parent_div_git.querySelector('.page-title')
+      if (anchor) { anchor.insertAdjacentHTML('afterend',item_html) }
+      else { parent_div_git.insertAdjacentHTML('afterbegin',item_html) }
+      }
+    if( document.getElementById('page') && (location.pathname ==='/article/categories/'|| '/article/categories/' ==='all')){
+    butterfly_categories_card_injector_config()
+    }
+  </script><!-- hexo injector body_end end --></body></html>
